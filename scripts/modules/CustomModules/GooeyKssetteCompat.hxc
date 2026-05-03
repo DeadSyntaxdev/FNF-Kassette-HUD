@@ -7,34 +7,42 @@ import Reflect;
 import Std;
 
 class GooeyKssetteCompat extends Module {
+    var gooeyMod:Dynamic = null;
+    var scanTimer:Float = 0.0;
+    var isOptionsState:Bool = false;
+
     public function new() {
         super('GooeyKssetteCompat', 100);
     }
 
+    override public function onStateChangeEnd(event:Dynamic):Void {
+        super.onStateChangeEnd(event);
+        gooeyMod = null;
+        scanTimer = 0.0;
+        try {
+            isOptionsState = Std.isOfType(event.targetState, OptionsState);
+        } catch(e:Dynamic) {
+            isOptionsState = Std.isOfType(FlxG.state, OptionsState);
+        }
+    }
+
     public override function onUpdate(event:UpdateScriptEvent):Void {
-        super.onUpdate(event);
 
-        if (Std.isOfType(FlxG.state, OptionsState)) {
-            var gooeyMod:Dynamic = ModuleHandler.getModule("GooeyMenuOption");
-            
-            if (gooeyMod != null) {
-                var inKassetteMenu = false;
-                var st:Dynamic = FlxG.state;
+        if (!isOptionsState) return;
 
-                try {
-                    if (st.members != null && st.members.length > 1) {
-                        var m1:Dynamic = st.members[1];
-                        
-                        if (m1 != null && !Reflect.hasField(m1, "members")) {
-                            inKassetteMenu = true;
-                        }
-                    }
-                } catch(e:Dynamic) {
-                    inKassetteMenu = true;
-                }
+        scanTimer -= event.elapsed;
+        if (scanTimer > 0) return;
+        scanTimer = 0.1;
 
-                gooeyMod.active = !inKassetteMenu;
-            }
+        if (gooeyMod == null) gooeyMod = ModuleHandler.getModule("GooeyMenuOption");
+        if (gooeyMod == null) return;
+
+        try {
+            var st:Dynamic = FlxG.state;
+            var m1:Dynamic = (st.members != null && st.members.length > 1) ? st.members[1] : null;
+            gooeyMod.active = !(m1 != null && !Reflect.hasField(m1, "members"));
+        } catch(e:Dynamic) {
+            gooeyMod.active = false;
         }
     }
 }

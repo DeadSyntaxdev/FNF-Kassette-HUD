@@ -3,11 +3,9 @@ package kassettehud.util;
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
-import funkin.play.PauseSubState;
 import funkin.Conductor;
 import flixel.FlxG;
 import flixel.FlxSprite;
-import flixel.FlxSubState;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import funkin.Paths;
@@ -31,13 +29,37 @@ class KssetteResumeCount extends Module {
     var cachedStyle:String = "funkin";
     var cachedPixel:Bool = false;
     var cachedScale:Float = 1.0;
+    var soundNames:Array<String> = ["GO", "ONE", "TWO", "THREE"];
+    var soundNamesNum:Array<String> = ["Go", "1", "2", "3"];
+    var imageNames:Array<String> = ["go", "set", "ready", ""];
+    var cachedSounds:Array<Dynamic> = [null, null, null, null];
+    var cachedImages:Array<Dynamic> = [null, null, null, null];
+    var cachedImagePixel:Array<Bool> = [false, false, false, false];
+    var cachedImageScale:Array<Float> = [1.0, 1.0, 1.0, 1.0];
+    var cachedAssetsStyle:String = "";
 
     public function new() {
         super("KssetteResumeCount");
     }
 
+    function cancelTimers() {
+        if (currentTimer != null) currentTimer.cancel();
+        if (resumeTimer != null) resumeTimer.cancel();
+        currentTimer = null;
+        resumeTimer = null;
+    }
+
+    function restoreAudio(state:PlayState) {
+        if (FlxG.sound.music != null) FlxG.sound.music.volume = storedVolume;
+        if (state != null && state.vocals != null) state.vocals.volume = storedVocalsVolume;
+        isResuming = false;
+    }
+
+    function cancelIfLocked(event:Dynamic) { if (isCounting || isResuming) event.cancel(); }
+
     override public function onCountdownStart(event) {
         super.onCountdownStart(event);
+        cachedActive = false;
         apiModule = ModuleHandler.getModule("KssetteApi");
         if (apiModule != null) {
             apiModule.registerModule("KssetteResumeCount", this);
@@ -47,46 +69,32 @@ class KssetteResumeCount extends Module {
         }
         isCounting = false;
         isResuming = false;
+
+        var state = PlayState.instance;
+        if (cachedActive && state != null) {
+            cacheStyle(state);
+            cacheCountdownAssets();
+        }
     }
 
     override public function onUpdate(event) {
-        super.onUpdate(event);
         if (isCounting) {
             var state = PlayState.instance;
             if (state == null || state.startingSong || state.isPlayerDying || (state.conductorInUse != null && state.conductorInUse.songPosition <= 0)) {
                 isCounting = false;
                 isResuming = false;
-                if (currentTimer != null) {
-                    currentTimer.cancel();
-                    currentTimer = null;
-                }
-                if (resumeTimer != null) {
-                    resumeTimer.cancel();
-                    resumeTimer = null;
-                }
-            } else {
-                if (state.songScore != storedScore) {
-                    state.songScore = storedScore;
-                }
-            }
+                cancelTimers();
+            } else if (state.songScore != storedScore) state.songScore = storedScore;
         }
     }
 
-    override public function onNoteHit(event) {
-        if (isCounting || isResuming) event.cancel();
-    }
+    override public function onNoteHit(event) { cancelIfLocked(event); }
 
-    override public function onNoteMiss(event) {
-        if (isCounting || isResuming) event.cancel();
-    }
+    override public function onNoteMiss(event) { cancelIfLocked(event); }
 
-    override public function onNoteGhostMiss(event) {
-        if (isCounting || isResuming) event.cancel();
-    }
+    override public function onNoteGhostMiss(event) { cancelIfLocked(event); }
     
-    override public function onPause(event:ScriptEvent) {
-        if (isCounting || isResuming) event.cancel();
-    }
+    override public function onPause(event:ScriptEvent) { cancelIfLocked(event); }
 
     override public function onResume(event) {
         super.onResume(event);
@@ -111,19 +119,14 @@ class KssetteResumeCount extends Module {
 
         resumeTimer = new FlxTimer().start(0.001, function(tmr:FlxTimer) {
             var checkState = PlayState.instance;
-            var restoreAudio = function() {
-                if (FlxG.sound.music != null) FlxG.sound.music.volume = storedVolume;
-                if (checkState != null && checkState.vocals != null) checkState.vocals.volume = storedVocalsVolume;
-                isResuming = false;
-            };
             
-            if (checkState != originalState) { restoreAudio(); return; }
+            if (checkState != originalState) { restoreAudio(checkState); return; }
             if (checkState == null || !checkState.exists || !checkState.active) { isResuming = false; return; }
-            if (checkState.startingSong || checkState.isPlayerDying) { restoreAudio(); return; }
-            if (checkState.conductorInUse != null && checkState.conductorInUse.songPosition <= 0) { restoreAudio(); return; }
+            if (checkState.startingSong || checkState.isPlayerDying) { restoreAudio(checkState); return; }
+            if (checkState.conductorInUse != null && checkState.conductorInUse.songPosition <= 0) { restoreAudio(checkState); return; }
             
-            if (Reflect.hasField(checkState, "_exiting") && Reflect.field(checkState, "_exiting") == true) { restoreAudio(); return; }
-            if (Reflect.hasField(checkState, "isEndingSong") && Reflect.field(checkState, "isEndingSong") == true) { restoreAudio(); return; }
+            if (Reflect.hasField(checkState, "_exiting") && Reflect.field(checkState, "_exiting") == true) { restoreAudio(checkState); return; }
+            if (Reflect.hasField(checkState, "isEndingSong") && Reflect.field(checkState, "isEndingSong") == true) { restoreAudio(checkState); return; }
 
             startCustomCountdown();
         });
@@ -148,19 +151,65 @@ class KssetteResumeCount extends Module {
             state.vocals.volume = storedVocalsVolume;
         }
 
+        cacheStyle(state);
+        cacheCountdownAssets();
+
+        doCount(3);
+    }
+
+    function cacheStyle(state:PlayState) {
         cachedStyle = "funkin";
         cachedPixel = false;
         cachedScale = 1.0;
 
-        if (state.playerStrumline != null && state.playerStrumline.noteStyle != null) {
+        if (state != null && state.playerStrumline != null && state.playerStrumline.noteStyle != null) {
             var ns = state.playerStrumline.noteStyle;
             if (Reflect.hasField(ns, "id")) {
                 var rawId = Reflect.field(ns, "id");
                 if (rawId != null) cachedStyle = Std.string(rawId);
             }
         }
+    }
 
-        doCount(3);
+    function cacheCountdownAssets() {
+        if (cachedAssetsStyle == cachedStyle) return;
+        cachedAssetsStyle = cachedStyle;
+
+        var fallbackStyle:String = "funkin";
+        if (cachedStyle.indexOf("pixel") != -1) fallbackStyle = "pixel";
+
+        for (num in 0...4) {
+            var soundAsset:Dynamic = null;
+            try { soundAsset = Paths.sound('gameplay/countdown/' + fallbackStyle + '/intro' + soundNames[num]); } catch(e:Dynamic) {}
+            if (soundAsset == null) {
+                try { soundAsset = Paths.sound('gameplay/countdown/' + fallbackStyle + '/intro' + soundNamesNum[num]); } catch(e:Dynamic) {}
+            }
+            if (soundAsset == null && fallbackStyle != "funkin") {
+                try { soundAsset = Paths.sound('gameplay/countdown/funkin/intro' + soundNames[num]); } catch(e:Dynamic) {}
+            }
+            cachedSounds[num] = soundAsset;
+
+            var imageAsset:Dynamic = null;
+            var usePixel:Bool = false;
+            var drawScale:Float = 1.0;
+
+            if (imageNames[num] != "") {
+                try { imageAsset = Paths.image('ui/countdown/' + fallbackStyle + '/' + imageNames[num]); } catch(e:Dynamic) {}
+                if (fallbackStyle == "pixel") {
+                    usePixel = true;
+                    drawScale = 6.0;
+                }
+                if (imageAsset == null && fallbackStyle != "funkin") {
+                    try { imageAsset = Paths.image('ui/countdown/funkin/' + imageNames[num]); } catch(e:Dynamic) {}
+                    usePixel = false;
+                    drawScale = 1.0;
+                }
+            }
+
+            cachedImages[num] = imageAsset;
+            cachedImagePixel[num] = usePixel;
+            cachedImageScale[num] = drawScale;
+        }
     }
 
     function doCount(num:Int) {
@@ -169,34 +218,11 @@ class KssetteResumeCount extends Module {
         if (state.startingSong || state.isPlayerDying) return;
 
         var beatTime:Float = (Conductor.instance != null) ? Conductor.instance.beatLengthMs / 1000 : 0.6;
-        
-        var soundNames:Array<String> = ["GO", "ONE", "TWO", "THREE"];
-        var soundNamesNum:Array<String> = ["Go", "1", "2", "3"];
-        var imageNames:Array<String> = ["go", "set", "ready", ""]; 
-        
-        var fallbackStyle:String = "funkin";
-        if (cachedStyle.indexOf("pixel") != -1) fallbackStyle = "pixel";
 
-        var soundAsset:Dynamic = Paths.sound('gameplay/countdown/' + fallbackStyle + '/intro' + soundNames[num]);
-        if (soundAsset == null) soundAsset = Paths.sound('gameplay/countdown/' + fallbackStyle + '/intro' + soundNamesNum[num]);
-        if (soundAsset == null && fallbackStyle != "funkin") soundAsset = Paths.sound('gameplay/countdown/funkin/intro' + soundNames[num]);
-
-        var imageAsset:Dynamic = null;
-        var usePixel:Bool = false;
-        var drawScale:Float = 1.0;
-
-        if (imageNames[num] != "") {
-            imageAsset = Paths.image('ui/countdown/' + fallbackStyle + '/' + imageNames[num]);
-            if (fallbackStyle == "pixel") {
-                usePixel = true;
-                drawScale = 6.0;
-            }
-            if (imageAsset == null && fallbackStyle != "funkin") {
-                imageAsset = Paths.image('ui/countdown/funkin/' + imageNames[num]);
-                usePixel = false;
-                drawScale = 1.0;
-            }
-        }
+        var soundAsset:Dynamic = cachedSounds[num];
+        var imageAsset:Dynamic = cachedImages[num];
+        var usePixel:Bool = cachedImagePixel[num];
+        var drawScale:Float = cachedImageScale[num];
 
         if (soundAsset != null) FunkinSound.playOnce(soundAsset, 1.0);
 

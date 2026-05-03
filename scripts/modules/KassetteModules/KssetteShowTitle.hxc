@@ -36,25 +36,41 @@ class KssetteShowTitle extends Module {
         super("KssetteShowTitle");
     }
 
+    function killObj(obj:Dynamic) {
+        if (obj != null) {
+            FlxTween.cancelTweensOf(obj);
+            try { FlxG.state.remove(obj); } catch(e:Dynamic) {}
+            obj.destroy();
+        }
+    }
+
     function cleanUp() {
-        if (titleTxt != null) {
-            FlxTween.cancelTweensOf(titleTxt);
-            try { FlxG.state.remove(titleTxt); } catch(e:Dynamic) {}
-            titleTxt.destroy();
-            titleTxt = null;
-        }
-        if (artistTxt != null) {
-            FlxTween.cancelTweensOf(artistTxt);
-            try { FlxG.state.remove(artistTxt); } catch(e:Dynamic) {}
-            artistTxt.destroy();
-            artistTxt = null;
-        }
-        if (albumSprite != null) {
-            FlxTween.cancelTweensOf(albumSprite);
-            try { FlxG.state.remove(albumSprite); } catch(e:Dynamic) {}
-            albumSprite.destroy();
-            albumSprite = null;
-        }
+        killObj(titleTxt);
+        killObj(artistTxt);
+        killObj(albumSprite);
+        titleTxt = null;
+        artistTxt = null;
+        albumSprite = null;
+    }
+
+    function cacheIntroFonts() {
+        var titleFontKey = "vcr.ttf";
+        var artistFontKey = "vcr.ttf";
+
+        try {
+            var tk = apiModule.getKssValue("kssette_intro_font_title");
+            if (tk != null) titleFontKey = Std.string(tk);
+
+            var ak = apiModule.getKssValue("kssette_intro_font_artist");
+            if (ak != null) artistFontKey = Std.string(ak);
+        } catch(e:Dynamic) {}
+
+        cachedTitleFont = "VCR OSD Mono";
+        cachedArtistFont = "VCR OSD Mono";
+        try {
+            cachedTitleFont = Std.string(apiModule.resolveCustomFont(titleFontKey));
+            cachedArtistFont = Std.string(apiModule.resolveCustomFont(artistFontKey));
+        } catch(e:Dynamic) {}
     }
 
     override public function onStateChangeStart(event:Dynamic) {
@@ -109,27 +125,7 @@ class KssetteShowTitle extends Module {
             }
         }
 
-        var titleFontKey = "vcr.ttf";
-        var artistFontKey = "vcr.ttf";
-        
-        try {
-            var tk = apiModule.getKssValue("kssette_intro_font_title");
-            if (tk != null) titleFontKey = Std.string(tk);
-            
-            var ak = apiModule.getKssValue("kssette_intro_font_artist");
-            if (ak != null) artistFontKey = Std.string(ak);
-        } catch(e:Dynamic) {}
-        
-        var titleFont = "VCR OSD Mono";
-        var artistFont = "VCR OSD Mono";
-        
-        try {
-            titleFont = Std.string(apiModule.resolveCustomFont(titleFontKey));
-            artistFont = Std.string(apiModule.resolveCustomFont(artistFontKey));
-        } catch(e:Dynamic) {}
-
-        cachedTitleFont = titleFont;
-        cachedArtistFont = artistFont;
+        cacheIntroFonts();
 
         var titleBaseSize = 44;
         var artistBaseSize = 32;
@@ -167,12 +163,12 @@ class KssetteShowTitle extends Module {
         var baseY = (FlxG.height / 2) - 150; 
 
         titleTxt = new FlxText(0, baseY, 0, titleStr, titleBaseSize);
-        titleTxt.setFormat(titleFont, titleBaseSize, 0xFFFFFFFF, "left", FlxTextBorderStyle.OUTLINE, 0xFF000000);
+        titleTxt.setFormat(cachedTitleFont, titleBaseSize, 0xFFFFFFFF, "left", FlxTextBorderStyle.OUTLINE, 0xFF000000);
         titleTxt.borderSize = 3;
         titleTxt.updateHitbox();
 
         artistTxt = new FlxText(0, baseY + 50, 0, artistStr, artistBaseSize);
-        artistTxt.setFormat(artistFont, artistBaseSize, 0xFFCCCCCC, "left", FlxTextBorderStyle.OUTLINE, 0xFF000000);
+        artistTxt.setFormat(cachedArtistFont, artistBaseSize, 0xFFCCCCCC, "left", FlxTextBorderStyle.OUTLINE, 0xFF000000);
         artistTxt.borderSize = 2;
         artistTxt.updateHitbox();
 
@@ -304,38 +300,16 @@ class KssetteShowTitle extends Module {
         var currentActive = false;
         try { currentActive = apiModule.getKssValue("kssette_intro_text") == true; } catch(e:Dynamic) {}
         
-        var tFontKey = "vcr.ttf";
-        var aFontKey = "vcr.ttf";
-        
-        try {
-            var tk = apiModule.getKssValue("kssette_intro_font_title");
-            if (tk != null) tFontKey = Std.string(tk);
-            
-            var ak = apiModule.getKssValue("kssette_intro_font_artist");
-            if (ak != null) aFontKey = Std.string(ak);
-        } catch(e:Dynamic) {}
-        
-        var tFont = "VCR OSD Mono";
-        var aFont = "VCR OSD Mono";
-        
-        try {
-            tFont = Std.string(apiModule.resolveCustomFont(tFontKey));
-            aFont = Std.string(apiModule.resolveCustomFont(aFontKey));
-        } catch(e:Dynamic) {}
+        var oldTitleFont = cachedTitleFont;
+        var oldArtistFont = cachedArtistFont;
+        cacheIntroFonts();
 
         var changed = false;
         if (isActive != currentActive) {
             isActive = currentActive;
             changed = true;
         }
-        if (cachedTitleFont != tFont) {
-            cachedTitleFont = tFont;
-            changed = true;
-        }
-        if (cachedArtistFont != aFont) {
-            cachedArtistFont = aFont;
-            changed = true;
-        }
+        if (oldTitleFont != cachedTitleFont || oldArtistFont != cachedArtistFont) changed = true;
 
         if (changed) {
             setupUI(previewCam);
@@ -348,7 +322,6 @@ class KssetteShowTitle extends Module {
     }
 
     override public function onUpdate(event:Dynamic) {
-        super.onUpdate(event);
 
         if (isPreview && isActive) {
             previewTimer -= event.elapsed;

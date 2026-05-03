@@ -5,8 +5,6 @@ import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
 import flixel.FlxG;
 import flixel.FlxSprite;
-import flixel.text.FlxText;
-import flixel.text.FlxTextBorderStyle;
 import funkin.Paths;
 import Math;
 import Std;
@@ -27,7 +25,9 @@ class KssetteBreakBar extends Module {
     var currentAlpha:Float = 0;
     var apiModule:Dynamic = null;
     var cachedActive:Bool = false;
-    var cachedFont:String = "VCR OSD Mono";
+    var fillClip:flixel.math.FlxRect = null;
+    var lastFillW:Int = -1;
+    var updateTimer:Float = 0.0;
     
     var cachedNoteTimes:Array<Dynamic> = [];
     var localNoteIndex:Int = 0;
@@ -41,20 +41,14 @@ class KssetteBreakBar extends Module {
     }
 
     public function cleanupUI() {
-        if (border != null) {
-            border.destroy();
-            border = null;
-        }
-        
-        if (barFill != null) {
-            barFill.destroy();
-            barFill = null;
-        }
-        
-        if (breakIcon != null) {
-            breakIcon.destroy();
-            breakIcon = null;
-        }
+        if (border != null) border.destroy();
+        if (barFill != null) barFill.destroy();
+        if (breakIcon != null) breakIcon.destroy();
+        border = null;
+        barFill = null;
+        breakIcon = null;
+        fillClip = null;
+        lastFillW = -1;
     }
 
     override public function onStateChangeStart(event) {
@@ -126,6 +120,9 @@ class KssetteBreakBar extends Module {
         barFill.origin.set(0, 0);
         barFill.alpha = 0;
         barFill.cameras = [cam];
+        fillClip = new flixel.math.FlxRect(0, 0, barWidth - 10, barHeight - 10);
+        barFill.clipRect = fillClip;
+        lastFillW = -1;
         FlxG.state.add(barFill);
 
         breakIcon = new FlxSprite(0, 0);
@@ -158,6 +155,19 @@ class KssetteBreakBar extends Module {
         currentAlpha = 0;
         alphaTarget = 0;
     }
+
+    function setFillWidth(fillW:Int):Void {
+        if (barFill == null || !barFill.exists) return;
+        if (fillW < 1) fillW = 1;
+        if (fillW == lastFillW) return;
+        lastFillW = fillW;
+        if (fillClip == null) {
+            fillClip = new flixel.math.FlxRect(0, 0, fillW, barHeight - 10);
+        } else {
+            fillClip.width = fillW;
+        }
+        barFill.clipRect = fillClip;
+    }
     
     override public function onCountdownStart(event) {
         super.onCountdownStart(event);
@@ -169,14 +179,11 @@ class KssetteBreakBar extends Module {
         if (apiModule != null) {
             apiModule.registerModule("KssetteBreakBar", this);
             cachedActive = apiModule.getKssValue("kssette_show_breakbar") == true;
-
-            cachedFont = apiModule.getHudFont();
-            if (cachedFont == null || cachedFont == "null" || cachedFont == "") cachedFont = "VCR OSD Mono";
-            
             cachedNoteTimes = apiModule.playerNoteTimes;
         }
         
         localNoteIndex = 0;
+        updateTimer = 0.0;
         isPreview = false;
 
         if (state.camHUD != null) {
@@ -189,10 +196,6 @@ class KssetteBreakBar extends Module {
         previewCam = cam;
         
         apiModule = ModuleHandler.getModule("KssetteApi");
-        if (apiModule != null) {
-            cachedFont = apiModule.getHudFont();
-        }
-        if (cachedFont == null || cachedFont == "null" || cachedFont == "") cachedFont = "VCR OSD Mono";
 
         setupUI(cam);
         previewBreakTimer = 6.0;
@@ -205,68 +208,37 @@ class KssetteBreakBar extends Module {
         apiModule = ModuleHandler.getModule("KssetteApi");
         if (apiModule != null) {
             cachedActive = apiModule.getKssValue("kssette_show_breakbar") == true;
-            cachedFont = apiModule.getHudFont();
         }
-        if (cachedFont == null || cachedFont == "null" || cachedFont == "") cachedFont = "VCR OSD Mono";
     }
     
     override public function onUpdate(event) {
-        super.onUpdate(event);
         
         if (barFill == null || !barFill.exists || breakIcon == null || !breakIcon.exists) {
             alphaTarget = 0;
             return;
         }
 
+        var elapsed = event.elapsed;
+        updateTimer += elapsed;
+        if (updateTimer < 0.008) return;
+        elapsed = updateTimer;
+        updateTimer = 0.0;
+
         if (isPreview) {
-            if (!cachedActive) {
-                alphaTarget = 0;
-            } else {
-                previewBreakTimer -= event.elapsed;
-                
-                if (previewBreakTimer <= 0) {
-                    previewBreakTimer = 6.0;
-                }
+            alphaTarget = 0;
+            if (cachedActive) {
+                previewBreakTimer -= elapsed;
+                if (previewBreakTimer <= 0) previewBreakTimer = 6.0;
 
                 if (previewBreakTimer <= 5.0) {
                     alphaTarget = 1;
                     var prog = previewBreakTimer / 5.0;
                     if (prog < 0) prog = 0;
                     if (prog > 1) prog = 1;
-                    
-                    var fillW = Std.int((barWidth - 10) * prog);
-                    if (fillW < 1) fillW = 1;
-                    
-                    if (barFill.clipRect == null) {
-                        barFill.clipRect = new flixel.math.FlxRect(0, 0, fillW, barHeight - 10);
-                    } else {
-                        var r = barFill.clipRect;
-                        if (r.width != fillW) {
-                            r.width = fillW;
-                            barFill.clipRect = r;
-                        }
-                    }
-                } else {
-                    alphaTarget = 0;
+                    setFillWidth(Std.int((barWidth - 10) * prog));
                 }
             }
-            
-            if (currentAlpha == 0 && alphaTarget == 0) return;
-
-            currentAlpha += (alphaTarget - currentAlpha) * (event.elapsed * 10);
-            if (Math.abs(alphaTarget - currentAlpha) < 0.01) currentAlpha = alphaTarget;
-            
-            if (border != null && border.exists) border.alpha = currentAlpha * 0.5;
-            barFill.alpha = currentAlpha * 0.5;
-            breakIcon.alpha = currentAlpha * 0.5;
-            
-            return;
-        }
-
-        var breakActive:Bool = false;
-        var breakProgress:Float = 0.0;
-        
-        if (cachedActive) {
+        } else if (cachedActive) {
             var state = PlayState.instance;
             if (state != null && state.conductorInUse != null) {
                 if (cachedNoteTimes != null && cachedNoteTimes.length > 0) {
@@ -292,32 +264,25 @@ class KssetteBreakBar extends Module {
                             if (timeSincePrev > 400 && timeUntilNext > 400) {
                                 var totalVisibleTime = gap - 800; 
                                 var currentVisibleTime = timeSincePrev - 400;
-                                breakProgress = currentVisibleTime / totalVisibleTime;
-                                breakActive = true;
+                                var prog = 1.0 - (currentVisibleTime / totalVisibleTime);
+                                if (prog < 0) prog = 0;
+                                if (prog > 1) prog = 1;
+                                alphaTarget = 1;
+                                setFillWidth(Std.int((barWidth - 10) * prog));
+                            } else {
+                                alphaTarget = 0;
                             }
+                        } else {
+                            alphaTarget = 0;
                         }
+                    } else {
+                        alphaTarget = 0;
                     }
+                } else {
+                    alphaTarget = 0;
                 }
-            }
-        }
-
-        if (breakActive) {
-            alphaTarget = 1;
-            var prog = 1.0 - breakProgress; 
-            if (prog < 0) prog = 0;
-            if (prog > 1) prog = 1;
-            
-            var fillW = Std.int((barWidth - 10) * prog);
-            if (fillW < 1) fillW = 1;
-            
-            if (barFill.clipRect == null) {
-                barFill.clipRect = new flixel.math.FlxRect(0, 0, fillW, barHeight - 10);
             } else {
-                var r = barFill.clipRect;
-                if (r.width != fillW) {
-                    r.width = fillW;
-                    barFill.clipRect = r;
-                }
+                alphaTarget = 0;
             }
         } else {
             alphaTarget = 0;
@@ -325,7 +290,7 @@ class KssetteBreakBar extends Module {
         
         if (currentAlpha == 0 && alphaTarget == 0) return;
 
-        currentAlpha += (alphaTarget - currentAlpha) * (event.elapsed * 10);
+        currentAlpha += (alphaTarget - currentAlpha) * (elapsed * 10);
         if (Math.abs(alphaTarget - currentAlpha) < 0.01) currentAlpha = alphaTarget;
         
         if (border != null && border.exists) border.alpha = currentAlpha * 0.5;

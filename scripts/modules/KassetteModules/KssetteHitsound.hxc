@@ -1,12 +1,10 @@
 package kassettehud.util;
 
-import flixel.FlxG;
 import funkin.modding.module.Module;
 import funkin.Paths;
 import funkin.save.Save;
 import funkin.audio.FunkinSound;
 import funkin.play.PlayState;
-import funkin.modding.events.UpdateScriptEvent;
 import funkin.modding.events.ScriptEvent;
 import Std;
 import Math;
@@ -16,9 +14,22 @@ class KssetteHitsound extends Module {
     var isPaused:Bool = false;
     var isEnabled:Bool = false;
     var soundVolume:Float = 1.0;
+    var hitSound:Dynamic = null;
+    var cachedState:PlayState = null;
 
     public function new() {
         super('KssetteHitsound');
+    }
+
+    function isOn(val:Dynamic):Bool {
+        if (val == true) return true;
+        var s = Std.string(val);
+        return s == "On" || s == "on" || s == "true";
+    }
+
+    function playHitSound() {
+        if (hitSound == null) try { hitSound = Paths.sound("play/hitsound"); } catch(e:Dynamic) {}
+        if (hitSound != null) try { FunkinSound.playOnce(hitSound, soundVolume); } catch(e:Dynamic) {}
     }
 
     override public function onCountdownStart(event:Dynamic) {
@@ -26,26 +37,20 @@ class KssetteHitsound extends Module {
         isPaused = false;
         isEnabled = false;
         soundVolume = 1.0;
+        hitSound = null;
+        cachedState = PlayState.instance;
 
-        if (Save.instance != null && Save.instance.modOptions != null) {
-            var fetched = Save.instance.modOptions.get("kssette_hitsound");
-            if (fetched != null && Std.string(fetched) == "On") {
-                isEnabled = true;
-            }
-
-            var fetchedVol = Save.instance.modOptions.get("kssette_hitsound_volume");
+        var opts = Save.instance != null ? Save.instance.modOptions : null;
+        if (opts != null) {
+            isEnabled = isOn(opts.get("kssette_hitsound"));
+            var fetchedVol = opts.get("kssette_hitsound_volume");
             if (fetchedVol != null) {
-                var volStr = StringTools.replace(Std.string(fetchedVol), "%", "");
-                var parsedVol = Std.parseFloat(volStr);
-                if (!Math.isNaN(parsedVol)) {
-                    if (parsedVol > 1.0) {
-                        soundVolume = parsedVol / 100.0;
-                    } else {
-                        soundVolume = parsedVol;
-                    }
-                }
+                var parsedVol = Std.parseFloat(StringTools.replace(Std.string(fetchedVol), "%", ""));
+                if (!Math.isNaN(parsedVol)) soundVolume = parsedVol > 1.0 ? parsedVol / 100.0 : parsedVol;
             }
         }
+
+        if (isEnabled) try { hitSound = Paths.sound("play/hitsound"); } catch(e:Dynamic) {}
     }
 
     override function onPause(event:ScriptEvent) {
@@ -56,6 +61,7 @@ class KssetteHitsound extends Module {
     override function onStateChangeEnd(event:ScriptEvent) {
         super.onStateChangeEnd(event);
         isPaused = false;
+        cachedState = null;
     }
 
     override function onResume(event:ScriptEvent) {
@@ -63,21 +69,23 @@ class KssetteHitsound extends Module {
         isPaused = false;
     }
 
-    override public function onUpdate(event:UpdateScriptEvent) {
-        super.onUpdate(event);
-
+    override function onNoteHit(event:Dynamic) {
         if (!isEnabled || isPaused) return;
 
-        var state = PlayState.instance;
+        var state = cachedState;
+        if (state == null) {
+            state = PlayState.instance;
+            cachedState = state;
+        }
         if (state == null || state.isPlayerDying) return;
 
-        var controlsObj = state.controls;
-        if (controlsObj == null) return;
-
-        if (controlsObj.NOTE_LEFT_P || controlsObj.NOTE_DOWN_P || controlsObj.NOTE_UP_P || controlsObj.NOTE_RIGHT_P) {
-            if (FlxG.sound != null) {
-                FunkinSound.playOnce(Paths.sound("play/hitsound"), soundVolume);
-            }
+        try {
+            var note = event.note;
+            if (note != null && note.noteData != null && !note.noteData.getMustHitNote()) return;
+        } catch(e:Dynamic) {
+            return;
         }
+
+        playHitSound();
     }
 }

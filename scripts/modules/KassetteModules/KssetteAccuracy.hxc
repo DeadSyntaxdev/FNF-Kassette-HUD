@@ -3,8 +3,7 @@ package kassettehud.util;
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
-import funkin.save.Save;
-import funkin.Preferences; 
+import funkin.Preferences;
 import flixel.text.FlxText;
 import flixel.text.FlxTextBorderStyle;
 import flixel.text.FlxTextFormat;
@@ -14,9 +13,7 @@ import funkin.Highscore;
 import flixel.FlxG;
 import Std;
 import Math;
-import StringTools;
 import Reflect;
-import funkin.mobile.input.ControlsHandler;
 
 class KssetteAccuracy extends Module {
     var separator:String = " / ";
@@ -50,6 +47,7 @@ class KssetteAccuracy extends Module {
     var uiUpdateTimer:Float = 0.0;
     var pendingTextUpdate:Bool = false;
     var previewAccTimer:Float = 0.0;
+    var frameUpdateTimer:Float = 0.0;
     
     public var cachedFont:String = "";
 
@@ -81,16 +79,10 @@ class KssetteAccuracy extends Module {
     var _cSmooth:Bool = false;
     var _cIsBotplay:Bool = false;
     var _cJudgesVisible:Bool = false;
-    var _cColoredHB:Bool = false;
 
     var cachedRankStr:String = "?";
     var cachedTierStr:String = "N/A";
     var cachedModeMsg:String = "";
-
-    var _lastP1Id:String = "";
-    var _lastP2Id:String = "";
-    var _p1Color:Int = 0xFF66FF33;
-    var _p2Color:Int = 0xFFFF0000;
 
     public var isPreview:Bool = false;
     public var previewCam:flixel.FlxCamera = null;
@@ -129,55 +121,62 @@ class KssetteAccuracy extends Module {
         if (infoText != null) infoText.destroy();
         if (timeText != null) timeText.destroy();
         if (modeText != null) modeText.destroy();
-        for (t in judgeLabels) { if (t != null) t.destroy(); }
-        for (t in judgeValues) { if (t != null) t.destroy(); }
-        judgeLabels = []; 
+        for (t in judgeLabels) if (t != null) t.destroy();
+        for (t in judgeValues) if (t != null) t.destroy();
+        judgeLabels = [];
         judgeValues = [];
+    }
+
+    function makeText(x:Float, y:Float, w:Float, text:String, size:Int, align:String, z:Int, cam:flixel.FlxCamera):FlxText {
+        var t = new FlxText(x, y, w, text, size);
+        t.setFormat(cachedFont, size, FlxColor.WHITE, align, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+        t.zIndex = z;
+        t.cameras = [cam];
+        FlxG.state.add(t);
+        return t;
     }
 
     public function setupUI(cam:flixel.FlxCamera) {
         cleanupUI();
 
-        uiText = new FlxText(0, 0, 0, "", 18);
-        uiText.setFormat(cachedFont, 18, FlxColor.WHITE, "center", FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+        uiText = makeText(0, 0, 0, "", 18, "center", 100, cam);
         uiText.updateHitbox();
-        uiText.zIndex = 100;
-        uiText.cameras = [cam];
-        FlxG.state.add(uiText);
 
-        timeText = new FlxText(0, 0, FlxG.width / 2 - 10, "", 28);
-        timeText.setFormat(cachedFont, 28, FlxColor.WHITE, "right", FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-        timeText.zIndex = 2000;
-        timeText.cameras = [cam];
-        FlxG.state.add(timeText);
-
-        infoText = new FlxText(0, 0, FlxG.width / 2 - 10, "", 16);
-        infoText.setFormat(cachedFont, 16, FlxColor.WHITE, "left", FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-        infoText.zIndex = 2000;
-        infoText.cameras = [cam];
-        FlxG.state.add(infoText);
-
-        modeText = new FlxText(FlxG.width, 200, 0, "", 24);
-        modeText.setFormat(cachedFont, 24, FlxColor.WHITE, "left", FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-        modeText.zIndex = 2000;
-        modeText.cameras = [cam];
-        FlxG.state.add(modeText);
-
+        timeText = makeText(0, 0, FlxG.width / 2 - 10, "", 28, "right", 2000, cam);
+        infoText = makeText(0, 0, FlxG.width / 2 - 10, "", 16, "left", 2000, cam);
+        modeText = makeText(FlxG.width, 200, 0, "", 24, "left", 2000, cam);
         judgeLabels = [];
         judgeValues = [];
         
         for (i in 0...judgeNames.length) {
-            var label = new FlxText(0, 0, 200, getJudgeName(judgeNames[i]), 20);
-            label.setFormat(cachedFont, 20, FlxColor.WHITE, "left", FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-            label.zIndex = 100;
-            label.cameras = [cam];
-            FlxG.state.add(label); judgeLabels.push(label);
+            judgeLabels.push(makeText(0, 0, 200, getJudgeName(judgeNames[i]), 20, "left", 100, cam));
+            judgeValues.push(makeText(0, 0, 200, "0", 20, "right", 100, cam));
+        }
+    }
 
-            var val = new FlxText(0, 0, 200, "0", 20);
-            val.setFormat(cachedFont, 20, FlxColor.WHITE, "right", FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-            val.zIndex = 100;
-            val.cameras = [cam];
-            FlxG.state.add(val); judgeValues.push(val);
+    function getRankFormat(rank:String):FlxTextFormat {
+        switch(rank.toUpperCase()) {
+            case "PERFECT_GOLD":
+                if (_fmtPerfectGold == null) _fmtPerfectGold = new FlxTextFormat(0xFFF9E859);
+                return _fmtPerfectGold;
+            case "PERFECT":
+                if (_fmtPerfect == null) _fmtPerfect = new FlxTextFormat(0xFFFFAEFF);
+                return _fmtPerfect;
+            case "EXCELLENT":
+                if (_fmtExcellent == null) _fmtExcellent = new FlxTextFormat(0xFFFFFFC5);
+                return _fmtExcellent;
+            case "GREAT":
+                if (_fmtGreat == null) _fmtGreat = new FlxTextFormat(0xFFDCE6F1);
+                return _fmtGreat;
+            case "GOOD":
+                if (_fmtGood == null) _fmtGood = new FlxTextFormat(0xFFE19978);
+                return _fmtGood;
+            case "SHIT":
+                if (_fmtShit == null) _fmtShit = new FlxTextFormat(0xFF4460B7);
+                return _fmtShit;
+            default:
+                if (_fmtDefault == null) _fmtDefault = new FlxTextFormat(0xFFFFFFFF);
+                return _fmtDefault;
         }
     }
 
@@ -209,6 +208,7 @@ class KssetteAccuracy extends Module {
             
             uiUpdateTimer = 0.0;
             previewAccTimer = 0.0;
+            frameUpdateTimer = 0.0;
             pendingTextUpdate = false;
             
             cachedFont = api.getHudFont();
@@ -216,8 +216,6 @@ class KssetteAccuracy extends Module {
 
             securityTriggered = false;
             displayedAcc = 0;
-            _lastP1Id = "";
-            _lastP2Id = "";
             isPreview = false;
             
             if (state.scoreText != null) state.scoreText.visible = false;
@@ -334,7 +332,6 @@ class KssetteAccuracy extends Module {
             _cShowTime = api.getKssValue("kssette_show_song_time") == true;
             _cShowTitle = api.getKssValue("kssette_show_song_title") == true;
             _cShowDiff = api.getKssValue("kssette_show_song_diff") == true;
-            _cColoredHB = api.getKssValue("kssette_colored_healthbar") == true;
             
             cachedModeMsg = Std.string(api.getModeMessage());
             
@@ -407,11 +404,9 @@ class KssetteAccuracy extends Module {
         
         var forceDownscrollLook:Bool = false;
         try {
-            if (Reflect.hasField(api, "isMobileMode") && Reflect.hasField(api, "isMobileLikePC")) {
-                var isMob:Bool = Reflect.field(api, "isMobileMode");
-                var isMobPC:Bool = Reflect.callMethod(api, Reflect.field(api, "isMobileLikePC"), []);
-                forceDownscrollLook = (isMob && !isMobPC);
-            }
+            var isMob:Bool = api.isMobileMode == true;
+            var isMobPC:Bool = api.isMobileLikePC() == true;
+            forceDownscrollLook = (isMob && !isMobPC);
         } catch(e:Dynamic) {}
 
         var downscroll = Preferences.downscroll || forceDownscrollLook;
@@ -469,13 +464,12 @@ class KssetteAccuracy extends Module {
         if (jPos == "Top Right") { sx = FlxG.width - tw - jMargin; sY = 100; }
         
         for (i in 0...judgeLabels.length) {
+            var nx = sx; var ny = sY + (i * sy);
             if (judgeLabels[i] != null) {
-                var nx = sx; var ny = sY + (i * sy);
                 if (judgeLabels[i].x != nx) judgeLabels[i].x = nx;
                 if (judgeLabels[i].y != ny) judgeLabels[i].y = ny;
             }
             if (judgeValues[i] != null) {
-                var nx = sx; var ny = sY + (i * sy);
                 if (judgeValues[i].x != nx) judgeValues[i].x = nx;
                 if (judgeValues[i].y != ny) judgeValues[i].y = ny;
             }
@@ -525,29 +519,7 @@ class KssetteAccuracy extends Module {
             cachedSuffix += fRank;
             suffixNeedSep = true;
 
-            switch(rankStr.toUpperCase()) {
-                case "PERFECT_GOLD": 
-                    if (_fmtPerfectGold == null) _fmtPerfectGold = new FlxTextFormat(0xFFF9E859);
-                    currentTargetFmt = _fmtPerfectGold;
-                case "PERFECT": 
-                    if (_fmtPerfect == null) _fmtPerfect = new FlxTextFormat(0xFFFFAEFF);
-                    currentTargetFmt = _fmtPerfect;
-                case "EXCELLENT": 
-                    if (_fmtExcellent == null) _fmtExcellent = new FlxTextFormat(0xFFFFFFC5);
-                    currentTargetFmt = _fmtExcellent;
-                case "GREAT": 
-                    if (_fmtGreat == null) _fmtGreat = new FlxTextFormat(0xFFDCE6F1);
-                    currentTargetFmt = _fmtGreat;
-                case "GOOD": 
-                    if (_fmtGood == null) _fmtGood = new FlxTextFormat(0xFFE19978);
-                    currentTargetFmt = _fmtGood;
-                case "SHIT": 
-                    if (_fmtShit == null) _fmtShit = new FlxTextFormat(0xFF4460B7);
-                    currentTargetFmt = _fmtShit;
-                default: 
-                    if (_fmtDefault == null) _fmtDefault = new FlxTextFormat(0xFFFFFFFF);
-                    currentTargetFmt = _fmtDefault;
-            }
+            currentTargetFmt = getRankFormat(rankStr);
         }
 
         if (_cShowTier) {
@@ -571,7 +543,6 @@ class KssetteAccuracy extends Module {
         if (uiText.text != newText) {
             uiText.text = newText;
             
-            try { Reflect.setProperty(uiText, "_formatRanges", []); } catch(e:Dynamic) {}
             try { uiText.clearFormats(); } catch(e:Dynamic) {}
 
             if (_cShowRank && currentTargetFmt != null) {
@@ -595,7 +566,6 @@ class KssetteAccuracy extends Module {
     }
 
     override public function onUpdate(event) {
-        super.onUpdate(event);
         
         if (isPreview) {
             if (uiText != null && uiText.exists) {
@@ -618,49 +588,20 @@ class KssetteAccuracy extends Module {
             return;
         }
 
+        var elapsed = event.elapsed;
+        if (!securityTriggered) {
+            frameUpdateTimer += elapsed;
+            if (frameUpdateTimer < 0.008) return;
+            elapsed = frameUpdateTimer;
+            frameUpdateTimer = 0.0;
+        } else {
+            frameUpdateTimer = 0.0;
+        }
+
         try {
             var state = PlayState.instance;
             if (state == null || api == null) return;
             
-            if (_cColoredHB) {
-                var hb = state.healthBar;
-                if (hb != null) {
-                    var p1 = state.iconP1;
-                    var p2 = state.iconP2;
-                    
-                    var curP1:String = "none1";
-                    if (p1 != null) {
-                        try { if (p1.characterId != null) curP1 = Std.string(p1.characterId); } catch(e:Dynamic) {}
-                    }
-                    
-                    var curP2:String = "none2";
-                    if (p2 != null) {
-                        try { if (p2.characterId != null) curP2 = Std.string(p2.characterId); } catch(e:Dynamic) {}
-                    }
-                    
-                    if (curP1 != _lastP1Id || curP2 != _lastP2Id) {
-                        _lastP1Id = curP1;
-                        _lastP2Id = curP2;
-                        
-                        try {
-                            _p1Color = api.extractIconColor(p1);
-                            _p2Color = api.extractIconColor(p2);
-                            hb.createFilledBar(_p2Color, _p1Color);
-                            hb.updateBar();
-                        } catch(e:Dynamic) {
-                            try { hb.createFilledBar(0xFFFF0000, 0xFF66FF33); hb.updateBar(); } catch(e:Dynamic) {}
-                        }
-                    }
-                }
-            } else if (_lastP1Id != "") {
-                _lastP1Id = "";
-                _lastP2Id = "";
-                var hb = state.healthBar;
-                if (hb != null) {
-                    try { hb.createFilledBar(0xFFFF0000, 0xFF66FF33); hb.updateBar(); } catch(e:Dynamic) {}
-                }
-            }
-
             if (timeText != null && timeText.exists) {
                 var showT:Bool = _cShowTime;
                 timeText.visible = showT;
@@ -681,7 +622,7 @@ class KssetteAccuracy extends Module {
                     if (!modeText.visible) modeText.visible = true;
                     if (modeText.alpha != 1) modeText.alpha = 1;
                     
-                    modeText.x -= 200 * event.elapsed;
+                    modeText.x -= 200 * elapsed;
                     if (modeText.x + modeText.width < 0) modeText.x = FlxG.width;
                 } else {
                     if (modeText.visible) modeText.visible = false; 
@@ -816,7 +757,7 @@ class KssetteAccuracy extends Module {
                         tAcc = targetAcc;
                     }
                     
-                    displayedAcc += (tAcc - displayedAcc) * (event.elapsed * 8);
+                    displayedAcc += (tAcc - displayedAcc) * (elapsed * 8);
                     if (Math.abs(tAcc - displayedAcc) < 0.001) displayedAcc = tAcc;
                 }
             }
@@ -828,7 +769,7 @@ class KssetteAccuracy extends Module {
                 pendingTextUpdate = true;
             }
 
-            uiUpdateTimer += event.elapsed;
+            uiUpdateTimer += elapsed;
             
             if (pendingTextUpdate && (majorChange || uiUpdateTimer >= 0.033)) {
                 uiUpdateTimer = 0.0;
