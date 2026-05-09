@@ -5,9 +5,6 @@ import funkin.graphics.FunkinSprite;
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
-import funkin.modding.events.ScriptEvent;
-import funkin.modding.events.UpdateScriptEvent;
-import funkin.modding.events.StateChangeScriptEvent;
 import Std;
 import Date;
 import Math;
@@ -20,6 +17,12 @@ class KssetteNight extends Module {
     
     var timeCheckTimer:Float = 0.0;
     var targetAlpha:Float = 0.01;
+    var apiModule:Dynamic = null;
+    var cachedMode:String = "Off";
+    var cachedOpacity:Float = 0.65;
+    var cachedStartSecs:Int = 72000;
+    var cachedEndSecs:Int = 21600;
+    var updateTimer:Float = 0.0;
     
     public var isPreview:Bool = false;
     public var previewCam:flixel.FlxCamera = null;
@@ -32,8 +35,8 @@ class KssetteNight extends Module {
         if (overlayGame != null) {
             try { FlxG.state.remove(overlayGame, true); } catch(e:Dynamic) {}
             try { overlayGame.destroy(); } catch(e:Dynamic) {}
-            overlayGame = null;
         }
+        overlayGame = null;
         isActive = false;
         targetAlpha = 0.01;
     }
@@ -50,6 +53,7 @@ class KssetteNight extends Module {
         cleanUp();
         
         initSprite();
+        refreshSettings();
         applyCalculatedState(evaluateState());
     }
 
@@ -58,72 +62,60 @@ class KssetteNight extends Module {
     }
 
     function getMode():String {
-        var apiModule = ModuleHandler.getModule("KssetteApi");
         if (apiModule == null) return "Off";
         
-        var rawMode:Dynamic = apiModule.getKssValue("kssette_night_mode");
-        if (rawMode == true || rawMode == "true" || rawMode == "On") return "On";
-        if (rawMode == false || rawMode == "false" || rawMode == "Off") return "Off";
-        return Std.string(rawMode);
+        var rawMode = Std.string(apiModule.getKssValue("kssette_night_mode"));
+        if (rawMode == "true" || rawMode == "On") return "On";
+        if (rawMode == "false" || rawMode == "Off") return "Off";
+        return rawMode;
     }
 
-    function evaluateState():Dynamic {
-        var apiModule = ModuleHandler.getModule("KssetteApi");
-        var mode = getMode();
-        
-        var currentOp = 0.65;
+    function parseClockSeconds(timeStr:String, fallback:Int):Int {
+        if (timeStr == null || timeStr == "null") return fallback;
+        var idx = timeStr.indexOf(":");
+        if (idx == -1) return fallback;
+        var h = Std.parseInt(timeStr.substr(0, idx));
+        var m = Std.parseInt(timeStr.substr(idx + 1));
+        if (h == null) h = Std.int(fallback / 3600);
+        if (m == null) m = Std.int((fallback % 3600) / 60);
+        return (h * 3600) + (m * 60);
+    }
+
+    function refreshSettings():Void {
+        apiModule = ModuleHandler.getModule("KssetteApi");
+        cachedMode = getMode();
+        cachedOpacity = 0.65;
         if (apiModule != null) {
             var rawOp = Std.string(apiModule.getKssValue("kssette_night_opacity"));
             if (rawOp != null && rawOp != "null") {
                 var parsed = Std.parseFloat(StringTools.replace(rawOp, "%", ""));
-                if (!Math.isNaN(parsed)) currentOp = parsed / 100.0;
+                if (!Math.isNaN(parsed)) cachedOpacity = parsed / 100.0;
             }
-        }
 
-        if (mode == "Off") return {active: false, opacity: currentOp};
-        if (mode == "On") return {active: true, opacity: currentOp};
-
-        var timeStrStart = "20:00"; var timeStrEnd = "06:00";
-        if (apiModule != null) {
+            var timeStrStart = "20:00"; var timeStrEnd = "06:00";
             var fetchedStart = Std.string(apiModule.getKssValue("kssette_night_start"));
             var fetchedEnd = Std.string(apiModule.getKssValue("kssette_night_end"));
             if (fetchedStart != null && fetchedStart != "null") timeStrStart = fetchedStart;
             if (fetchedEnd != null && fetchedEnd != "null") timeStrEnd = fetchedEnd;
+            cachedStartSecs = parseClockSeconds(timeStrStart, 72000);
+            cachedEndSecs = parseClockSeconds(timeStrEnd, 21600);
         }
-        
-        var startH = 20; var startM = 0;
-        var endH = 6; var endM = 0;
+    }
 
-        if (timeStrStart.indexOf(":") != -1) {
-            var pSH = Std.parseInt(timeStrStart.split(":")[0]);
-            var pSM = Std.parseInt(timeStrStart.split(":")[1]);
-            if (pSH != null) startH = pSH;
-            if (pSM != null) startM = pSM;
-        }
-        if (timeStrEnd.indexOf(":") != -1) {
-            var pEH = Std.parseInt(timeStrEnd.split(":")[0]);
-            var pEM = Std.parseInt(timeStrEnd.split(":")[1]);
-            if (pEH != null) endH = pEH;
-            if (pEM != null) endM = pEM;
-        }
-        
+    function evaluateState():Bool {
+        if (cachedMode == "Off") return false;
+        if (cachedMode == "On") return true;
+
         var now = Date.now();
         var curSecs = (now.getHours() * 3600) + (now.getMinutes() * 60) + now.getSeconds();
-        var startSecs = (startH * 3600) + (startM * 60);
-        var endSecs = (endH * 3600) + (endM * 60);
         
-        var isNight = false;
-        if (startSecs < endSecs) { 
-            isNight = (curSecs >= startSecs && curSecs < endSecs);
-        } else { 
-            isNight = (curSecs >= startSecs || curSecs < endSecs);
-        }
-
-        return {active: isNight, opacity: currentOp};
+        if (cachedStartSecs < cachedEndSecs) return curSecs >= cachedStartSecs && curSecs < cachedEndSecs;
+        return curSecs >= cachedStartSecs || curSecs < cachedEndSecs;
     }
 
     public function updatePreview() {
         if (!isPreview) return;
+        refreshSettings();
         applyCalculatedState(evaluateState());
     }
 
@@ -143,7 +135,10 @@ class KssetteNight extends Module {
         if (isPreview) {
             if (previewCam != null) overlayGame.cameras = [previewCam];
             FlxG.state.add(overlayGame);
-            try { Reflect.callMethod(FlxG.state, Reflect.field(FlxG.state, "refresh"), []); } catch(e:Dynamic) {}
+            try {
+                var st:Dynamic = FlxG.state;
+                st.refresh();
+            } catch(e:Dynamic) {}
         } else {
             var state = PlayState.instance;
             var targetCam:flixel.FlxCamera = null;
@@ -159,7 +154,10 @@ class KssetteNight extends Module {
                 try { state.refresh(); } catch(e:Dynamic) {}
             } else {
                 FlxG.state.add(overlayGame);
-                try { Reflect.callMethod(FlxG.state, Reflect.field(FlxG.state, "refresh"), []); } catch(e:Dynamic) {}
+                try {
+                    var st:Dynamic = FlxG.state;
+                    st.refresh();
+                } catch(e:Dynamic) {}
             }
         }
         
@@ -176,7 +174,9 @@ class KssetteNight extends Module {
         
         cleanUp();
         timeCheckTimer = 0.0;
+        updateTimer = 0.0;
         
+        refreshSettings();
         initSprite();
         applyCalculatedState(evaluateState());
     }
@@ -186,11 +186,11 @@ class KssetteNight extends Module {
         if (isPlayStateActive()) isPreview = false;
         if (isPreview) return;
         
+        refreshSettings();
         applyCalculatedState(evaluateState());
     }
 
     override public function onUpdate(event:Dynamic):Void {
-        super.onUpdate(event);
         
         if (isPlayStateActive() && isPreview) {
             isPreview = false;
@@ -201,7 +201,14 @@ class KssetteNight extends Module {
         if (!isPreview && !isPlayStateActive()) return;
 
         var elapsed = FlxG.elapsed;
-        if (event != null && Reflect.hasField(event, "elapsed")) elapsed = Reflect.field(event, "elapsed");
+        if (event != null) {
+            try { elapsed = event.elapsed; } catch(e:Dynamic) {}
+        }
+
+        updateTimer += elapsed;
+        if (updateTimer < 0.008) return;
+        elapsed = updateTimer;
+        updateTimer = 0.0;
 
         timeCheckTimer += elapsed;
         if (timeCheckTimer >= 1.0) {
@@ -218,10 +225,7 @@ class KssetteNight extends Module {
         }
     }
 
-    function applyCalculatedState(stateData:Dynamic) {
-        var shouldBeActive = stateData.active;
-        var op = stateData.opacity;
-
+    function applyCalculatedState(shouldBeActive:Bool) {
         if (overlayGame == null || !overlayGame.exists) initSprite();
 
         if (isPreview) {
@@ -240,12 +244,7 @@ class KssetteNight extends Module {
 
         if (!overlayGame.visible) overlayGame.visible = true;
 
-        if (shouldBeActive) {
-            targetAlpha = op;
-            isActive = true;
-        } else {
-            targetAlpha = 0.01;
-            isActive = false;
-        }
+        targetAlpha = shouldBeActive ? cachedOpacity : 0.01;
+        isActive = shouldBeActive;
     }
 }

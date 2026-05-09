@@ -1,8 +1,6 @@
 package kassettehud.util;
 
 import flixel.FlxG;
-import funkin.save.Save;
-import funkin.ui.options.OptionsState;
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.modding.events.ScriptEvent;
@@ -20,13 +18,31 @@ class KssMiddlescroll extends Module {
     var cachedOppBg:Bool = false;
     var hasShifted:Bool = false;
     var apiModule:Dynamic = null;
+    var cachedOppStrum:Dynamic = null;
+    var cachedReceptors:Dynamic = null;
+    var cachedSplashes:Dynamic = null;
+    var cachedHasSplashOffsets:Bool = false;
+    var cachedSplashOffsetX:Float = 0.0;
+    var splashUpdateTimer:Float = 0.0;
 
     public function new() {
         super('KssMiddlescroll'); 
     }
 
+    function isOn(val:Dynamic):Bool {
+        if (val == true) return true;
+        var s = Std.string(val);
+        return s == "On" || s == "on" || s == "true";
+    }
+
     override function onCountdownStart(event:ScriptEvent):Void {
         hasShifted = false;
+        cachedOppStrum = null;
+        cachedReceptors = null;
+        cachedSplashes = null;
+        cachedHasSplashOffsets = false;
+        cachedSplashOffsetX = 0.0;
+        splashUpdateTimer = 0.0;
         
         var isMobLayout = false;
         apiModule = ModuleHandler.getModule("KssetteApi");
@@ -41,7 +57,7 @@ class KssMiddlescroll extends Module {
 
             cachedOppPos = Std.string(apiModule.getKssValue("kssette_opponent_pos"));
             var rawOppBg:Dynamic = apiModule.getKssValue("kssette_opponent_bg");
-            cachedOppBg = (rawOppBg == true || rawOppBg == "On");
+            cachedOppBg = isOn(rawOppBg);
             
             var isMob = false;
             var isMobPC = false;
@@ -188,12 +204,26 @@ class KssMiddlescroll extends Module {
                 }
             }
         }
+
+        cachedOppStrum = state.opponentStrumline;
+        if (cachedOppStrum != null) {
+            try { cachedReceptors = cachedOppStrum.strumlineNotes.members; } catch(e:Dynamic) {}
+            try { cachedSplashes = cachedOppStrum.noteSplashes; } catch(e:Dynamic) {}
+            try {
+                var offsets = cachedOppStrum.noteStyle.getSplashOffsets();
+                cachedHasSplashOffsets = (offsets != null && offsets.length > 0);
+                if (cachedHasSplashOffsets) cachedSplashOffsetX = offsets[0];
+            } catch(e:Dynamic) {
+                cachedHasSplashOffsets = false;
+                cachedSplashOffsetX = 0.0;
+            }
+        }
     }
 
     override function onNoteIncoming(event:ScriptEvent) {
         super.onNoteIncoming(event);
         
-        if (cachedMode == "Off" || cachedMode == "null" || cachedMode == "Hidden Notes") return;
+        if (cachedMode == "Off" || cachedMode == "null") return;
         
         var state = PlayState.instance;
         if (state == null) return;
@@ -201,6 +231,18 @@ class KssMiddlescroll extends Module {
         var note = event.note;
 
         if (note != null && !note.noteData.getMustHitNote() && state.opponentStrumline != null) {
+            if (cachedMode == "Hidden Notes") {
+                note.x = -5000;
+                note.alpha = 0;
+                note.visible = false;
+                if (note.holdNoteSprite != null) {
+                    note.holdNoteSprite.x = -5000;
+                    note.holdNoteSprite.alpha = 0;
+                    note.holdNoteSprite.visible = false;
+                }
+                return;
+            }
+
             var receptors = state.opponentStrumline.strumlineNotes.members;
             if (receptors == null || note.direction < 0 || note.direction >= receptors.length) return;
             
@@ -247,20 +289,21 @@ class KssMiddlescroll extends Module {
     }
 
     override function onUpdate(event:UpdateScriptEvent) {
-        super.onUpdate(event);
         
         if (cachedMode == "Off" || cachedMode == "null" || cachedMode == "Hidden Notes") return;
         
-        var state = PlayState.instance;
-        if (state == null || state.opponentStrumline == null || !hasShifted) return;
+        if (cachedOppStrum == null || !hasShifted) return;
 
-        var splashes = state.opponentStrumline.noteSplashes;
+        splashUpdateTimer += event.elapsed;
+        if (splashUpdateTimer < 0.016) return;
+        splashUpdateTimer = 0.0;
+
+        var splashes = cachedSplashes;
         if (splashes != null && splashes.members != null) {
             
-            var receptors = state.opponentStrumline.strumlineNotes.members;
-            var offsets = state.opponentStrumline.noteStyle.getSplashOffsets();
-            var hasOffsets:Bool = (offsets != null && offsets.length > 0);
-            var offX:Float = hasOffsets ? offsets[0] : 0.0;
+            var receptors = cachedReceptors;
+            var hasOffsets:Bool = cachedHasSplashOffsets;
+            var offX:Float = cachedSplashOffsetX;
             
             for (splash in splashes.members) {
                 if (splash != null && splash.alive && splash.animation != null && splash.animation.name != null) {

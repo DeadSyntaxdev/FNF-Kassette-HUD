@@ -3,57 +3,76 @@ package kassettehud.util;
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
-import funkin.save.Save;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.FlxCamera;
 import Std;
+import Reflect;
 
 class KssetteTimeBar extends Module {
-    public var timeBar:FlxSprite; 
+    public var timeBar:FlxSprite;
     public var timeBarBG:FlxSprite;
-    var barSize:Float = 11; 
+    var barSize:Float = 11;
     var cachedActive:Bool = false;
     var timeBarPos:String = "Bottom";
     var apiModule:Dynamic = null;
 
-    var cachedX:Float = 0;
-    var cachedY:Float = 0;
+    var playState:PlayState = null;
+    var songLengthMs:Float = 0.0;
+    var updateTimer:Float = 0.0;
 
     public var isPreview:Bool = false;
     public var previewCam:FlxCamera = null;
 
-    public function new() { 
-        super("KssetteTimeBar"); 
+    public function new() {
+        super("KssetteTimeBar");
+    }
+
+    function isOn(val:Dynamic):Bool {
+        if (val == true) return true;
+        var s = Std.string(val);
+        return s == "On" || s == "on" || s == "true";
+    }
+
+    function hudCamera(state:PlayState):FlxCamera {
+        var cam:Dynamic = null;
+        try { cam = Reflect.field(state, "camControls"); } catch(e:Dynamic) {}
+        if (cam != null) return cam;
+        return state.camHUD;
+    }
+
+    function makeBar(y:Float, h:Int, color:Int, z:Int, cam:FlxCamera):FlxSprite {
+        var bar = new FlxSprite(0, y).makeGraphic(FlxG.width, h, color);
+        bar.origin.set(0, 0);
+        bar.scrollFactor.set(0, 0);
+        bar.zIndex = z;
+        bar.cameras = [cam];
+        FlxG.state.add(bar);
+        return bar;
     }
 
     public function cleanupUI() {
+        playState = null;
+        songLengthMs = 0.0;
+        updateTimer = 0.0;
         if (timeBar != null) {
+            try { FlxG.state.remove(timeBar, true); } catch(e:Dynamic) {}
             timeBar.destroy();
-            timeBar = null;
         }
         if (timeBarBG != null) {
+            try { FlxG.state.remove(timeBarBG, true); } catch(e:Dynamic) {}
             timeBarBG.destroy();
-            timeBarBG = null;
         }
+        timeBar = null;
+        timeBarBG = null;
     }
 
     public function setupUI(cam:FlxCamera) {
         cleanupUI();
 
-        timeBarBG = new FlxSprite(0, 0).makeGraphic(FlxG.width, Std.int(barSize + 4), 0xFF000000);
-        timeBarBG.origin.set(0, 0); 
-        timeBarBG.scrollFactor.set(0, 0); 
-        timeBarBG.zIndex = 1018;
-        timeBarBG.cameras = [cam];
-        FlxG.state.add(timeBarBG);
-        
-        timeBar = new FlxSprite(0, 2).makeGraphic(FlxG.width, Std.int(barSize), 0xFFFFFFFF);
-        timeBar.origin.set(0, 0); 
-        timeBar.scrollFactor.set(0, 0); 
-        timeBar.zIndex = 1019;
-        timeBar.cameras = [cam];
-        FlxG.state.add(timeBar);
+        timeBarBG = makeBar(0, Std.int(barSize + 4), 0xFF000000, 1018, cam);
+        timeBar = makeBar(2, Std.int(barSize), 0xFFFFFFFF, 1019, cam);
+        try { FlxG.state.refresh(); } catch(e:Dynamic) {}
     }
 
     public function updatePositions() {
@@ -69,27 +88,29 @@ class KssetteTimeBar extends Module {
             timeBar.origin.set(0, 0);
         }
 
-        var paddingX:Float = 0; 
+        var cachedX:Float = 0;
+        var cachedY:Float = 0;
+        var paddingX:Float = 0;
         var paddingY:Float = 20;
 
-        if (timeBarPos == "Top") {
-            cachedY = 0;
-            cachedX = (FlxG.width - currentBarWidth) / 2;
-        } else if (timeBarPos == "Top Left") {
-            cachedX = paddingX; cachedY = paddingY;
-        } else if (timeBarPos == "Top Right") {
-            cachedX = FlxG.width - currentBarWidth - paddingX; cachedY = paddingY;
-        } else if (timeBarPos == "Bottom Left") {
-            cachedX = paddingX; cachedY = FlxG.height - (barSize + 4) - paddingY;
-        } else if (timeBarPos == "Bottom Right") {
-            cachedX = FlxG.width - currentBarWidth - paddingX; cachedY = FlxG.height - (barSize + 4) - paddingY;
-        } else {
-            cachedY = FlxG.height - (barSize + 4);
-            cachedX = (FlxG.width - currentBarWidth) / 2;
+        switch (timeBarPos) {
+            case "Top":
+                cachedX = (FlxG.width - currentBarWidth) / 2;
+            case "Top Left":
+                cachedX = paddingX; cachedY = paddingY;
+            case "Top Right":
+                cachedX = FlxG.width - currentBarWidth - paddingX; cachedY = paddingY;
+            case "Bottom Left":
+                cachedX = paddingX; cachedY = FlxG.height - (barSize + 4) - paddingY;
+            case "Bottom Right":
+                cachedX = FlxG.width - currentBarWidth - paddingX; cachedY = FlxG.height - (barSize + 4) - paddingY;
+            default:
+                cachedX = (FlxG.width - currentBarWidth) / 2;
+                cachedY = FlxG.height - (barSize + 4);
         }
 
         timeBarBG.x = cachedX;
-        timeBarBG.y = cachedY; 
+        timeBarBG.y = cachedY;
         timeBar.x = cachedX;
         timeBar.y = cachedY + 2;
     }
@@ -97,7 +118,7 @@ class KssetteTimeBar extends Module {
     public function buildPreview(cam:FlxCamera) {
         isPreview = true;
         previewCam = cam;
-        
+
         setupUI(cam);
         updatePreview();
     }
@@ -107,7 +128,7 @@ class KssetteTimeBar extends Module {
 
         apiModule = ModuleHandler.getModule("KssetteApi");
         if (apiModule != null) {
-            cachedActive = apiModule.getKssValue("kssette_show_timebar") == true;
+            cachedActive = isOn(apiModule.getKssValue("kssette_show_timebar"));
             timeBarPos = Std.string(apiModule.getKssValue("kssette_timebar_pos"));
         }
 
@@ -123,21 +144,26 @@ class KssetteTimeBar extends Module {
     override public function onCountdownStart(event) {
         super.onCountdownStart(event);
         isPreview = false;
-        
+
         apiModule = ModuleHandler.getModule("KssetteApi");
         if (apiModule != null) {
             try {
                 apiModule.registerModule("KssetteTimeBar", this);
-                cachedActive = apiModule.getKssValue("kssette_show_timebar") == true;
+                cachedActive = isOn(apiModule.getKssValue("kssette_show_timebar"));
                 timeBarPos = Std.string(apiModule.getKssValue("kssette_timebar_pos"));
             } catch(e:Dynamic) {}
         }
-        
+
         var state = PlayState.instance;
+        playState = null;
+        songLengthMs = 0.0;
+        updateTimer = 0.0;
         if (state != null && state.camHUD != null) {
-            setupUI(state.camHUD);
+            setupUI(hudCamera(state));
+            playState = state;
+            songLengthMs = state.currentSongLengthMs;
             updatePositions();
-            
+
             if (timeBarBG != null) timeBarBG.visible = cachedActive;
             if (timeBar != null) {
                 timeBar.visible = cachedActive;
@@ -147,13 +173,23 @@ class KssetteTimeBar extends Module {
     }
 
     override public function onUpdate(event) {
-        super.onUpdate(event);
-        
+
         if (isPreview) return;
-        if (!cachedActive || timeBar == null || !timeBar.exists || apiModule == null) return;
-        
+        if (!cachedActive || timeBar == null || !timeBar.exists || playState == null || playState.conductorInUse == null) return;
+        if (songLengthMs <= 0) {
+            try { songLengthMs = playState.currentSongLengthMs; } catch(e:Dynamic) {}
+            if (songLengthMs <= 0) return;
+        }
+
+        updateTimer += event.elapsed;
+        if (updateTimer < 0.008) return;
+        updateTimer = 0.0;
+
         try {
-            timeBar.scale.x = apiModule.getSongProgress();
+            var progress:Float = playState.conductorInUse.songPosition / songLengthMs;
+            if (progress < 0) progress = 0;
+            else if (progress > 1) progress = 1;
+            timeBar.scale.x = progress;
         } catch(e:Dynamic) {}
     }
 }
