@@ -12,10 +12,7 @@ import StringTools;
 
 class KssetteHitsound extends Module {
     var isPaused:Bool = false;
-    var isEnabled:Bool = false;
-    var soundVolume:Float = 1.0;
     var hitSound:Dynamic = null;
-    var cachedState:PlayState = null;
 
     public function new() {
         super('KssetteHitsound');
@@ -23,34 +20,37 @@ class KssetteHitsound extends Module {
 
     function isOn(val:Dynamic):Bool {
         if (val == true) return true;
+        if (val == false) return false;
         var s = Std.string(val);
         return s == "On" || s == "on" || s == "true";
     }
 
+    function readEnabled():Bool {
+        try { return isOn(Save.instance.modOptions.get("kssette_hitsound")); } catch(e:Dynamic) {}
+        return false;
+    }
+
+    function readVolume():Float {
+        try {
+            var v = Save.instance.modOptions.get("kssette_hitsound_volume");
+            if (v != null) {
+                var p = Std.parseFloat(StringTools.replace(Std.string(v), "%", ""));
+                if (!Math.isNaN(p)) return p > 1.0 ? p / 100.0 : p;
+            }
+        } catch(e:Dynamic) {}
+        return 1.0;
+    }
+
     function playHitSound() {
         if (hitSound == null) try { hitSound = Paths.sound("play/hitsound"); } catch(e:Dynamic) {}
-        if (hitSound != null) try { FunkinSound.playOnce(hitSound, soundVolume); } catch(e:Dynamic) {}
+        if (hitSound != null) try { FunkinSound.playOnce(hitSound, readVolume()); } catch(e:Dynamic) {}
     }
 
     override public function onCountdownStart(event:Dynamic) {
         super.onCountdownStart(event);
         isPaused = false;
-        isEnabled = false;
-        soundVolume = 1.0;
         hitSound = null;
-        cachedState = PlayState.instance;
-
-        var opts = Save.instance != null ? Save.instance.modOptions : null;
-        if (opts != null) {
-            isEnabled = isOn(opts.get("kssette_hitsound"));
-            var fetchedVol = opts.get("kssette_hitsound_volume");
-            if (fetchedVol != null) {
-                var parsedVol = Std.parseFloat(StringTools.replace(Std.string(fetchedVol), "%", ""));
-                if (!Math.isNaN(parsedVol)) soundVolume = parsedVol > 1.0 ? parsedVol / 100.0 : parsedVol;
-            }
-        }
-
-        if (isEnabled) try { hitSound = Paths.sound("play/hitsound"); } catch(e:Dynamic) {}
+        try { hitSound = Paths.sound("play/hitsound"); } catch(e:Dynamic) {}
     }
 
     override function onPause(event:ScriptEvent) {
@@ -61,7 +61,6 @@ class KssetteHitsound extends Module {
     override function onStateChangeEnd(event:ScriptEvent) {
         super.onStateChangeEnd(event);
         isPaused = false;
-        cachedState = null;
     }
 
     override function onResume(event:ScriptEvent) {
@@ -70,13 +69,9 @@ class KssetteHitsound extends Module {
     }
 
     override function onNoteHit(event:Dynamic) {
-        if (!isEnabled || isPaused) return;
+        if (isPaused || !readEnabled()) return;
 
-        var state = cachedState;
-        if (state == null) {
-            state = PlayState.instance;
-            cachedState = state;
-        }
+        var state = PlayState.instance;
         if (state == null || state.isPlayerDying) return;
 
         try {
