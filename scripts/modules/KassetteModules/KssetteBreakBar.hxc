@@ -111,7 +111,8 @@ class KssetteBreakBar extends Module {
         border.zIndex = 1010;
         border.alpha = 0;
         border.cameras = [cam];
-        FlxG.state.add(border);
+        if (PlayState.instance != null && !isPreview) PlayState.instance.add(border);
+        else FlxG.state.add(border);
         
         barFill = new FlxSprite(startX + 5, centerY + 5);
         drawRoundedRect(barFill, Std.int(barWidth - 10), Std.int(barHeight - 10), 2, 0xFF999999, false, 0);
@@ -123,7 +124,8 @@ class KssetteBreakBar extends Module {
         fillClip = new flixel.math.FlxRect(0, 0, barWidth - 10, barHeight - 10);
         barFill.clipRect = fillClip;
         lastFillW = -1;
-        FlxG.state.add(barFill);
+        if (PlayState.instance != null && !isPreview) PlayState.instance.add(barFill);
+        else FlxG.state.add(barFill);
 
         breakIcon = new FlxSprite(0, 0);
         try {
@@ -150,7 +152,8 @@ class KssetteBreakBar extends Module {
         breakIcon.zIndex = 1012;
         breakIcon.alpha = 0;
         breakIcon.cameras = [cam];
-        FlxG.state.add(breakIcon);
+        if (PlayState.instance != null && !isPreview) PlayState.instance.add(breakIcon);
+        else FlxG.state.add(breakIcon);
 
         currentAlpha = 0;
         alphaTarget = 0;

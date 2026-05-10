@@ -47,7 +47,8 @@ class KssetteTimeBar extends Module {
         bar.scrollFactor.set(0, 0);
         bar.zIndex = z;
         bar.cameras = [cam];
-        FlxG.state.add(bar);
+        if (PlayState.instance != null && !isPreview) PlayState.instance.add(bar);
+        else FlxG.state.add(bar);
         return bar;
     }
 
@@ -56,10 +57,12 @@ class KssetteTimeBar extends Module {
         songLengthMs = 0.0;
         updateTimer = 0.0;
         if (timeBar != null) {
+            try { if (PlayState.instance != null && !isPreview) PlayState.instance.remove(timeBar, true); } catch(e:Dynamic) {}
             try { FlxG.state.remove(timeBar, true); } catch(e:Dynamic) {}
             timeBar.destroy();
         }
         if (timeBarBG != null) {
+            try { if (PlayState.instance != null && !isPreview) PlayState.instance.remove(timeBarBG, true); } catch(e:Dynamic) {}
             try { FlxG.state.remove(timeBarBG, true); } catch(e:Dynamic) {}
             timeBarBG.destroy();
         }

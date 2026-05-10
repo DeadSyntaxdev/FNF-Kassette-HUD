@@ -132,7 +132,8 @@ class KssetteAccuracy extends Module {
         t.setFormat(cachedFont, size, FlxColor.WHITE, align, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
         t.zIndex = z;
         t.cameras = [cam];
-        FlxG.state.add(t);
+        if (PlayState.instance != null && !isPreview) PlayState.instance.add(t);
+        else FlxG.state.add(t);
         return t;
     }
 
@@ -224,42 +225,42 @@ class KssetteAccuracy extends Module {
                 if (state.playerStrumline != null) {
                     var bg1:Dynamic = Reflect.getProperty(state.playerStrumline, "background");
                     if (bg1 != null) {
-                        state.playerStrumline.remove(bg1, true);
+                        try { state.playerStrumline.remove(bg1, true); } catch(e:Dynamic) {}
                         bg1.zIndex = 10;
                         bg1.cameras = [state.camHUD];
-                        FlxG.state.add(bg1);
+                        state.add(bg1);
                     }
                 }
                 if (state.opponentStrumline != null) {
                     var bg2:Dynamic = Reflect.getProperty(state.opponentStrumline, "background");
                     if (bg2 != null) {
-                        state.opponentStrumline.remove(bg2, true);
+                        try { state.opponentStrumline.remove(bg2, true); } catch(e:Dynamic) {}
                         bg2.zIndex = 10;
                         bg2.cameras = [state.camHUD];
-                        FlxG.state.add(bg2);
+                        state.add(bg2);
                     }
                 }
             } catch(e:Dynamic) {}
 
             if (state.healthBarBG != null) {
                 state.healthBarBG.zIndex = 110;
-                FlxG.state.remove(state.healthBarBG, true);
-                FlxG.state.add(state.healthBarBG);
+                state.remove(state.healthBarBG, true);
+                state.add(state.healthBarBG);
             }
             if (state.healthBar != null) {
                 state.healthBar.zIndex = 111;
-                FlxG.state.remove(state.healthBar, true);
-                FlxG.state.add(state.healthBar);
+                state.remove(state.healthBar, true);
+                state.add(state.healthBar);
             }
             if (state.iconP1 != null) {
                 state.iconP1.zIndex = 112;
-                FlxG.state.remove(state.iconP1, true);
-                FlxG.state.add(state.iconP1);
+                state.remove(state.iconP1, true);
+                state.add(state.iconP1);
             }
             if (state.iconP2 != null) {
                 state.iconP2.zIndex = 112;
-                FlxG.state.remove(state.iconP2, true);
-                FlxG.state.add(state.iconP2);
+                state.remove(state.iconP2, true);
+                state.add(state.iconP2);
             }
 
             setupUI(state.camHUD);

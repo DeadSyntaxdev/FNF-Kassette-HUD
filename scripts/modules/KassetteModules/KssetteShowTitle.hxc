@@ -39,6 +39,7 @@ class KssetteShowTitle extends Module {
     function killObj(obj:Dynamic) {
         if (obj != null) {
             FlxTween.cancelTweensOf(obj);
+            try { if (PlayState.instance != null && !isPreview) PlayState.instance.remove(obj); } catch(e:Dynamic) {}
             try { FlxG.state.remove(obj); } catch(e:Dynamic) {}
             obj.destroy();
         }
@@ -183,7 +184,8 @@ class KssetteShowTitle extends Module {
         titleTxt.alpha = 0; 
         titleTxt.cameras = [cam]; 
         titleTxt.zIndex = 1005;
-        FlxG.state.add(titleTxt);
+        if (PlayState.instance != null && !isPreview) PlayState.instance.add(titleTxt);
+        else FlxG.state.add(titleTxt);
 
         if (hasAlbum && albumSprite != null) {
             albumSprite.x = titleTxt.x - albumOffset;
@@ -191,14 +193,16 @@ class KssetteShowTitle extends Module {
             albumSprite.alpha = 0; 
             albumSprite.cameras = [cam]; 
             albumSprite.zIndex = 1005;
-            FlxG.state.add(albumSprite);
+            if (PlayState.instance != null && !isPreview) PlayState.instance.add(albumSprite);
+            else FlxG.state.add(albumSprite);
         }
 
         artistTxt.x = FlxG.width + 200;
         artistTxt.alpha = 0; 
         artistTxt.cameras = [cam]; 
         artistTxt.zIndex = 1005;
-        FlxG.state.add(artistTxt);
+        if (PlayState.instance != null && !isPreview) PlayState.instance.add(artistTxt);
+        else FlxG.state.add(artistTxt);
 
         if (artistStr == "Unknown Artist" || artistStr == "null" || artistStr == "") {
             artistTxt.visible = false;
@@ -217,7 +221,7 @@ class KssetteShowTitle extends Module {
             FlxTween.tween(titleTxt, {x: titleTargetX - (floatDist/2), alpha: 1}, 1.0, {ease: FlxEase.expoOut, onComplete: function(t1:FlxTween) {
                 FlxTween.tween(titleTxt, {x: titleTargetX + (floatDist/2)}, 3.5, {ease: FlxEase.linear, onComplete: function(t2:FlxTween) {
                     FlxTween.tween(titleTxt, {x: FlxG.width + 200, alpha: 0}, 1.0, {ease: FlxEase.expoIn, onComplete: function(t3:FlxTween) {
-                        if (!isPreview && titleTxt != null) { try { FlxG.state.remove(titleTxt); } catch(e:Dynamic) {} titleTxt.destroy(); titleTxt = null; }
+                        if (!isPreview && titleTxt != null) { try { PlayState.instance.remove(titleTxt); } catch(e:Dynamic) {} titleTxt.destroy(); titleTxt = null; }
                     }});
                 }});
             }});
@@ -230,7 +234,7 @@ class KssetteShowTitle extends Module {
             FlxTween.tween(albumSprite, {x: albumTargetX - (floatDist/2), alpha: 1}, 1.0, {ease: FlxEase.expoOut, onComplete: function(t1:FlxTween) {
                 FlxTween.tween(albumSprite, {x: albumTargetX + (floatDist/2)}, 3.5, {ease: FlxEase.linear, onComplete: function(t2:FlxTween) {
                     FlxTween.tween(albumSprite, {x: FlxG.width + 200, alpha: 0}, 1.0, {ease: FlxEase.expoIn, onComplete: function(t3:FlxTween) {
-                        if (!isPreview && albumSprite != null) { try { FlxG.state.remove(albumSprite); } catch(e:Dynamic) {} albumSprite.destroy(); albumSprite = null; }
+                        if (!isPreview && albumSprite != null) { try { PlayState.instance.remove(albumSprite); } catch(e:Dynamic) {} albumSprite.destroy(); albumSprite = null; }
                     }});
                 }});
             }});
@@ -243,7 +247,7 @@ class KssetteShowTitle extends Module {
             FlxTween.tween(artistTxt, {x: artistTargetX + (floatDist/2), alpha: 1}, 1.0, {ease: FlxEase.expoOut, onComplete: function(t1:FlxTween) {
                 FlxTween.tween(artistTxt, {x: artistTargetX - (floatDist/2)}, 3.5, {ease: FlxEase.linear, onComplete: function(t2:FlxTween) {
                     FlxTween.tween(artistTxt, {x: -artistTxt.width - 200, alpha: 0}, 1.0, {ease: FlxEase.expoIn, onComplete: function(t3:FlxTween) {
-                        if (!isPreview && artistTxt != null) { try { FlxG.state.remove(artistTxt); } catch(e:Dynamic) {} artistTxt.destroy(); artistTxt = null; }
+                        if (!isPreview && artistTxt != null) { try { PlayState.instance.remove(artistTxt); } catch(e:Dynamic) {} artistTxt.destroy(); artistTxt = null; }
                     }});
                 }});
             }});

@@ -441,6 +441,8 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         if (upper == "HID" || upper == "HIDDEN" || StringTools.contains(upper, "HIDDEN NOTES")) return 0xFF999999;
         if (upper == "VAN" || upper == "SLI" || upper == "FAD" || upper == "VER" || upper == "ZOO") return 0xFF9966FF;
         if (StringTools.contains(upper, "%")) return 0xFFFFFF00;
+        if (upper == "ON NOTE HIT" || upper == "HIT" || upper == "NOT") return 0xFF00CCFF;
+        if (upper == "ANYTIME" || upper == "ANY") return 0xFFFF00FF;
         return 0xFFFFFFFF;
     }
 
@@ -464,6 +466,8 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         if (upper == "BOTTOM RIGHT") return "B R";
         if (upper == "ABOVE ARROWS") return "ABV";
         if (upper == "BELOW SCORE") return "BEL";
+        if (upper == "ON NOTE HIT") return "HIT";
+        if (upper == "ANYTIME") return "ANY";
         return upper.substr(0, 3);
     }
 
@@ -547,7 +551,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         }
         createToggle("GHOST SINGING", "kssette_ghost_sing", ["On", "Off"], "Your character will play singing animations when you press empty keys.");
         createToggle("RESUME COUNTDOWN", "kssette_resume_countdown", ["On", "Off"], "Adds a 'Ready, Set, Go!' countdown when you unpause the game.");
-        createToggle("HITSOUND", "kssette_hitsound", ["Off", "On"], "Plays a sound when you press a note.");
+        createToggle("HITSOUND", "kssette_hitsound", ["Off", "On Note Hit", "Anytime"], "Plays a sound. On Note Hit triggers only when hitting notes, Anytime triggers on any tap.");
         createVolumeOption("HITSOUND VOL", "kssette_hitsound_volume", "Adjust the volume of the hitsound.");
         
         addHeader("HUD Visuals");
@@ -725,8 +729,9 @@ class KssetteMenuState extends ScriptedMusicBeatState {
     }
 
     function optionIndex(options:Array<String>, curVal:String):Int {
-        if (curVal == "true") curVal = "On";
+        if (curVal == "true") curVal = "On Note Hit";
         else if (curVal == "false") curVal = "Off";
+        else if (curVal == "On") curVal = "On Note Hit";
         var idx:Int = options.indexOf(curVal);
         return idx < 0 ? 0 : idx;
     }
@@ -798,6 +803,8 @@ class KssetteMenuState extends ScriptedMusicBeatState {
 
     function createToggle(labelText:String, saveKey:String, options:Array<String>, descStr:String) {
         var curVal:String = getSavedString(saveKey, "Off");
+        if (curVal == "On" && saveKey == "kssette_hitsound") curVal = "On Note Hit";
+        if (curVal == "true" && saveKey == "kssette_hitsound") curVal = "On Note Hit";
         var item = createOptionBase(labelText, saveKey, formatShortValue(curVal), descStr, true);
         var menuInst = this;
         item.options = options;

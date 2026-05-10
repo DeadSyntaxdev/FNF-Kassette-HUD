@@ -247,6 +247,7 @@ var triviaArray:Array<String> = [
         var oldText = subText;
         cleanUp();
         if (oldText != null) {
+            try { if (PlayState.instance != null && !isPreview) PlayState.instance.remove(oldText, true); } catch(e:Dynamic) {}
             try { FlxG.state.remove(oldText, true); } catch(e:Dynamic) {}
             try { oldText.destroy(); } catch(e:Dynamic) {}
         }
@@ -263,7 +264,10 @@ var triviaArray:Array<String> = [
         subText.visible = false;
         subText.cameras = [cam];
         subText.zIndex = 1010;
-        try { FlxG.state.add(subText); } catch(e:Dynamic) {}
+        try { 
+            if (PlayState.instance != null && !isPreview) PlayState.instance.add(subText);
+            else FlxG.state.add(subText);
+        } catch(e:Dynamic) {}
     }
 
     function compileHTML(htmlStr:String, defaultColor:Int) {
