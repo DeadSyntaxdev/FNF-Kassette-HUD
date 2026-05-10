@@ -4,40 +4,35 @@ import funkin.play.PlayState;
 import funkin.Paths;
 import flixel.text.FlxText;
 import flixel.text.FlxTextBorderStyle;
-import flixel.FlxSprite;
-import flixel.FlxG;
 import StringTools;
-import Reflect;
 import Std;
 
-
-// optional script for skyredux, just an example of what you can do. att mikassette
+// Adds compatibility fixes for Sky and Manifest note styles.
 class KssetteSkyCompat extends Module {
     var isSkyActive:Bool = false;
     var isManifest:Bool = false;
 
-    var cachedSkyTimeTxt:Dynamic; 
-    // tracking vars to hide sky hud
+    var cachedSkyTimeTxt:Dynamic;
+    // Caches Sky HUD objects so they can be hidden without repeated full searches.
     var cachedSkyTimeBG:Dynamic;
     var cachedSkyScoreTxt:Dynamic; 
     var skyTimerHunted:Bool = false;
     var skyScoreHunted:Bool = false;
     var searchAttempts:Int = 0;
+    var searchTimer:Float = 0.0;
     var stylesApplied:Bool = false;
+    var cachedState:PlayState = null;
+    var cachedAcc:Dynamic = null;
+    var cachedFontPath:String = "";
 
     public function new() {
-        // low priority to act last
-        super("KssetteSkyCompat", -50); 
+        // Runs after most modules so Sky compatibility overrides apply last.
+        super("KssetteSkyCompat", -50);
     }
 
-    function getApi():Dynamic {
-        return ModuleHandler.getModule("KssetteApi");
-    }
-
-    // force sky visual style
+    // Applies the Sky font and outline color to a Kassette HUD text object.
     function applySkyStyle(txt:Dynamic, font:String, color:Int) {
         if (txt == null) return;
-        
         try {
             if (txt.font != font || txt.borderColor != color) {
                 txt.font = font;
@@ -48,17 +43,45 @@ class KssetteSkyCompat extends Module {
         } catch(e:Dynamic) {}
     }
 
+    function applySkyStyleAll(kAcc:Dynamic, font:String, color:Int) {
+        if (kAcc == null) return;
+        applySkyStyle(kAcc.uiText, font, color);
+        applySkyStyle(kAcc.infoText, font, color);
+        applySkyStyle(kAcc.timeText, font, color);
+        applySkyStyle(kAcc.modeText, font, color);
+
+        var arr:Dynamic = kAcc.judgeLabels;
+        if (arr != null) for (txt in arr) applySkyStyle(txt, font, color);
+        arr = kAcc.judgeValues;
+        if (arr != null) for (txt in arr) applySkyStyle(txt, font, color);
+    }
+
+    function hideSkyObj(obj:Dynamic) {
+        if (obj == null) return;
+        try {
+            if (obj.y != -5000) obj.y = -5000;
+            if (obj.visible != false) obj.visible = false;
+            if (obj.alpha != 0) obj.alpha = 0;
+        } catch(e:Dynamic) {}
+    }
+
     override public function onCountdownStart(event) {
         super.onCountdownStart(event);
         
         skyTimerHunted = false;
         skyScoreHunted = false;
         searchAttempts = 0;
+        searchTimer = 0.0;
         cachedSkyTimeTxt = null;
         cachedSkyTimeBG = null;
         cachedSkyScoreTxt = null;
         stylesApplied = false;
-        
+        cachedState = null;
+        cachedAcc = null;
+        cachedFontPath = "";
+        isSkyActive = false;
+        isManifest = false;
+
         var state = PlayState.instance;
         if (state == null || state.playerStrumline == null || state.playerStrumline.noteStyle == null) return;
 
@@ -67,49 +90,43 @@ class KssetteSkyCompat extends Module {
 
         if (!isSkyActive) return;
         isManifest = (noteStyleId == 'manifest');
+        cachedState = state;
+        cachedAcc = ModuleHandler.getModule("KssetteAccuracy");
+        try { cachedFontPath = Paths.font('Planet-Joy.ttf'); } catch(e:Dynamic) {}
     }
 
     override public function onUpdate(event) {
-        super.onUpdate(event);
         
         if (!isSkyActive) return;
 
-        // style injection
-        if (!stylesApplied)
-        {
-            var kAcc:Dynamic = ModuleHandler.getModule("KssetteAccuracy");
-            if (kAcc != null && kAcc.uiText != null)
-            {
-                var fontPath = Paths.font('Planet-Joy.ttf');
-                var outlineColor:Int = !isManifest ? 0xFF002faf : 0xFFFF0000;
-
-                applySkyStyle(kAcc.uiText, fontPath, outlineColor);
-                applySkyStyle(kAcc.infoText, fontPath, outlineColor);
-                applySkyStyle(kAcc.timeText, fontPath, outlineColor);
-                applySkyStyle(kAcc.modeText, fontPath, outlineColor);
-
-                var jLabels:Dynamic = kAcc.judgeLabels;
-                var jValues:Dynamic = kAcc.judgeValues;
-
-                if (jLabels != null) {
-                    for (lbl in jLabels) applySkyStyle(lbl, fontPath, outlineColor);
+        // Injects Sky text styling once after the accuracy HUD objects exist.
+        if (!stylesApplied) {
+            var kAcc:Dynamic = cachedAcc;
+            if (kAcc == null) {
+                kAcc = ModuleHandler.getModule("KssetteAccuracy");
+                cachedAcc = kAcc;
+            }
+            if (kAcc != null && kAcc.uiText != null) {
+                var fontPath = cachedFontPath;
+                if (fontPath == null || fontPath == "") {
+                    try { fontPath = Paths.font('Planet-Joy.ttf'); cachedFontPath = fontPath; } catch(e:Dynamic) {}
                 }
-                if (jValues != null) {
-                    for (val in jValues) applySkyStyle(val, fontPath, outlineColor);
-                }
-
+                applySkyStyleAll(kAcc, fontPath, !isManifest ? 0xFF002faf : 0xFFFF0000);
                 stylesApplied = true;
             }
         }
         
-        var state = PlayState.instance;
+        var state = cachedState;
+        if (state == null) state = PlayState.instance;
         if (state == null) return;
 
-        // hide sky hud
+        // Finds and hides the native Sky timer and score HUD.
         if (!skyTimerHunted || !skyScoreHunted) {
-            if (searchAttempts < 60) {
+            searchTimer += event.elapsed;
+            if (searchAttempts < 60 && searchTimer >= 0.05) {
+                searchTimer = 0.0;
                 searchAttempts++;
-                var i:Int = state.members.length - 1; 
+                var i:Int = state.members.length - 1;
                 while (i >= 0) {
                     var member:Dynamic = state.members[i];
                     if (member != null && Std.isOfType(member, FlxText)) {
@@ -128,34 +145,17 @@ class KssetteSkyCompat extends Module {
             }
         }
 
-        if (cachedSkyTimeTxt != null) { cachedSkyTimeTxt.y = -5000; cachedSkyTimeTxt.visible = false; cachedSkyTimeTxt.alpha = 0; }
-        if (cachedSkyTimeBG != null) { cachedSkyTimeBG.y = -5000; cachedSkyTimeBG.visible = false; cachedSkyTimeBG.alpha = 0; }
-        if (cachedSkyScoreTxt != null) { cachedSkyScoreTxt.y = -5000; cachedSkyScoreTxt.visible = false; cachedSkyScoreTxt.alpha = 0; }
+        hideSkyObj(cachedSkyTimeTxt);
+        hideSkyObj(cachedSkyTimeBG);
+        hideSkyObj(cachedSkyScoreTxt);
     }
 
     override public function onDestroy(event) {
         super.onDestroy(event);
-        
-        // restore defaults
-        var kAcc:Dynamic = ModuleHandler.getModule("KssetteAccuracy");
-        if (kAcc != null) {
-            var defaultFont = "VCR OSD Mono";
-            var black = 0xFF000000;
 
-            applySkyStyle(kAcc.uiText, defaultFont, black);
-            applySkyStyle(kAcc.infoText, defaultFont, black);
-            applySkyStyle(kAcc.timeText, defaultFont, black);
-            applySkyStyle(kAcc.modeText, defaultFont, black);
-
-            var jLabels:Dynamic = kAcc.judgeLabels;
-            var jValues:Dynamic = kAcc.judgeValues;
-
-            if (jLabels != null) {
-                for (lbl in jLabels) applySkyStyle(lbl, defaultFont, black);
-            }
-            if (jValues != null) {
-                for (val in jValues) applySkyStyle(val, defaultFont, black);
-            }
-        }
+        // Restores default Kassette text styling when this module is destroyed.
+        var kAcc:Dynamic = cachedAcc;
+        if (kAcc == null) kAcc = ModuleHandler.getModule("KssetteAccuracy");
+        applySkyStyleAll(kAcc, "VCR OSD Mono", 0xFF000000);
     }
 }

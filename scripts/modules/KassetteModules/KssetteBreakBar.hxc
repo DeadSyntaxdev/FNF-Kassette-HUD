@@ -5,28 +5,171 @@ import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
 import flixel.FlxG;
 import flixel.FlxSprite;
-import flixel.text.FlxText;
-import flixel.text.FlxTextBorderStyle;
+import funkin.Paths;
 import Math;
 import Std;
 
 class KssetteBreakBar extends Module {
-    var borders:Array<FlxSprite> = [];
+    var offsetX:Float = 12;
+    var offsetY:Float = 0;
+    
+    var iconOffsetX:Float = 10;
+    var iconOffsetY:Float = -7;
+
+    var border:FlxSprite;
     var barFill:FlxSprite;
-    var breakText:FlxText;
+    var breakIcon:FlxSprite;
     var barWidth:Float = 260;
     var barHeight:Float = 20;
     var alphaTarget:Float = 0;
     var currentAlpha:Float = 0;
     var apiModule:Dynamic = null;
     var cachedActive:Bool = false;
-    var cachedFont:String = "VCR OSD Mono";
+    var fillClip:flixel.math.FlxRect = null;
+    var lastFillW:Int = -1;
+    var updateTimer:Float = 0.0;
     
     var cachedNoteTimes:Array<Dynamic> = [];
     var localNoteIndex:Int = 0;
+
+    public var isPreview:Bool = false;
+    public var previewCam:flixel.FlxCamera = null;
+    var previewBreakTimer:Float = 0.0;
     
     public function new() {
         super("KssetteBreakBar");
+    }
+
+    public function cleanupUI() {
+        if (border != null) border.destroy();
+        if (barFill != null) barFill.destroy();
+        if (breakIcon != null) breakIcon.destroy();
+        border = null;
+        barFill = null;
+        breakIcon = null;
+        fillClip = null;
+        lastFillW = -1;
+    }
+
+    override public function onStateChangeStart(event) {
+        super.onStateChangeStart(event);
+        isPreview = false;
+        cleanupUI();
+    }
+
+    function drawRoundedRect(sprite:FlxSprite, w:Int, h:Int, rad:Int, color:Int, hollow:Bool = false, thick:Int = 2) {
+        sprite.makeGraphic(w, h, 0x00000000);
+        var b = sprite.graphic.bitmap;
+        var rSq = rad * rad;
+        for (y in 0...h) {
+            for (x in 0...w) {
+                var inside = true;
+                var dx = 0.0; var dy = 0.0;
+                if (x < rad && y < rad) { dx = rad - x - 0.5; dy = rad - y - 0.5; }
+                else if (x >= w - rad && y < rad) { dx = x - (w - rad) + 0.5; dy = rad - y - 0.5; }
+                else if (x < rad && y >= h - rad) { dx = rad - x - 0.5; dy = y - (h - rad) + 0.5; }
+                else if (x >= w - rad && y >= h - rad) { dx = x - (w - rad) + 0.5; dy = y - (h - rad) + 0.5; }
+                if ((dx * dx) + (dy * dy) > rSq) inside = false;
+                if (inside) b.setPixel32(x, y, color);
+            }
+        }
+        
+        if (hollow) {
+            var innerW = w - (thick * 2);
+            var innerH = h - (thick * 2);
+            var innerRad = rad - thick;
+            if (innerRad < 0) innerRad = 0;
+            var innerRSq = innerRad * innerRad;
+            
+            for (y in 0...innerH) {
+                for (x in 0...innerW) {
+                    var inside = true;
+                    if (innerRad > 0) {
+                        var dx = 0.0; var dy = 0.0;
+                        if (x < innerRad && y < innerRad) { dx = innerRad - x - 0.5; dy = innerRad - y - 0.5; }
+                        else if (x >= innerW - innerRad && y < innerRad) { dx = x - (innerW - innerRad) + 0.5; dy = innerRad - y - 0.5; }
+                        else if (x < innerRad && y >= innerH - innerRad) { dx = innerRad - x - 0.5; dy = y - (innerH - innerRad) + 0.5; }
+                        else if (x >= innerW - innerRad && y >= innerH - innerRad) { dx = x - (innerW - innerRad) + 0.5; dy = y - (innerH - innerRad) + 0.5; }
+                        if ((dx * dx) + (dy * dy) > innerRSq) inside = false;
+                    }
+                    if (inside) b.setPixel32(x + thick, y + thick, 0x00000000);
+                }
+            }
+        }
+    }
+
+    public function setupUI(cam:flixel.FlxCamera) {
+        cleanupUI();
+
+        var centerY = (FlxG.height / 2) - 60 + offsetY;
+        var centerX = (FlxG.width / 2) + offsetX;
+        var startX = centerX - (barWidth / 2);
+        
+        border = new FlxSprite(startX, centerY);
+        drawRoundedRect(border, Std.int(barWidth), Std.int(barHeight), 5, 0xFFFFFFFF, true, 3);
+        border.scrollFactor.set(0, 0);
+        border.zIndex = 1010;
+        border.alpha = 0;
+        border.cameras = [cam];
+        if (PlayState.instance != null && !isPreview) PlayState.instance.add(border);
+        else FlxG.state.add(border);
+        
+        barFill = new FlxSprite(startX + 5, centerY + 5);
+        drawRoundedRect(barFill, Std.int(barWidth - 10), Std.int(barHeight - 10), 2, 0xFF999999, false, 0);
+        barFill.scrollFactor.set(0, 0);
+        barFill.zIndex = 1011;
+        barFill.origin.set(0, 0);
+        barFill.alpha = 0;
+        barFill.cameras = [cam];
+        fillClip = new flixel.math.FlxRect(0, 0, barWidth - 10, barHeight - 10);
+        barFill.clipRect = fillClip;
+        lastFillW = -1;
+        if (PlayState.instance != null && !isPreview) PlayState.instance.add(barFill);
+        else FlxG.state.add(barFill);
+
+        breakIcon = new FlxSprite(0, 0);
+        try {
+            var iconImg = Paths.image("ui/hud/break");
+            if (iconImg != null) {
+                breakIcon.loadGraphic(iconImg);
+            } else {
+                breakIcon.makeGraphic(30, 30, 0xFFFFFFFF);
+            }
+        } catch(e:Dynamic) {
+            breakIcon.makeGraphic(30, 30, 0xFFFFFFFF);
+        }
+        
+        if (breakIcon.graphic != null) {
+            var sRatio = 35 / breakIcon.graphic.width;
+            breakIcon.scale.set(sRatio, sRatio);
+            breakIcon.updateHitbox();
+        }
+
+        breakIcon.x = startX - breakIcon.width - 15 + iconOffsetX; 
+        breakIcon.y = centerY + (barHeight - breakIcon.height) / 2 + iconOffsetY;
+        
+        breakIcon.scrollFactor.set(0, 0);
+        breakIcon.zIndex = 1012;
+        breakIcon.alpha = 0;
+        breakIcon.cameras = [cam];
+        if (PlayState.instance != null && !isPreview) PlayState.instance.add(breakIcon);
+        else FlxG.state.add(breakIcon);
+
+        currentAlpha = 0;
+        alphaTarget = 0;
+    }
+
+    function setFillWidth(fillW:Int):Void {
+        if (barFill == null || !barFill.exists) return;
+        if (fillW < 1) fillW = 1;
+        if (fillW == lastFillW) return;
+        lastFillW = fillW;
+        if (fillClip == null) {
+            fillClip = new flixel.math.FlxRect(0, 0, fillW, barHeight - 10);
+        } else {
+            fillClip.width = fillW;
+        }
+        barFill.clipRect = fillClip;
     }
     
     override public function onCountdownStart(event) {
@@ -39,126 +182,122 @@ class KssetteBreakBar extends Module {
         if (apiModule != null) {
             apiModule.registerModule("KssetteBreakBar", this);
             cachedActive = apiModule.getKssValue("kssette_show_breakbar") == true;
-
-            cachedFont = apiModule.getHudFont();
-            if (cachedFont == null || cachedFont == "null" || cachedFont == "") cachedFont = "VCR OSD Mono";
-            
             cachedNoteTimes = apiModule.playerNoteTimes;
         }
         
         localNoteIndex = 0;
-        
-        if (borders != null) {
-            for (b in borders) {
-                if (b != null) b.destroy();
-            }
-        }
-        borders = [];
-        
-        if (barFill != null) barFill.destroy();
-        if (breakText != null) breakText.destroy();
-        
-        var centerY = (FlxG.height / 2) - 60;
-        var centerX = FlxG.width / 2;
-        var startX = centerX - (barWidth / 2);
-        var thick = 4;
-        
-        var bTop = new FlxSprite(startX, centerY).makeGraphic(Std.int(barWidth), thick, 0xFFFFFFFF);
-        var bBot = new FlxSprite(startX, centerY + barHeight - thick).makeGraphic(Std.int(barWidth), thick, 0xFFFFFFFF);
-        var bLeft = new FlxSprite(startX, centerY + thick).makeGraphic(thick, Std.int(barHeight - thick * 2), 0xFFFFFFFF);
-        var bRight = new FlxSprite(startX + barWidth - thick, centerY + thick).makeGraphic(thick, Std.int(barHeight - thick * 2), 0xFFFFFFFF);
-        
-        borders = [bTop, bBot, bLeft, bRight];
-        for (b in borders) {
-            b.scrollFactor.set(0, 0);
-            b.zIndex = 995;
-            b.alpha = 0;
-            if (state.camHUD != null) b.cameras = [state.camHUD];
-            state.add(b);
-        }
-        
-        barFill = new FlxSprite(startX + thick, centerY + thick).makeGraphic(Std.int(barWidth - thick * 2), Std.int(barHeight - thick * 2), 0xFFFFFFFF);
-        barFill.scrollFactor.set(0, 0);
-        barFill.zIndex = 994;
-        barFill.origin.set(0, 0);
-        barFill.alpha = 0;
-        if (state.camHUD != null) barFill.cameras = [state.camHUD];
-        state.add(barFill);
+        updateTimer = 0.0;
+        isPreview = false;
 
-        breakText = new FlxText(startX, centerY - 28, barWidth, "BREAK", 20);
-        breakText.setFormat(cachedFont, 20, 0xFFFFFFFF, "center", FlxTextBorderStyle.OUTLINE, 0xFF000000);
-        breakText.scrollFactor.set(0, 0);
-        breakText.zIndex = 996;
-        breakText.alpha = 0;
-        if (state.camHUD != null) breakText.cameras = [state.camHUD];
-        state.add(breakText);
+        if (state.camHUD != null) {
+            setupUI(state.camHUD);
+        }
+    }
 
-        currentAlpha = 0;
-        alphaTarget = 0;
+    public function buildPreview(cam:flixel.FlxCamera) {
+        isPreview = true;
+        previewCam = cam;
+        
+        apiModule = ModuleHandler.getModule("KssetteApi");
+
+        setupUI(cam);
+        previewBreakTimer = 6.0;
+        updatePreview();
+    }
+
+    public function updatePreview() {
+        if (!isPreview || breakIcon == null || !breakIcon.exists) return;
+
+        apiModule = ModuleHandler.getModule("KssetteApi");
+        if (apiModule != null) {
+            cachedActive = apiModule.getKssValue("kssette_show_breakbar") == true;
+        }
     }
     
     override public function onUpdate(event) {
-        super.onUpdate(event);
-        if (!cachedActive || barFill == null || breakText == null) return;
-
-        var breakActive:Bool = false;
-        var breakProgress:Float = 0.0;
         
-        var state = PlayState.instance;
-        if (state != null && state.conductorInUse != null) {
-            if (cachedNoteTimes != null && cachedNoteTimes.length > 0) {
-                var currentTime = state.conductorInUse.songPosition;
-                var noteIndex:Int = localNoteIndex;
-
-                while (noteIndex < cachedNoteTimes.length && cachedNoteTimes[noteIndex].start <= currentTime) {
-                    noteIndex++;
-                }
-                
-                localNoteIndex = noteIndex;
-
-                if (noteIndex < cachedNoteTimes.length) {
-                    var nextTime:Float = cachedNoteTimes[noteIndex].start;
-                    var prevTime:Float = 0;
-                    if (noteIndex > 0) prevTime = cachedNoteTimes[noteIndex - 1].end;
-                    
-                    var gap = nextTime - prevTime;
-                    if (gap >= 2500) {
-                        var timeSincePrev = currentTime - prevTime;
-                        var timeUntilNext = nextTime - currentTime;
-
-                        if (timeSincePrev > 400 && timeUntilNext > 400) {
-                            var totalVisibleTime = gap - 800; 
-                            var currentVisibleTime = timeSincePrev - 400;
-                            breakProgress = currentVisibleTime / totalVisibleTime;
-                            breakActive = true;
-                        }
-                    }
-                }
-            }
+        if (barFill == null || !barFill.exists || breakIcon == null || !breakIcon.exists) {
+            alphaTarget = 0;
+            return;
         }
 
-        if (breakActive) {
-            alphaTarget = 1;
-            var prog = 1.0 - breakProgress; 
-            if (prog < 0) prog = 0;
-            if (prog > 1) prog = 1;
-            barFill.scale.x = prog;
+        var elapsed = event.elapsed;
+        updateTimer += elapsed;
+        if (updateTimer < 0.008) return;
+        elapsed = updateTimer;
+        updateTimer = 0.0;
+
+        if (isPreview) {
+            alphaTarget = 0;
+            if (cachedActive) {
+                previewBreakTimer -= elapsed;
+                if (previewBreakTimer <= 0) previewBreakTimer = 6.0;
+
+                if (previewBreakTimer <= 5.0) {
+                    alphaTarget = 1;
+                    var prog = previewBreakTimer / 5.0;
+                    if (prog < 0) prog = 0;
+                    if (prog > 1) prog = 1;
+                    setFillWidth(Std.int((barWidth - 10) * prog));
+                }
+            }
+        } else if (cachedActive) {
+            var state = PlayState.instance;
+            if (state != null && state.conductorInUse != null) {
+                if (cachedNoteTimes != null && cachedNoteTimes.length > 0) {
+                    var currentTime = state.conductorInUse.songPosition;
+                    var noteIndex:Int = localNoteIndex;
+
+                    while (noteIndex < cachedNoteTimes.length && cachedNoteTimes[noteIndex].start <= currentTime) {
+                        noteIndex++;
+                    }
+                    
+                    localNoteIndex = noteIndex;
+
+                    if (noteIndex < cachedNoteTimes.length) {
+                        var nextTime:Float = cachedNoteTimes[noteIndex].start;
+                        var prevTime:Float = 0;
+                        if (noteIndex > 0) prevTime = cachedNoteTimes[noteIndex - 1].end;
+                        
+                        var gap = nextTime - prevTime;
+                        if (gap >= 2500) {
+                            var timeSincePrev = currentTime - prevTime;
+                            var timeUntilNext = nextTime - currentTime;
+
+                            if (timeSincePrev > 400 && timeUntilNext > 400) {
+                                var totalVisibleTime = gap - 800; 
+                                var currentVisibleTime = timeSincePrev - 400;
+                                var prog = 1.0 - (currentVisibleTime / totalVisibleTime);
+                                if (prog < 0) prog = 0;
+                                if (prog > 1) prog = 1;
+                                alphaTarget = 1;
+                                setFillWidth(Std.int((barWidth - 10) * prog));
+                            } else {
+                                alphaTarget = 0;
+                            }
+                        } else {
+                            alphaTarget = 0;
+                        }
+                    } else {
+                        alphaTarget = 0;
+                    }
+                } else {
+                    alphaTarget = 0;
+                }
+            } else {
+                alphaTarget = 0;
+            }
         } else {
             alphaTarget = 0;
         }
         
         if (currentAlpha == 0 && alphaTarget == 0) return;
 
-        currentAlpha += (alphaTarget - currentAlpha) * (event.elapsed * 10);
+        currentAlpha += (alphaTarget - currentAlpha) * (elapsed * 10);
         if (Math.abs(alphaTarget - currentAlpha) < 0.01) currentAlpha = alphaTarget;
         
-        var borderAlpha = currentAlpha * 0.6;
-        borders[0].alpha = borderAlpha;
-        borders[1].alpha = borderAlpha;
-        borders[2].alpha = borderAlpha;
-        borders[3].alpha = borderAlpha;
-        
-        barFill.alpha = currentAlpha * 0.4;
-        breakText.alpha = currentAlpha * 0.8;
+        if (border != null && border.exists) border.alpha = currentAlpha * 0.5;
+        barFill.alpha = currentAlpha * 0.5;
+        breakIcon.alpha = currentAlpha * 0.5;
     }
 }
