@@ -27,14 +27,14 @@ import openfl.utils.Assets;
 
 class KssetteApi extends Module {
     final optionsID:String = "kassette-hud";
-    public var hudVersion:String = "0.2.0";
+    public var hudVersion:String = "0.2.0.1";
     var optionKeys:Array<String> = [
         "kssette_show_score", "kssette_show_misses",
         "kssette_acc_mode", "kssette_show_rank", "kssette_show_tier",
         "kssette_middlescroll", "kssette_opponent_pos", "kssette_opponent_bg", "kssette_ghost_tapping",
         "kssette_ghost_sing", "kssette_show_timebar", "kssette_info_pos",
         "kssette_show_song_title", "kssette_show_song_diff",
-        "kssette_show_song_time", "kssette_judge_pos", "kssette_mobile_keyboard",
+        "kssette_show_song_time", "kssette_judge_pos", "kssette_mobile_keyboard", "kssette_mobile_opp_notes",
         "kssette_timebar_pos", "kssette_show_breakbar", "kssette_resume_countdown",
         "kssette_smooth_display", "kssette_custom_font",
         "kssette_custom_pixel_font",
@@ -217,6 +217,8 @@ class KssetteApi extends Module {
                 switch (opt) {
                     case "kssette_middlescroll", "kssette_opponent_bg", "kssette_ghost_sing", "kssette_judge_pos", "kssette_smart_karaoke", "kssette_night_mode", "kssette_hitsound", "kssette_mobile_keyboard":
                         defaultVal = "Off";
+                    case "kssette_mobile_opp_notes":
+                        defaultVal = "On";
                     case "kssette_opponent_pos":
                         defaultVal = "Left";
                     case "kssette_acc_mode":

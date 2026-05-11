@@ -542,6 +542,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         
         if (FlxG.onMobile) {
             createToggle("PC/HITBOX MODE", "kssette_mobile_keyboard", ["On", "Off"], "Enable if using a Hitbox or Keyboard on mobile. Unlocks PC settings.");
+            createToggle("OPP NOTES FALL", "kssette_mobile_opp_notes", ["On", "Off"], "Shows the opponent's notes when using the mobile Arrows layout.");
         }
         
         if (showPCOptions) {
