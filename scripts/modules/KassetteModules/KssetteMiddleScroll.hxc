@@ -26,6 +26,7 @@ class KssMiddlescroll extends Module {
     var cachedHasSplashOffsets:Bool = false;
     var cachedSplashOffsetX:Float = 0.0;
     var splashUpdateTimer:Float = 0.0;
+    var lastNudgedStrum:Dynamic = null;
 
     public function new() {
         super('KssMiddlescroll'); 
@@ -237,10 +238,13 @@ class KssMiddlescroll extends Module {
                 state.opponentStrumline.holdNotes.visible = true;
                 state.opponentStrumline.isDownscroll = false;
                 
-                var nudgeY:Float = -15.0; 
-                var nudgeX:Float = -45.0; 
-                state.opponentStrumline.y += nudgeY; 
-                state.opponentStrumline.x += nudgeX; 
+                if (lastNudgedStrum != state.opponentStrumline) {
+                    var nudgeY:Float = -15.0; 
+                    var nudgeX:Float = -65.0; 
+                    state.opponentStrumline.y += nudgeY; 
+                    state.opponentStrumline.x += nudgeX; 
+                    lastNudgedStrum = state.opponentStrumline;
+                }
             }
         }
 
@@ -268,10 +272,13 @@ class KssMiddlescroll extends Module {
             state.opponentStrumline.holdNotes.visible = true;
             state.opponentStrumline.isDownscroll = false;
             
-            var nudgeY:Float = -15.0;
-            var nudgeX:Float = -45.0;
-            state.opponentStrumline.y += nudgeY;
-            state.opponentStrumline.x += nudgeX;
+            if (lastNudgedStrum != state.opponentStrumline) {
+                var nudgeY:Float = -15.0;
+                var nudgeX:Float = -65.0;
+                state.opponentStrumline.y += nudgeY;
+                state.opponentStrumline.x += nudgeX;
+                lastNudgedStrum = state.opponentStrumline;
+            }
         }
     }
 
@@ -340,6 +347,10 @@ class KssMiddlescroll extends Module {
                 if (note.scale.x != targetScale || note.scale.y != targetScale) {
                     note.scale.set(targetScale, targetScale);
                     note.updateHitbox();
+                    
+                    if (applyArrowLogic && cachedMode != "On") {
+                        note.offset.y -= pixel ? 4 : 15;
+                    }
                 }
                 note.alpha = 1.0;
 
