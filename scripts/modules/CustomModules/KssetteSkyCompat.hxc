@@ -1,46 +1,50 @@
+package kassettehud.util;
+
+import flixel.FlxG;
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
 import funkin.Paths;
 import flixel.text.FlxText;
 import flixel.text.FlxTextBorderStyle;
+import funkin.Preferences;
 import StringTools;
 import Std;
+import Reflect;
 
-// Adds compatibility fixes for Sky and Manifest note styles.
 class KssetteSkyCompat extends Module {
     var isSkyActive:Bool = false;
     var isManifest:Bool = false;
 
-    var cachedSkyTimeTxt:Dynamic;
-    // Caches Sky HUD objects so they can be hidden without repeated full searches.
-    var cachedSkyTimeBG:Dynamic;
-    var cachedSkyScoreTxt:Dynamic; 
-    var skyTimerHunted:Bool = false;
-    var skyScoreHunted:Bool = false;
-    var searchAttempts:Int = 0;
-    var searchTimer:Float = 0.0;
-    var stylesApplied:Bool = false;
-    var cachedState:PlayState = null;
-    var cachedAcc:Dynamic = null;
+    var skyHUDModule:Dynamic = null;
+    
     var cachedFontPath:String = "";
+    
+    var originalTimerX:Float = -1;
+    var originalTimerY:Float = -1;
+    
+    var origPopupBgX:Float = -1;
+    var origPopupBgY:Float = -1;
+    var origRatingX:Float = -1;
+    var origRatingY:Float = -1;
+    var origComboX:Float = -1;
+    var origComboY:Float = -1;
+    
+    var lastP1Id:String = "";
+    var lastP2Id:String = "";
 
     public function new() {
-        // Runs after most modules so Sky compatibility overrides apply last.
         super("KssetteSkyCompat", -50);
     }
 
-    // Applies the Sky font and outline color to a Kassette HUD text object.
     function applySkyStyle(txt:Dynamic, font:String, color:Int) {
         if (txt == null) return;
-        try {
-            if (txt.font != font || txt.borderColor != color) {
-                txt.font = font;
-                txt.borderStyle = FlxTextBorderStyle.OUTLINE;
-                txt.borderColor = color;
-                txt.borderSize = 2;
-            }
-        } catch(e:Dynamic) {}
+        if (txt.font != font || txt.borderColor != color) {
+            txt.font = font;
+            txt.borderStyle = FlxTextBorderStyle.OUTLINE;
+            txt.borderColor = color;
+            txt.borderSize = 2;
+        }
     }
 
     function applySkyStyleAll(kAcc:Dynamic, font:String, color:Int) {
@@ -50,37 +54,36 @@ class KssetteSkyCompat extends Module {
         applySkyStyle(kAcc.timeText, font, color);
         applySkyStyle(kAcc.modeText, font, color);
 
-        var arr:Dynamic = kAcc.judgeLabels;
-        if (arr != null) for (txt in arr) applySkyStyle(txt, font, color);
-        arr = kAcc.judgeValues;
-        if (arr != null) for (txt in arr) applySkyStyle(txt, font, color);
+        var labels:Array<Dynamic> = kAcc.judgeLabels;
+        if (labels != null) {
+            for (i in 0...labels.length) applySkyStyle(labels[i], font, color);
+        }
+        
+        var values:Array<Dynamic> = kAcc.judgeValues;
+        if (values != null) {
+            for (i in 0...values.length) applySkyStyle(values[i], font, color);
+        }
     }
 
-    function hideSkyObj(obj:Dynamic) {
-        if (obj == null) return;
-        try {
-            if (obj.y != -5000) obj.y = -5000;
-            if (obj.visible != false) obj.visible = false;
-            if (obj.alpha != 0) obj.alpha = 0;
-        } catch(e:Dynamic) {}
-    }
-
-    override public function onCountdownStart(event) {
+    override public function onCountdownStart(event:Dynamic) {
         super.onCountdownStart(event);
         
-        skyTimerHunted = false;
-        skyScoreHunted = false;
-        searchAttempts = 0;
-        searchTimer = 0.0;
-        cachedSkyTimeTxt = null;
-        cachedSkyTimeBG = null;
-        cachedSkyScoreTxt = null;
-        stylesApplied = false;
-        cachedState = null;
-        cachedAcc = null;
         cachedFontPath = "";
+        originalTimerX = -1;
+        originalTimerY = -1;
+        
+        origPopupBgX = -1;
+        origPopupBgY = -1;
+        origRatingX = -1;
+        origRatingY = -1;
+        origComboX = -1;
+        origComboY = -1;
+        
+        lastP1Id = "";
+        lastP2Id = "";
         isSkyActive = false;
         isManifest = false;
+        skyHUDModule = ModuleHandler.getModule("SkyHUD");
 
         var state = PlayState.instance;
         if (state == null || state.playerStrumline == null || state.playerStrumline.noteStyle == null) return;
@@ -90,72 +93,294 @@ class KssetteSkyCompat extends Module {
 
         if (!isSkyActive) return;
         isManifest = (noteStyleId == 'manifest');
-        cachedState = state;
-        cachedAcc = ModuleHandler.getModule("KssetteAccuracy");
-        try { cachedFontPath = Paths.font('Planet-Joy.ttf'); } catch(e:Dynamic) {}
+        cachedFontPath = Paths.font('Planet-Joy.ttf');
+
+        if (skyHUDModule != null && skyHUDModule.timerBackdrop != null) {
+            try {
+                if (state.playerStrumline != null) {
+                    var bg1:Dynamic = Reflect.getProperty(state.playerStrumline, "background");
+                    if (bg1 != null) {
+                        try { state.playerStrumline.remove(bg1, true); } catch(e:Dynamic) {}
+                        bg1.zIndex = 10;
+                        bg1.cameras = [state.camHUD];
+                        state.add(bg1);
+                    }
+                }
+                if (state.opponentStrumline != null) {
+                    var bg2:Dynamic = Reflect.getProperty(state.opponentStrumline, "background");
+                    if (bg2 != null) {
+                        try { state.opponentStrumline.remove(bg2, true); } catch(e:Dynamic) {}
+                        bg2.zIndex = 10;
+                        bg2.cameras = [state.camHUD];
+                        state.add(bg2);
+                    }
+                }
+            } catch(e:Dynamic) {}
+
+            skyHUDModule.timerBackdrop.zIndex = 11;
+            skyHUDModule.timeTxt.zIndex = 12;
+            skyHUDModule.popupBackdrop.zIndex = 11;
+            skyHUDModule.ratingPopup.zIndex = 12;
+            skyHUDModule.comboTxt.zIndex = 12;
+            try { state.refresh(); } catch(e:Dynamic) {}
+        }
     }
 
-    override public function onUpdate(event) {
-        
+    override public function onUpdate(event:Dynamic) {
         if (!isSkyActive) return;
 
-        // Injects Sky text styling once after the accuracy HUD objects exist.
-        if (!stylesApplied) {
-            var kAcc:Dynamic = cachedAcc;
-            if (kAcc == null) {
-                kAcc = ModuleHandler.getModule("KssetteAccuracy");
-                cachedAcc = kAcc;
+        var state = PlayState.instance;
+        if (state == null) return;
+
+        var kAcc:Dynamic = ModuleHandler.getModule("KssetteAccuracy");
+        var api:Dynamic = ModuleHandler.getModule("KssetteApi");
+
+        if (api != null && api._kssCache != null) {
+            var curCachedFont = api._kssCache.get("kssette_custom_font");
+            
+            if (curCachedFont != "Planet-Joy.ttf") {
+                api._kssCache.set("kssette_custom_font", "Planet-Joy.ttf");
+                api.cachedCustomFontPath = cachedFontPath;
+                api.lastFontKey = "Planet-Joy.ttf";
+                api._cachedHudFont = cachedFontPath;
+                
+                if (kAcc != null) applySkyStyleAll(kAcc, cachedFontPath, !isManifest ? 0xFF002faf : 0xFFFF0000);
             }
-            if (kAcc != null && kAcc.uiText != null) {
-                var fontPath = cachedFontPath;
-                if (fontPath == null || fontPath == "") {
-                    try { fontPath = Paths.font('Planet-Joy.ttf'); cachedFontPath = fontPath; } catch(e:Dynamic) {}
+
+            if (api._kssCache.get("kssette_show_song_time") != "Off") {
+                api._kssCache.set("kssette_show_song_time", "Off");
+            }
+        }
+
+        if (kAcc != null && kAcc.timeText != null && kAcc.timeText.visible) {
+            kAcc.timeText.visible = false;
+            kAcc.timeText.alpha = 0;
+        }
+
+        if (skyHUDModule != null && skyHUDModule.reduxHealthBar != null) {
+            
+            if (api != null && api.getKssValue("kssette_colored_healthbar") == true) {
+                if (state.iconP1 != null && state.iconP2 != null) {
+                    var curP1:String = state.iconP1.characterId != null ? state.iconP1.characterId : "none1";
+                    var curP2:String = state.iconP2.characterId != null ? state.iconP2.characterId : "none2";
+                    
+                    if (curP1 != lastP1Id || curP2 != lastP2Id) {
+                        lastP1Id = curP1;
+                        lastP2Id = curP2;
+                        
+                        var p1Color:Int = api.extractIconColor(state.iconP1, true, curP1);
+                        var p2Color:Int = api.extractIconColor(state.iconP2, false, curP2);
+                        
+                        skyHUDModule.reduxHealthBar.createFilledBar(p2Color, p1Color);
+                        skyHUDModule.reduxHealthBar.updateBar();
+                    }
                 }
-                applySkyStyleAll(kAcc, fontPath, !isManifest ? 0xFF002faf : 0xFFFF0000);
-                stylesApplied = true;
+            } else if (lastP1Id != "") {
+                lastP1Id = "";
+                lastP2Id = "";
+                skyHUDModule.reduxHealthBar.createFilledBar(0xFFFF0000, !isManifest ? 0xFF66FF33 : 0xFFFFFFFF);
+                skyHUDModule.reduxHealthBar.updateBar();
+            }
+
+            if (state.iconP1 != null && state.iconP2 != null) {
+                var icon1Idx = state.members.indexOf(state.iconP1);
+                var icon2Idx = state.members.indexOf(state.iconP2);
+                
+                var maxBarIdx:Int = -1;
+                var barParts:Array<Dynamic> = [
+                    skyHUDModule.reduxHealthBar,
+                    skyHUDModule.reduxHealthBarBG,
+                    state.healthBar,
+                    state.healthBarBG
+                ];
+                
+                for (part in barParts) {
+                    if (part != null) {
+                        var idx = state.members.indexOf(part);
+                        if (idx > maxBarIdx) maxBarIdx = idx;
+                    }
+                }
+                
+                if (maxBarIdx != -1 && (icon1Idx < maxBarIdx || icon2Idx < maxBarIdx)) {
+                    state.remove(state.iconP1, true);
+                    state.remove(state.iconP2, true);
+                    
+                    maxBarIdx = -1;
+                    for (part in barParts) {
+                        if (part != null) {
+                            var idx = state.members.indexOf(part);
+                            if (idx > maxBarIdx) maxBarIdx = idx;
+                        }
+                    }
+                    
+                    state.insert(maxBarIdx + 1, state.iconP1);
+                    state.insert(maxBarIdx + 2, state.iconP2);
+                }
             }
         }
         
-        var state = cachedState;
-        if (state == null) state = PlayState.instance;
-        if (state == null) return;
+        if (skyHUDModule != null) {
+            if (skyHUDModule.reduxScoreTxt != null && skyHUDModule.reduxScoreTxt.visible) {
+                skyHUDModule.reduxScoreTxt.visible = false;
+            }
 
-        // Finds and hides the native Sky timer and score HUD.
-        if (!skyTimerHunted || !skyScoreHunted) {
-            searchTimer += event.elapsed;
-            if (searchAttempts < 60 && searchTimer >= 0.05) {
-                searchTimer = 0.0;
-                searchAttempts++;
-                var i:Int = state.members.length - 1;
-                while (i >= 0) {
-                    var member:Dynamic = state.members[i];
-                    if (member != null && Std.isOfType(member, FlxText)) {
-                        if (!skyTimerHunted && member.size == 35) {
-                            cachedSkyTimeTxt = member;
-                            if (i > 0) cachedSkyTimeBG = state.members[i - 1]; 
-                            skyTimerHunted = true;
+            if (skyHUDModule.timerBackdrop != null && skyHUDModule.timeTxt != null) {
+                
+                if (originalTimerX == -1) {
+                    originalTimerX = skyHUDModule.timerBackdrop.x;
+                    originalTimerY = skyHUDModule.timerBackdrop.y;
+                }
+                
+                if (origPopupBgX == -1 && skyHUDModule.popupBackdrop != null) {
+                    origPopupBgX = skyHUDModule.popupBackdrop.x;
+                    origPopupBgY = skyHUDModule.popupBackdrop.y;
+                    origRatingX = skyHUDModule.ratingPopup.x;
+                    origRatingY = skyHUDModule.ratingPopup.y;
+                    origComboX = skyHUDModule.comboTxt.x;
+                    origComboY = skyHUDModule.comboTxt.y;
+                }
+
+                if (api != null) {
+                    var mid = api.getKssValue("kssette_middlescroll");
+                    var isMidScroll = (mid == "On" || mid == true || mid == "P Style");
+                    var judgePos = Std.string(api.getKssValue("kssette_judge_pos"));
+                    var timeBarPos = Std.string(api.getKssValue("kssette_timebar_pos"));
+                    var infoPos = Std.string(api.getKssValue("kssette_info_pos"));
+                    var isMobile = api.isMobileMode == true;
+                    
+                    var forceDownscrollLook = false;
+                    if (isMobile) {
+                        try { if (api.isMobileLikePC() == false) forceDownscrollLook = true; } catch(e:Dynamic) {}
+                    }
+                    var isDownscroll = Preferences.downscroll || forceDownscrollLook;
+
+                    var tX:Float = originalTimerX != -1 ? originalTimerX : (FlxG.width - skyHUDModule.timerBackdrop.width) / 2;
+                    var tY:Float = originalTimerY != -1 ? originalTimerY : 20;
+
+                    var showTimeBar = api.getKssValue("kssette_show_timebar") == true;
+                    var isTimeBarTop = showTimeBar && (timeBarPos == "Top" || timeBarPos == "Top Left" || timeBarPos == "Top Right");
+                    var isTimeBarBottom = showTimeBar && (timeBarPos == "Bottom" || timeBarPos == "Bottom Left" || timeBarPos == "Bottom Right");
+
+                    if (isMidScroll) {
+                        if (isMobile) {
+                            if (judgePos == "Top Left" || judgePos == "Left") tX = FlxG.width - skyHUDModule.timerBackdrop.width - 15;
+                            else tX = 15;
+                            
+                            if (!isDownscroll) {
+                                tY = isTimeBarBottom ? FlxG.height - 135 : FlxG.height - 85; 
+                            } else {
+                                tY = isTimeBarTop ? 135 : 85; 
+                            }
+                        } else {
+                            if (judgePos == "Top Left") tX = FlxG.width - skyHUDModule.timerBackdrop.width - 20;
+                            else tX = 20;
+                            
+                            if (!isDownscroll) {
+                                tY = isTimeBarBottom ? FlxG.height - 100 : FlxG.height - 60; 
+                                if (infoPos == "Bottom Left" && judgePos != "Top Left") {
+                                    tY -= 45;
+                                }
+                            } else {
+                                tY = isTimeBarTop ? 60 : 20; 
+                            }
                         }
-                        if (!skyScoreHunted && member.size == 16 && member.text != null && StringTools.startsWith(member.text, "Score:")) {
-                            cachedSkyScoreTxt = member;
-                            skyScoreHunted = true;
+                    } else {
+                        tX = (FlxG.width - skyHUDModule.timerBackdrop.width) / 2;
+                        if (!forceDownscrollLook) tX -= 50;
+                        
+                        if (isMobile) {
+                            if (isTimeBarBottom) {
+                                var timeMod:Dynamic = ModuleHandler.getModule("KssetteTimeBar");
+                                if (timeMod != null) {
+                                    if (timeMod.timeBarBG != null && timeMod.timeBarBG.y > FlxG.height - 40) {
+                                        var offset = timeMod.timeBarBG.y - (FlxG.height - 55);
+                                        timeMod.timeBarBG.y -= offset;
+                                        if (timeMod.timeBar != null) timeMod.timeBar.y -= offset;
+                                    }
+                                }
+                            }
+
+                            if (kAcc != null && kAcc.uiText != null) {
+                                tY = kAcc.uiText.y + kAcc.uiText.height - 28;
+                            } else {
+                                tY = isTimeBarTop ? 125 : 75;
+                            }
+                        } else {
+                            if (!isDownscroll) {
+                                tY = 20; 
+                            } else {
+                                tY = FlxG.height - 135; 
+                            }
+                            
+                            if (isTimeBarBottom && tY > FlxG.height - 125) {
+                                tY -= 40; 
+                            } else if (isTimeBarTop && tY < 80) {
+                                tY += 40; 
+                            }
                         }
                     }
-                    i--;
+
+                    skyHUDModule.timerBackdrop.x = tX;
+                    skyHUDModule.timerBackdrop.y = tY;
+                    skyHUDModule.timeTxt.x = skyHUDModule.timerBackdrop.x + (skyHUDModule.timerBackdrop.width - skyHUDModule.timeTxt.width) / 2;
+                    skyHUDModule.timeTxt.y = skyHUDModule.timerBackdrop.y + (skyHUDModule.timerBackdrop.height - skyHUDModule.timeTxt.height) / 2;
+                    
+                    if (isMobile && !isMidScroll) {
+                        if (infoPos == "Below Score" && kAcc != null && kAcc.infoText != null) {
+                            kAcc.infoText.y = skyHUDModule.timerBackdrop.y + skyHUDModule.timerBackdrop.height - 28;
+                        }
+                    }
+
+                    if (skyHUDModule.reduxHealthBarBG != null && state.healthBar != null && state.healthBarBG != null) {
+                        var targetBGY = state.healthBar.y - (!isManifest ? 100 : 70);
+                        var targetHBY = targetBGY + (!isManifest ? 60 : 30);
+                        
+                        if (!isDownscroll && isTimeBarBottom) {
+                            targetBGY -= 25;
+                            targetHBY -= 25;
+                            if (state.iconP1 != null) state.iconP1.y = state.healthBar.y - (state.iconP1.height / 2) - 25;
+                            if (state.iconP2 != null) state.iconP2.y = state.healthBar.y - (state.iconP2.height / 2) - 25;
+                        }
+                        
+                        skyHUDModule.reduxHealthBarBG.y = targetBGY;
+                        skyHUDModule.reduxHealthBar.y = targetHBY;
+                    }
+
+                    if (kAcc != null && kAcc.uiText != null && !isDownscroll) {
+                        kAcc.uiText.y = isTimeBarBottom ? FlxG.height - 45 : FlxG.height - 20;
+                    }
+
+                    if (skyHUDModule.popupBackdrop != null && origPopupBgX != -1) {
+                        skyHUDModule.popupBackdrop.x = origPopupBgX;
+                        skyHUDModule.popupBackdrop.y = origPopupBgY;
+                        skyHUDModule.ratingPopup.x = origRatingX;
+                        skyHUDModule.ratingPopup.y = origRatingY;
+                        skyHUDModule.comboTxt.x = origComboX;
+                        skyHUDModule.comboTxt.y = origComboY;
+                    }
                 }
             }
         }
-
-        hideSkyObj(cachedSkyTimeTxt);
-        hideSkyObj(cachedSkyTimeBG);
-        hideSkyObj(cachedSkyScoreTxt);
     }
 
-    override public function onDestroy(event) {
+    override public function onDestroy(event:Dynamic) {
         super.onDestroy(event);
 
-        // Restores default Kassette text styling when this module is destroyed.
-        var kAcc:Dynamic = cachedAcc;
-        if (kAcc == null) kAcc = ModuleHandler.getModule("KssetteAccuracy");
-        applySkyStyleAll(kAcc, "VCR OSD Mono", 0xFF000000);
+        var api:Dynamic = ModuleHandler.getModule("KssetteApi");
+        if (api != null && Reflect.hasField(api, "refreshOptionCache")) {
+            api.refreshOptionCache();
+            
+            var kAcc:Dynamic = ModuleHandler.getModule("KssetteAccuracy");
+            if (kAcc != null) {
+                applySkyStyleAll(kAcc, api.getHudFont(), 0xFF000000);
+                
+                if (api.getKssValue("kssette_show_song_time") == true) {
+                    if (kAcc.timeText != null) {
+                        kAcc.timeText.visible = true;
+                        kAcc.timeText.alpha = 1;
+                    }
+                }
+            }
+        }
     }
 }
