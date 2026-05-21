@@ -190,7 +190,7 @@ class KssetteAccuracy extends Module {
             api = ModuleHandler.getModule("KssetteApi");
             if (api == null) return;
             
-            try { api.invalidateCache(); } catch(e:Dynamic) {}
+            api.invalidateCache();
             
             var state = PlayState.instance;
             if (state == null) return;
@@ -229,7 +229,7 @@ class KssetteAccuracy extends Module {
                 if (state.playerStrumline != null) {
                     var bg1:Dynamic = Reflect.getProperty(state.playerStrumline, "background");
                     if (bg1 != null) {
-                        try { state.playerStrumline.remove(bg1, true); } catch(e:Dynamic) {}
+                        state.playerStrumline.remove(bg1, true);
                         bg1.zIndex = 10;
                         bg1.cameras = [state.camHUD];
                         state.add(bg1);
@@ -238,7 +238,7 @@ class KssetteAccuracy extends Module {
                 if (state.opponentStrumline != null) {
                     var bg2:Dynamic = Reflect.getProperty(state.opponentStrumline, "background");
                     if (bg2 != null) {
-                        try { state.opponentStrumline.remove(bg2, true); } catch(e:Dynamic) {}
+                        state.opponentStrumline.remove(bg2, true);
                         bg2.zIndex = 10;
                         bg2.cameras = [state.camHUD];
                         state.add(bg2);
@@ -273,7 +273,7 @@ class KssetteAccuracy extends Module {
             
             lastScore = -1; lastMisses = -1; lastMaxCombo = -1; lastNotesHit = -1;
             
-            try { state.refresh(); } catch(e:Dynamic) {}
+            state.refresh();
         } catch(e:Dynamic) {}
     }
 
@@ -408,11 +408,9 @@ class KssetteAccuracy extends Module {
         if (uiText == null || api == null) return;
         
         var forceDownscrollLook:Bool = false;
-        try {
-            var isMob:Bool = api.isMobileMode == true;
-            var isMobPC:Bool = api.isMobileLikePC() == true;
-            forceDownscrollLook = (isMob && !isMobPC);
-        } catch(e:Dynamic) {}
+        var isMob:Bool = api.isMobileMode == true;
+        var isMobPC:Bool = api.isMobileLikePC() == true;
+        forceDownscrollLook = (isMob && !isMobPC);
 
         var downscroll = Preferences.downscroll || forceDownscrollLook;
         var newY = downscroll ? 110 : (FlxG.height - 50);
@@ -423,7 +421,7 @@ class KssetteAccuracy extends Module {
         var showTimeBar:Bool = api.getKssValue("kssette_show_timebar") == true;
 
         var safeX:Float = 18;
-        try { if (api.isMobileMode) safeX = 85; } catch(e:Dynamic) {}
+        if (api.isMobileMode == true) safeX = 85;
 
         var tX:Float = 0; var tY:Float = 0; var tW:Float = FlxG.width; var tA:String = "center";
         var iX:Float = 0; var iY:Float = 0; var iW:Float = FlxG.width; var iA:String = "center";
@@ -450,18 +448,18 @@ class KssetteAccuracy extends Module {
         if (timeText != null) {
             if (timeText.x != tX || timeText.y != tY) timeText.setPosition(tX, tY);
             if (timeText.fieldWidth != tW) timeText.fieldWidth = tW;
-            try { if (timeText.alignment != tA) timeText.alignment = tA; } catch(e:Dynamic) {}
+            if (timeText.alignment != tA) timeText.alignment = tA;
         }
 
         if (infoText != null) {
             if (infoText.x != iX || infoText.y != iY) infoText.setPosition(iX, iY);
             if (infoText.fieldWidth != iW) infoText.fieldWidth = iW;
-            try { if (infoText.alignment != iA) infoText.alignment = iA; } catch(e:Dynamic) {}
+            if (infoText.alignment != iA) infoText.alignment = iA;
         }
 
         var jPos:String = Std.string(api.getKssValue("kssette_judge_pos"));
         var jMargin:Float = 6;
-        try { if (api.isMobileMode) jMargin = 85; } catch(e:Dynamic) {}
+        if (api.isMobileMode == true) jMargin = 85;
 
         var tw = 200; var sy = 22; var sx = jMargin; var sY = (FlxG.height - judgeNames.length * sy) * 0.5;
         if (jPos == "Right") sx = FlxG.width - tw - jMargin;
@@ -578,23 +576,23 @@ class KssetteAccuracy extends Module {
         if (uiText.text != newText) {
             uiText.text = newText;
             
-            try { uiText.clearFormats(); } catch(e:Dynamic) {}
+            uiText.clearFormats();
 
             if (isUnranked && unrankedStart != -1) {
                 if (_fmtUnranked == null) _fmtUnranked = new FlxTextFormat(0xFFFF0000);
-                try { uiText.addFormat(_fmtUnranked, unrankedStart, unrankedEnd); } catch(e:Dynamic) {}
+                uiText.addFormat(_fmtUnranked, unrankedStart, unrankedEnd);
             }
 
             if (playbackRate != 1.0 && rateStart != -1) {
                 if (_fmtRate == null) _fmtRate = new FlxTextFormat(0xFF66FFFF);
-                try { uiText.addFormat(_fmtRate, rateStart, rateEnd); } catch(e:Dynamic) {}
+                uiText.addFormat(_fmtRate, rateStart, rateEnd);
             }
 
             if (_cShowRank && currentTargetFmt != null) {
-                try { uiText.addFormat(currentTargetFmt, rIdx + 6, rIdx + 6 + cachedRankLen); } catch(e:Dynamic) {}
+                uiText.addFormat(currentTargetFmt, rIdx + 6, rIdx + 6 + cachedRankLen);
             }
 
-            try { uiText.screenCenter(0x01); } catch(e:Dynamic) {}
+            uiText.screenCenter(0x01);
         }
     }
     
@@ -602,12 +600,10 @@ class KssetteAccuracy extends Module {
         super.onNoteHit(event);
         if (isPreview) return;
 
-        try {
-            if (securityTriggered) {
-                event.cancel();
-                if (PlayState.instance != null) PlayState.instance.noteMiss(event.note);
-            }
-        } catch(e:Dynamic) {}
+        if (securityTriggered) {
+            event.cancel();
+            if (PlayState.instance != null) PlayState.instance.noteMiss(event.note);
+        }
     }
 
     override public function onUpdate(event) {

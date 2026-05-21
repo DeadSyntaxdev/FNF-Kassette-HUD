@@ -566,8 +566,8 @@ class KssetteApi extends Module {
             
             var bWidth:Int = 150;
             var bHeight:Int = 150;
-            try { bWidth = Std.int(bitmap.width); } catch(e:Dynamic) {}
-            try { bHeight = Std.int(bitmap.height); } catch(e:Dynamic) {}
+            if (bitmap.width != null) bWidth = Std.int(bitmap.width);
+            if (bitmap.height != null) bHeight = Std.int(bitmap.height);
             
             var w:Int = bWidth > 150 ? 150 : bWidth;
             var h:Int = bHeight > 150 ? 150 : bHeight;
@@ -691,23 +691,19 @@ class KssetteApi extends Module {
         if (state == null) return "Unknown";
         
         var titleStr = "Unknown";
-        try {
-            if (state.currentChart != null && state.currentChart.songName != null) {
-                var s = Std.string(state.currentChart.songName);
-                if (s != "" && s != "null") titleStr = s;
-            }
-        } catch(e:Dynamic) {}
+        if (state.currentChart != null && state.currentChart.songName != null) {
+            var s = Std.string(state.currentChart.songName);
+            if (s != "" && s != "null") titleStr = s;
+        }
 
         if (titleStr == "Unknown" || titleStr == "null") {
-            try {
-                if (state.currentSong != null && state.currentSong.songName != null) {
-                    var s = Std.string(state.currentSong.songName);
-                    if (s != "" && s != "null") titleStr = s;
-                } else if (state.currentSong != null && state.currentSong.id != null) {
-                    var s = Std.string(state.currentSong.id);
-                    if (s != "" && s != "null") titleStr = s;
-                }
-            } catch(e:Dynamic) {}
+            if (state.currentSong != null && state.currentSong.songName != null) {
+                var s = Std.string(state.currentSong.songName);
+                if (s != "" && s != "null") titleStr = s;
+            } else if (state.currentSong != null && state.currentSong.id != null) {
+                var s = Std.string(state.currentSong.id);
+                if (s != "" && s != "null") titleStr = s;
+            }
         }
         
         if (titleStr != "Unknown" && titleStr != "null") _cachedSongName = titleStr;
@@ -724,58 +720,33 @@ class KssetteApi extends Module {
         if (state == null) return "Unknown Artist";
         
         var artistStr = "Unknown Artist";
-        try {
-            if (state.currentChart != null) {
-                var cArtist = Reflect.getProperty(state.currentChart, "songArtist");
-                if (cArtist == null) cArtist = Reflect.getProperty(state.currentChart, "artist");
-                
-                var meta = Reflect.getProperty(state.currentChart, "metadata");
-                if (cArtist == null && meta != null) cArtist = Reflect.getProperty(meta, "artist");
+        if (state.currentChart != null) {
+            var cArtist = Reflect.getProperty(state.currentChart, "songArtist");
+            if (cArtist == null) cArtist = Reflect.getProperty(state.currentChart, "artist");
+            
+            var meta = Reflect.getProperty(state.currentChart, "metadata");
+            if (cArtist == null && meta != null) cArtist = Reflect.getProperty(meta, "artist");
 
-                if (cArtist != null && Std.string(cArtist) != "" && Std.string(cArtist) != "null") {
-                    _cachedSongArtist = Std.string(cArtist);
-                    return _cachedSongArtist;
-                }
+            if (cArtist != null && Std.string(cArtist) != "" && Std.string(cArtist) != "null") {
+                _cachedSongArtist = Std.string(cArtist);
+                return _cachedSongArtist;
             }
-        } catch(e:Dynamic) {}
+        }
 
         if (artistStr == "Unknown Artist" || artistStr == "null") {
-            try {
-                if (state.currentSong != null) {
-                    var sArtist = Std.string(state.currentSong.artist);
-                    if (sArtist != "" && sArtist != "null") {
-                        artistStr = sArtist;
-                    } else if (state.currentSong.metadata != null && state.currentSong.metadata.artist != null) {
-                        var mArtist = Std.string(state.currentSong.metadata.artist);
-                        if (mArtist != "" && mArtist != "null") artistStr = mArtist;
-                    }
+            if (state.currentSong != null) {
+                var sArtist = Std.string(state.currentSong.artist);
+                if (sArtist != "" && sArtist != "null") {
+                    artistStr = sArtist;
+                } else if (state.currentSong.metadata != null && state.currentSong.metadata.artist != null) {
+                    var mArtist = Std.string(state.currentSong.metadata.artist);
+                    if (mArtist != "" && mArtist != "null") artistStr = mArtist;
                 }
-            } catch(e:Dynamic) {}
+            }
         }
         
         if (artistStr != "Unknown Artist" && artistStr != "null") _cachedSongArtist = artistStr;
         return _cachedSongArtist;
-    }
-
-    public function getSongAlbum():String {
-        if (_checkedSongAlbum) return _cachedSongAlbum;
-        
-        _checkedSongAlbum = true;
-        _cachedSongAlbum = "";
-        
-        var state = PlayState.instance;
-        if (state == null) return "";
-        
-        var albumStr = "";
-        try {
-            if (state.currentSong != null && state.currentSong.playData != null && state.currentSong.playData.album != null) {
-                var a = Std.string(state.currentSong.playData.album);
-                if (a != "" && a != "null") albumStr = a;
-            }
-        } catch(e:Dynamic) {}
-        
-        if (albumStr != "" && albumStr != "null") _cachedSongAlbum = albumStr;
-        return _cachedSongAlbum;
     }
 
     public function getDifficulty():String {
@@ -1109,18 +1080,16 @@ class KssetteApi extends Module {
         var styleId:String = "funkin";
         
         if (PlayState.instance != null) {
-            try {
-                if (PlayState.instance.currentChart != null) {
-                    var pData = Reflect.getProperty(PlayState.instance.currentChart, "playData");
-                    if (pData != null) {
-                        var nStyle = Reflect.getProperty(pData, "noteStyle");
-                        if (nStyle != null) styleId = Std.string(nStyle);
-                    } else {
-                        var nStyle = Reflect.getProperty(PlayState.instance.currentChart, "noteStyle");
-                        if (nStyle != null) styleId = Std.string(nStyle);
-                    }
+            if (PlayState.instance.currentChart != null) {
+                var pData = Reflect.getProperty(PlayState.instance.currentChart, "playData");
+                if (pData != null) {
+                    var nStyle = Reflect.getProperty(pData, "noteStyle");
+                    if (nStyle != null) styleId = Std.string(nStyle);
+                } else {
+                    var nStyle = Reflect.getProperty(PlayState.instance.currentChart, "noteStyle");
+                    if (nStyle != null) styleId = Std.string(nStyle);
                 }
-            } catch(e:Dynamic) {}
+            }
         }
 
         if (_cachedHudFont != "" && _cachedHudStyleId == styleId) return _cachedHudFont;
@@ -1329,28 +1298,32 @@ class KssetteApi extends Module {
                             _p1Color = extractIconColor(p1, true, curP1);
                             _p2Color = extractIconColor(p2, false, curP2);
                             
-                            try {
+                            if (gammodPlayerSide == "OPPOSITE") {
+                                hb.createFilledBar(_p1Color, _p2Color);
+                            } else {
                                 hb.createFilledBar(_p2Color, _p1Color);
-                                hb.updateBar();
-                            } catch(e:Dynamic) {}
+                            }
+                            hb.updateBar();
                         }
                     }
                 }
             } else if (!_cColoredHB && _lastP1Id != "") {
                 if (_gammodPlay != null) {
-                    try { _gammodPlay.scriptSet("healthBarOverride", true); } catch(e:Dynamic) {}
-                    try { Reflect.setProperty(_gammodPlay, "healthBarOverride", true); } catch(e:Dynamic) {}
-                    try { _gammodPlay.healthBarOverride = true; } catch(e:Dynamic) {}
+                    _gammodPlay.scriptSet("healthBarOverride", true);
+                    Reflect.setProperty(_gammodPlay, "healthBarOverride", true);
+                    _gammodPlay.healthBarOverride = true;
                 }
 
                 _lastP1Id = "";
                 _lastP2Id = "";
                 var hb = state.healthBar;
                 if (hb != null) {
-                    try {
+                    if (gammodPlayerSide == "OPPOSITE") {
+                        hb.createFilledBar(0xFF66FF33, 0xFFFF0000);
+                    } else {
                         hb.createFilledBar(0xFFFF0000, 0xFF66FF33);
-                        hb.updateBar();
-                    } catch(e:Dynamic) {}
+                    }
+                    hb.updateBar();
                 }
             }
 
