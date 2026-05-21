@@ -9,16 +9,18 @@ import funkin.modding.module.ModuleHandler;
 import funkin.ui.options.OptionsState;
 import funkin.modding.events.StateChangeScriptEvent;
 import funkin.modding.events.UpdateScriptEvent;
+import funkin.modding.events.ScriptEvent;
 import funkin.play.PlayState;
 import funkin.play.scoring.Scoring;
 import funkin.Highscore;
 import funkin.Paths;
 import flixel.util.FlxStringUtil;
 import flixel.util.FlxColor;
+import flixel.FlxSprite;
 import Std;
 import Math;
-import Reflect;
 import StringTools;
+import Reflect;
 import funkin.util.FileUtil;
 import funkin.modding.PolymodHandler;
 import funkin.data.notestyle.NoteStyleRegistry;
@@ -27,7 +29,7 @@ import openfl.utils.Assets;
 
 class KssetteApi extends Module {
     final optionsID:String = "kassette-hud";
-    public var hudVersion:String = "0.2.0.1";
+    public var hudVersion:String = "0.2.1.t1";
     var optionKeys:Array<String> = [
         "kssette_show_score", "kssette_show_misses",
         "kssette_acc_mode", "kssette_show_rank", "kssette_show_tier",
@@ -107,13 +109,29 @@ class KssetteApi extends Module {
     var _p2Color:Int = 0xFFFF0000;
     
     var _iconColorCache:Dynamic = null;
+    
     var _cColoredHB:Bool = false;
     var _lastParsedChartId:String = "";
+
+    public var isGammodMode:Bool = false;
+    public var gammodUnranked:Bool = false;
+    public var gammodPlaybackRate:Float = 1.0;
+    public var gammodAutoPlay:Bool = false;
+    public var gammodPlayerSide:String = "NORMAL";
+
+    var _gammodHandler:Dynamic = null;
+    var _gammodMult:Dynamic = null;
+    var _gammodRate:Dynamic = null;
+    var _gammodAuto:Dynamic = null;
+    var _gammodSide:Dynamic = null;
+    var _gammodPlay:Dynamic = null;
+    var _gammodCheckTimer:Float = 0.0;
 
     public function new() {
         super('KssetteApi', 1000);
         isMobileMode = (FlxG.onMobile); 
         _isInPlayState = false;
+        
         initSettings();
         refreshOptionCache();
         preloadFontsIndex();
@@ -121,6 +139,20 @@ class KssetteApi extends Module {
         _lastParsedChartId = "";
     }
     
+    override function onSongEnd(event:ScriptEvent) {
+        super.onSongEnd(event);
+        clearGammodCache();
+    }
+
+    function clearGammodCache() {
+        _gammodHandler = null;
+        _gammodMult = null;
+        _gammodRate = null;
+        _gammodAuto = null;
+        _gammodSide = null;
+        _gammodPlay = null;
+    }
+
     public function preloadFontsIndex():Void {
         if (fontsPreloaded) return;
         var fontMap:Dynamic = getAvailableFonts();
@@ -345,12 +377,13 @@ class KssetteApi extends Module {
         } catch(e:Dynamic) {}
     }
 
-    override public function onSongRetry(event:Dynamic) {
+    override public function onSongRetry(event:ScriptEvent) {
         invalidateCache();
         super.onSongRetry(event);
+        clearGammodCache();
     }
 
-    override public function onCountdownStart(event:Dynamic) {
+    override public function onCountdownStart(event:ScriptEvent) {
         invalidateCache();
 
         var state = PlayState.instance;
@@ -365,6 +398,25 @@ class KssetteApi extends Module {
 
         super.onCountdownStart(event);
         
+        _gammodHandler = ModuleHandler.getModule("GammodModifierHandler");
+        _gammodMult = ModuleHandler.getModule("GammodMult");
+        _gammodRate = ModuleHandler.getModule("GammodPlaybackRate");
+        _gammodAuto = ModuleHandler.getModule("GammodAutoPlay");
+        _gammodSide = ModuleHandler.getModule("GammodPlayerSide");
+        _gammodPlay = ModuleHandler.getModule("GammodPlayModule");
+
+        _gammodCheckTimer = 0.25;
+
+        if (_gammodPlay != null) {
+            try {
+                var gPlay:Dynamic = _gammodPlay;
+                if (gPlay.curMultTxt != null) gPlay.curMultTxt.visible = false;
+                if (gPlay.curNoRankTxt != null) gPlay.curNoRankTxt.visible = false;
+                if (gPlay.scoreTxtFX != null) gPlay.scoreTxtFX.visible = false;
+                if (gPlay.scoreTxtFXOut != null) gPlay.scoreTxtFXOut.visible = false;
+            } catch(e:Dynamic) {}
+        }
+
         clearScoreCache();
         
         _accModule = null;
@@ -383,8 +435,6 @@ class KssetteApi extends Module {
             Reflect.setField(FlxG, "kssIconColorCache", _iconColorCache);
         }
         
-        var state = PlayState.instance;
-
         if (state != null && _cColoredHB) {
             if (state.iconP1 != null) {
                 var p1Id = "generic_p1";
@@ -405,7 +455,6 @@ class KssetteApi extends Module {
             playerNoteTimes = [];
             
             if (state != null && state.currentChart != null) {
-                
                 if (_cColoredHB && Reflect.hasField(state.currentChart, "events")) {
                     var events:Array<Dynamic> = Reflect.field(state.currentChart, "events");
                     if (events != null) {
@@ -892,7 +941,7 @@ class KssetteApi extends Module {
     public function getModeMessage():String {
         var state = PlayState.instance;
         if (state == null) return "";
-        var botplay:Bool = state.isBotPlayMode || (Save.instance.modOptions.get("BotMode") == true);
+        var botplay:Bool = state.isBotPlayMode || (Save.instance.modOptions.get("BotMode") == true) || gammodAutoPlay;
         
         if (!botplay) {
             if (!_checkedSongId) {
@@ -1056,8 +1105,7 @@ class KssetteApi extends Module {
         return resolved;
     }
 
-    public function getHudFont():String 
-    {
+    public function getHudFont():String {
         var styleId:String = "funkin";
         
         if (PlayState.instance != null) {
@@ -1084,9 +1132,7 @@ class KssetteApi extends Module {
         while (currentStyleId != null && depth < maxDepth) {
             try {
                 var styleEntry = NoteStyleRegistry.instance.fetchEntry(currentStyleId);
-                if (styleEntry == null) {
-                    break;
-                }
+                if (styleEntry == null) break;
                 
                 var data = Reflect.getProperty(styleEntry, "_data");
                 if (data == null) data = Reflect.field(styleEntry, "_data");
@@ -1135,14 +1181,123 @@ class KssetteApi extends Module {
         return _cachedHudFont;
     }
 
+    function checkGammod(elapsed:Float) {
+        if (_gammodPlay != null) {
+            try {
+                var gPlay:Dynamic = _gammodPlay;
+                if (gPlay.curMultTxt != null) gPlay.curMultTxt.visible = false;
+                if (gPlay.curNoRankTxt != null) gPlay.curNoRankTxt.visible = false;
+                if (gPlay.scoreTxtFX != null) gPlay.scoreTxtFX.visible = false;
+                if (gPlay.scoreTxtFXOut != null) gPlay.scoreTxtFXOut.visible = false;
+            } catch(e:Dynamic) {}
+        }
+
+        _gammodCheckTimer += elapsed;
+        if (_gammodCheckTimer < 0.25) return;
+        
+        _gammodCheckTimer = 0.0;
+
+        var gammodHandler = _gammodHandler;
+        var modsOnRaw:Dynamic = null;
+        if (gammodHandler != null) {
+            modsOnRaw = Reflect.getProperty(gammodHandler, "mods_on");
+            if (modsOnRaw == null) modsOnRaw = Reflect.field(gammodHandler, "mods_on");
+            if (modsOnRaw == null) {
+                try { modsOnRaw = gammodHandler.scriptGet("mods_on"); } catch(e:Dynamic) {}
+            }
+            if (modsOnRaw == null) {
+                try {
+                    var activeArray:Dynamic = gammodHandler.getActive();
+                    if (activeArray != null && activeArray.length > 0) modsOnRaw = true;
+                } catch(e:Dynamic) {}
+            }
+            isGammodMode = (modsOnRaw == true);
+        } else {
+            isGammodMode = false;
+        }
+
+        var gammodMult = _gammodMult;
+        var unrankedRaw:Dynamic = null;
+        if (gammodMult != null) {
+            unrankedRaw = Reflect.getProperty(gammodMult, "unranked");
+            if (unrankedRaw == null) unrankedRaw = Reflect.field(gammodMult, "unranked");
+            if (unrankedRaw == null) {
+                try { unrankedRaw = gammodMult.scriptGet("unranked"); } catch(e:Dynamic) {}
+            }
+            if (unrankedRaw == null) {
+                try { unrankedRaw = Reflect.field(gammodMult, "isUnranked")(); } catch(e:Dynamic) {}
+            }
+            gammodUnranked = (unrankedRaw == true);
+        } else {
+            gammodUnranked = false;
+        }
+
+        var gammodRate = _gammodRate;
+        var rateRaw:Dynamic = null;
+        if (gammodRate != null) {
+            rateRaw = Reflect.getProperty(gammodRate, "value");
+            if (rateRaw == null) rateRaw = Reflect.field(gammodRate, "value");
+            if (rateRaw == null) {
+                try { rateRaw = gammodRate.scriptGet("value"); } catch(e:Dynamic) {}
+            }
+            if (rateRaw != null) gammodPlaybackRate = rateRaw;
+            else gammodPlaybackRate = 1.0;
+        } else {
+            gammodPlaybackRate = 1.0;
+        }
+
+        var gammodAutoMod = _gammodAuto;
+        var autoRaw:Dynamic = null;
+        if (gammodAutoMod != null) {
+            autoRaw = Reflect.getProperty(gammodAutoMod, "value");
+            if (autoRaw == null) autoRaw = Reflect.field(gammodAutoMod, "value");
+            if (autoRaw == null) {
+                try { autoRaw = gammodAutoMod.scriptGet("value"); } catch(e:Dynamic) {}
+            }
+            gammodAutoPlay = (autoRaw != null && Std.string(autoRaw).toUpperCase() != "DISABLED");
+        } else {
+            gammodAutoPlay = false;
+        }
+
+        var gammodSideMod = _gammodSide;
+        var sideRaw:Dynamic = null;
+        if (gammodSideMod != null) {
+            sideRaw = Reflect.getProperty(gammodSideMod, "value");
+            if (sideRaw == null) sideRaw = Reflect.field(gammodSideMod, "value");
+            if (sideRaw == null) {
+                try { sideRaw = gammodSideMod.scriptGet("value"); } catch(e:Dynamic) {}
+            }
+            if (sideRaw != null) gammodPlayerSide = Std.string(sideRaw).toUpperCase();
+            else gammodPlayerSide = "NORMAL";
+        } else {
+            gammodPlayerSide = "NORMAL";
+        }
+    }
+
     override public function onUpdate(event:UpdateScriptEvent) {
         if (Highscore.tallies != null) missesCount = Highscore.tallies.missed;
 
+        var state = PlayState.instance;
+        if (state == null) {
+            if (_isInPlayState) {
+                _isInPlayState = false;
+                clearGammodCache();
+            }
+            return;
+        }
+
+        checkGammod(event.elapsed);
+
         if (_isInPlayState) {
-            var state = PlayState.instance;
-            if (state == null) return;
+            if (state.scoreText != null) state.scoreText.visible = false;
 
             if (_cColoredHB) {
+                if (_gammodPlay != null) {
+                    try { _gammodPlay.scriptSet("healthBarOverride", false); } catch(e:Dynamic) {}
+                    try { Reflect.setProperty(_gammodPlay, "healthBarOverride", false); } catch(e:Dynamic) {}
+                    try { _gammodPlay.healthBarOverride = false; } catch(e:Dynamic) {}
+                }
+
                 _hbUpdateTimer += event.elapsed;
                 if (_hbUpdateTimer >= 0.05) {
                     _hbUpdateTimer = 0.0;
@@ -1181,7 +1336,13 @@ class KssetteApi extends Module {
                         }
                     }
                 }
-            } else if (_lastP1Id != "") {
+            } else if (!_cColoredHB && _lastP1Id != "") {
+                if (_gammodPlay != null) {
+                    try { _gammodPlay.scriptSet("healthBarOverride", true); } catch(e:Dynamic) {}
+                    try { Reflect.setProperty(_gammodPlay, "healthBarOverride", true); } catch(e:Dynamic) {}
+                    try { _gammodPlay.healthBarOverride = true; } catch(e:Dynamic) {}
+                }
+
                 _lastP1Id = "";
                 _lastP2Id = "";
                 var hb = state.healthBar;
@@ -1204,7 +1365,6 @@ class KssetteApi extends Module {
                     isCompromised = true;
                 } else if (gracePeriod <= 0 && _integrityTimer >= 0.5) {
                     _integrityTimer = 0.0;
-                    
                     if (_accModule == null) _accModule = ModuleHandler.getModule("KssetteAccuracy");
                     
                     if (_accModule == null) {
@@ -1237,7 +1397,6 @@ class KssetteApi extends Module {
 
     override public function onStateChangeEnd(event:StateChangeScriptEvent):Void {
         var target = event.targetState;
-        _isInPlayState = false;
         refreshOptionCache();
         
         if (Std.isOfType(target, OptionsState)) {
@@ -1247,18 +1406,26 @@ class KssetteApi extends Module {
         if (Std.isOfType(target, PlayState)) {
             _isInPlayState = true;
             createHUDWatermark(target);
+        } else {
+            if (_isInPlayState) {
+                _isInPlayState = false;
+                clearGammodCache();
+            }
         }
     }
 
     function createHUDWatermark(state:PlayState) {
         if (state == null || state.camHUD == null) return;
+        checkGammod(0.0);
+        
         var platform = isMobileMode ? (isMobileLikePC() ? "Mobile+KB" : "Mobile") : "PC";
         var safeMargin:Float = isMobileMode ? 85 : 8;
         
         var timeBarPos = getKssValue("kssette_timebar_pos");
         var yPos:Float = (timeBarPos == "Bottom" || timeBarPos == "Bottom Right") ? 10 : (FlxG.height - 24);
 
-        var watermark = new FlxText(0, yPos, FlxG.width - safeMargin, "Kassette HUD " + platform + " [" + hudVersion + "]", 16);
+        var gammodAdd:String = isGammodMode ? " + GAMMOD" : "";
+        var watermark = new FlxText(0, yPos, FlxG.width - safeMargin, "Kassette HUD " + platform + " [" + hudVersion + "]" + gammodAdd, 16);
         watermark.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, "right", FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
         watermark.alpha = 0.5; watermark.zIndex = 1000; watermark.cameras = [state.camHUD];
         state.add(watermark);

@@ -12,6 +12,7 @@ import funkin.Preferences;
 import funkin.mobile.input.ControlsHandler;
 import Std;
 import Math;
+import Reflect;
 
 class KssMiddlescroll extends Module {
     var cachedMode:String = "Off";
@@ -27,6 +28,7 @@ class KssMiddlescroll extends Module {
     var cachedSplashOffsetX:Float = 0.0;
     var splashUpdateTimer:Float = 0.0;
     var lastNudgedStrum:Dynamic = null;
+    var pHasShifted:Bool = false;
 
     public function new() {
         super('KssMiddlescroll'); 
@@ -53,6 +55,7 @@ class KssMiddlescroll extends Module {
 
     override function onCountdownStart(event:ScriptEvent):Void {
         hasShifted = false;
+        pHasShifted = false;
         cachedOppStrum = null;
         cachedReceptors = null;
         cachedSplashes = null;
@@ -90,6 +93,14 @@ class KssMiddlescroll extends Module {
         var state = PlayState.instance;
         if (state == null) return;
 
+        var isOpposite = false;
+        if (apiModule != null && Reflect.hasField(apiModule, "gammodPlayerSide")) {
+            isOpposite = apiModule.gammodPlayerSide == "OPPOSITE";
+        }
+
+        var myStrum = isOpposite ? state.opponentStrumline : state.playerStrumline;
+        var oppStrum = isOpposite ? state.playerStrumline : state.opponentStrumline;
+
         var isArrows = isArrowLayout();
         var isModActive = (cachedMode != "Off" && cachedMode != "null");
 
@@ -97,9 +108,9 @@ class KssMiddlescroll extends Module {
         var pStartX:Float = 0;
         var padding:Float = 12;
 
-        if (state.playerStrumline != null) {
-            pStartX = state.playerStrumline.x;
-            var pNotes = state.playerStrumline.strumlineNotes.members;
+        if (myStrum != null) {
+            pStartX = myStrum.x;
+            var pNotes = myStrum.strumlineNotes.members;
             
             if (pNotes != null && pNotes.length > 0) {
                 var firstNote = pNotes[0];
@@ -108,10 +119,10 @@ class KssMiddlescroll extends Module {
                 pStartX = firstNote.x;
             }
             
-            if (pRealWidth <= 0) pRealWidth = state.playerStrumline.width;
+            if (pRealWidth <= 0) pRealWidth = myStrum.width;
             if (pRealWidth <= 0) pRealWidth = 448; 
 
-            var pBg = state.playerStrumline.background;
+            var pBg = myStrum.background;
             if (pBg != null) {
                 var fWidth:Float = pBg.frameWidth;
                 if (fWidth <= 0) fWidth = pBg.width;
@@ -123,14 +134,14 @@ class KssMiddlescroll extends Module {
             }
         }
 
-        if (state.opponentStrumline != null) {
-            var bg = state.opponentStrumline.background;
+        if (oppStrum != null) {
+            var bg = oppStrum.background;
             if (bg != null) {
                 if (!isModActive && cachedOppBg && !isMobLayout) {
                     bg.visible = true;
                     var realWidth:Float = 0;
-                    var startX:Float = state.opponentStrumline.x;
-                    var oNotes = state.opponentStrumline.strumlineNotes.members;
+                    var startX:Float = oppStrum.x;
+                    var oNotes = oppStrum.strumlineNotes.members;
                     
                     if (oNotes != null && oNotes.length > 0) {
                         var firstNote = oNotes[0];
@@ -139,7 +150,7 @@ class KssMiddlescroll extends Module {
                         startX = firstNote.x;
                     }
                     
-                    if (realWidth <= 0) realWidth = state.opponentStrumline.width;
+                    if (realWidth <= 0) realWidth = oppStrum.width;
                     if (realWidth <= 0) realWidth = 448; 
                     
                     var fWidth:Float = bg.frameWidth;
@@ -159,30 +170,42 @@ class KssMiddlescroll extends Module {
             state.comboPopUps.offsets = [480, -50];
         }
 
-        if (state.playerStrumline != null && isModActive) {
+        if (myStrum != null && isModActive) {
             var centeredX:Float = (FlxG.width - pRealWidth) * 0.5;
             var shift:Float = centeredX - pStartX;
-            state.playerStrumline.x += shift;
+            myStrum.x += shift;
 
-            var pBg = state.playerStrumline.background;
+            var pBg = myStrum.background;
             if (pBg != null) {
                 pBg.x = centeredX - padding;
             }
         }
 
-        if (state.opponentStrumline != null) {
-            if (isModActive) hideAllCovers(state);
+        if (oppStrum != null) {
+            if (isModActive) {
+                if (oppStrum.noteHoldCovers != null && oppStrum.noteHoldCovers.members != null) {
+                    oppStrum.noteHoldCovers.visible = false;
+                    for (cover in oppStrum.noteHoldCovers.members) {
+                        if (cover != null) { cover.visible = false; cover.alpha = 0.0; }
+                    }
+                }
+                if (oppStrum.holdNotes != null && oppStrum.holdNotes.members != null) {
+                    for (hold in oppStrum.holdNotes.members) {
+                        if (hold != null && hold.cover != null) { hold.cover.visible = false; hold.cover.alpha = 0.0; }
+                    }
+                }
+            }
 
             if (cachedMode == "Hidden Notes") {
-                state.opponentStrumline.x = -5000;
-                var oNotes = state.opponentStrumline.strumlineNotes.members;
+                oppStrum.x = -5000;
+                var oNotes = oppStrum.strumlineNotes.members;
                 if (oNotes != null) {
                     for (note in oNotes) {
                         if (note != null) note.x = -5000;
                     }
                 }
             } else if (!hasShifted) {
-                var receptors = state.opponentStrumline.strumlineNotes.members;
+                var receptors = oppStrum.strumlineNotes.members;
                 
                 if (cachedMode == "P Style" && receptors != null && receptors.length >= 4) {
                     var targetLeftX:Float = Constants.STRUMLINE_X_OFFSET;
@@ -200,7 +223,7 @@ class KssMiddlescroll extends Module {
                 } 
                 else if (cachedMode == "On" && receptors != null && receptors.length > 0) {
                     
-                    state.opponentStrumline.strumlineScale.set(0.65, 0.65);
+                    oppStrum.strumlineScale.set(0.65, 0.65);
 
                     var sizeRatio:Float = 0.65;
                     var targetSpacing:Float = Strumline.NOTE_SPACING * sizeRatio;
@@ -234,21 +257,21 @@ class KssMiddlescroll extends Module {
             }
 
             if (isArrows && cachedMobileOppNotes) {
-                state.opponentStrumline.notes.visible = true;
-                state.opponentStrumline.holdNotes.visible = true;
-                state.opponentStrumline.isDownscroll = false;
+                oppStrum.notes.visible = true;
+                oppStrum.holdNotes.visible = true;
+                oppStrum.isDownscroll = false;
                 
-                if (lastNudgedStrum != state.opponentStrumline) {
+                if (lastNudgedStrum != oppStrum) {
                     var nudgeY:Float = -15.0; 
                     var nudgeX:Float = -65.0; 
-                    state.opponentStrumline.y += nudgeY; 
-                    state.opponentStrumline.x += nudgeX; 
-                    lastNudgedStrum = state.opponentStrumline;
+                    oppStrum.y += nudgeY; 
+                    oppStrum.x += nudgeX; 
+                    lastNudgedStrum = oppStrum;
                 }
             }
         }
 
-        cachedOppStrum = state.opponentStrumline;
+        cachedOppStrum = oppStrum;
         if (cachedOppStrum != null) {
             cachedReceptors = cachedOppStrum.strumlineNotes != null ? cachedOppStrum.strumlineNotes.members : null;
             cachedSplashes = cachedOppStrum.noteSplashes;
@@ -267,17 +290,23 @@ class KssMiddlescroll extends Module {
     override function onSongRetry(event:ScriptEvent):Void {
         super.onSongRetry(event);
         var state = PlayState.instance;
-        if (state != null && state.opponentStrumline != null && isArrowLayout() && cachedMobileOppNotes) {
-            state.opponentStrumline.notes.visible = true;
-            state.opponentStrumline.holdNotes.visible = true;
-            state.opponentStrumline.isDownscroll = false;
+        var isOpposite = false;
+        if (apiModule != null && Reflect.hasField(apiModule, "gammodPlayerSide")) {
+            isOpposite = apiModule.gammodPlayerSide == "OPPOSITE";
+        }
+        var oppStrum = isOpposite ? state.playerStrumline : state.opponentStrumline;
+
+        if (state != null && oppStrum != null && isArrowLayout() && cachedMobileOppNotes) {
+            oppStrum.notes.visible = true;
+            oppStrum.holdNotes.visible = true;
+            oppStrum.isDownscroll = false;
             
-            if (lastNudgedStrum != state.opponentStrumline) {
+            if (lastNudgedStrum != oppStrum) {
                 var nudgeY:Float = -15.0;
                 var nudgeX:Float = -65.0;
-                state.opponentStrumline.y += nudgeY;
-                state.opponentStrumline.x += nudgeX;
-                lastNudgedStrum = state.opponentStrumline;
+                oppStrum.y += nudgeY;
+                oppStrum.x += nudgeX;
+                lastNudgedStrum = oppStrum;
             }
         }
     }
@@ -287,6 +316,12 @@ class KssMiddlescroll extends Module {
         
         var state = PlayState.instance;
         if (state == null) return;
+        
+        var isOpposite = false;
+        if (apiModule != null && Reflect.hasField(apiModule, "gammodPlayerSide")) {
+            isOpposite = apiModule.gammodPlayerSide == "OPPOSITE";
+        }
+        var oppStrum = isOpposite ? state.playerStrumline : state.opponentStrumline;
 
         var isArrows = isArrowLayout();
         var applyArrowLogic = isArrows && cachedMobileOppNotes;
@@ -295,9 +330,10 @@ class KssMiddlescroll extends Module {
         if (!isModActive && !applyArrowLogic) return;
 
         var note = event.note;
+        var isOppNote = isOpposite ? note.noteData.getMustHitNote() : !note.noteData.getMustHitNote();
 
-        if (note != null && !note.noteData.getMustHitNote() && state.opponentStrumline != null) {
-            var opp = state.opponentStrumline;
+        if (note != null && isOppNote && oppStrum != null) {
+            var opp = oppStrum;
 
             if (cachedMode == "Hidden Notes") {
                 note.x = -5000;
@@ -386,6 +422,39 @@ class KssMiddlescroll extends Module {
 
         if (!isModActive && !applyArrowLogic) return;
         if (cachedMode == "Hidden Notes") return;
+        
+        var state = PlayState.instance;
+        if (state == null) return;
+        
+        var isOpposite = false;
+        if (apiModule != null && Reflect.hasField(apiModule, "gammodPlayerSide")) {
+            isOpposite = apiModule.gammodPlayerSide == "OPPOSITE";
+        }
+        var myStrum = isOpposite ? state.opponentStrumline : state.playerStrumline;
+
+        if (myStrum != null && isModActive && !pHasShifted) {
+            var pRealWidth:Float = 448;
+            var pStartX:Float = myStrum.x;
+            var padding:Float = 12;
+            var pNotes = myStrum.strumlineNotes.members;
+            if (pNotes != null && pNotes.length > 0) {
+                var firstNote = pNotes[0];
+                var lastNote = pNotes[pNotes.length - 1];
+                pRealWidth = (lastNote.x + lastNote.width) - firstNote.x;
+                pStartX = firstNote.x;
+            }
+            if (pRealWidth <= 0) pRealWidth = myStrum.width;
+            if (pRealWidth <= 0) pRealWidth = 448;
+            
+            var centeredX:Float = (FlxG.width - pRealWidth) * 0.5;
+            var shift:Float = centeredX - pStartX;
+            if (Math.abs(shift) > 0.1) {
+                myStrum.x += shift;
+                if (myStrum.background != null) myStrum.background.x = centeredX - padding;
+            }
+            pHasShifted = true;
+        }
+
         if (cachedOppStrum == null) return;
 
         if (cachedOppStrum.holdNotes != null && cachedOppStrum.holdNotes.members != null) {
@@ -439,29 +508,6 @@ class KssMiddlescroll extends Module {
                             }
                         }
                     }
-                }
-            }
-        }
-    }
-
-    private function hideAllCovers(state:PlayState):Void {
-        if (state.opponentStrumline == null) return;
-
-        if (state.opponentStrumline.noteHoldCovers != null && state.opponentStrumline.noteHoldCovers.members != null) {
-            state.opponentStrumline.noteHoldCovers.visible = false;
-            for (cover in state.opponentStrumline.noteHoldCovers.members) {
-                if (cover != null) {
-                    cover.visible = false;
-                    cover.alpha = 0.0;
-                }
-            }
-        }
-
-        if (state.opponentStrumline.holdNotes != null && state.opponentStrumline.holdNotes.members != null) {
-            for (hold in state.opponentStrumline.holdNotes.members) {
-                if (hold != null && hold.cover != null) {
-                    hold.cover.visible = false;
-                    hold.cover.alpha = 0.0;
                 }
             }
         }

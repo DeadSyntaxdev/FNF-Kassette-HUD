@@ -1,10 +1,12 @@
 package kassettehud.util;
 
+import flixel.FlxG;
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
 import funkin.Preferences;
 import flixel.text.FlxText;
+import funkin.Paths;
 import flixel.text.FlxTextBorderStyle;
 import flixel.text.FlxTextFormat;
 import flixel.util.FlxStringUtil;
@@ -65,6 +67,8 @@ class KssetteAccuracy extends Module {
     var _fmtGood:FlxTextFormat;
     var _fmtShit:FlxTextFormat;
     var _fmtDefault:FlxTextFormat;
+    var _fmtUnranked:FlxTextFormat;
+    var _fmtRate:FlxTextFormat;
 
     var api:Dynamic = null;
     var _cShowScore:Bool = true;
@@ -484,8 +488,38 @@ class KssetteAccuracy extends Module {
         var strMain = "";
         var needSep = false;
 
+
+        var isUnranked = false;
+        var playbackRate:Float = 1.0;
+        if (api != null) {
+            isUnranked = api.gammodUnranked == true;
+            if (api.gammodPlaybackRate != null) playbackRate = api.gammodPlaybackRate;
+        }
+        
+        var unrankedStart:Int = -1;
+        var unrankedEnd:Int = -1;
+        var rateStart:Int = -1;
+        var rateEnd:Int = -1;
+
         if (_cShowScore) {
-            strMain += "Score: " + scoreStr;
+            if (isUnranked) {
+                strMain += "Score: ";
+                unrankedStart = strMain.length;
+                strMain += "UNRANKED";
+                unrankedEnd = strMain.length;
+            } else {
+                strMain += "Score: " + scoreStr;
+            }
+            needSep = true;
+        }
+
+        if (playbackRate != 1.0) {
+            if (needSep) strMain += separator;
+            rateStart = strMain.length;
+            var rateStr = Std.string(playbackRate);
+            if (rateStr.indexOf(".") == -1) rateStr += ".0";
+            strMain += "Rate: " + rateStr + "x";
+            rateEnd = strMain.length;
             needSep = true;
         }
 
@@ -545,6 +579,16 @@ class KssetteAccuracy extends Module {
             uiText.text = newText;
             
             try { uiText.clearFormats(); } catch(e:Dynamic) {}
+
+            if (isUnranked && unrankedStart != -1) {
+                if (_fmtUnranked == null) _fmtUnranked = new FlxTextFormat(0xFFFF0000);
+                try { uiText.addFormat(_fmtUnranked, unrankedStart, unrankedEnd); } catch(e:Dynamic) {}
+            }
+
+            if (playbackRate != 1.0 && rateStart != -1) {
+                if (_fmtRate == null) _fmtRate = new FlxTextFormat(0xFF66FFFF);
+                try { uiText.addFormat(_fmtRate, rateStart, rateEnd); } catch(e:Dynamic) {}
+            }
 
             if (_cShowRank && currentTargetFmt != null) {
                 try { uiText.addFormat(currentTargetFmt, rIdx + 6, rIdx + 6 + cachedRankLen); } catch(e:Dynamic) {}

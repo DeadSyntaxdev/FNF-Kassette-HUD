@@ -47,13 +47,23 @@ class KssGhostTapping extends Module {
         isPaused = false;
     }
 
+    function isGammodActive():Bool {
+        var api = ModuleHandler.getModule("KssetteApi");
+        var isActive = false;
+        if (api != null) {
+            isActive = (api.isGammodMode == true);
+        }
+        
+        return isActive;
+    }
+
     override function onGhostMissNote(event:Dynamic) {
-        if (!_cGhostTapping) return;
+        if (!_cGhostTapping || isGammodActive()) return;
         event.cancel();
     }
 
     override function onNoteGhostMiss(event:Dynamic) {
-        if (!_cGhostTapping) return;
+        if (!_cGhostTapping || isGammodActive()) return;
         event.cancel();
     }
 
@@ -73,7 +83,13 @@ class KssGhostTapping extends Module {
         }
         if (controlsObj == null) return;
 
-        var player = state.currentStage != null ? state.currentStage.getBoyfriend() : null;
+        var isOpposite = false;
+        var api:Dynamic = ModuleHandler.getModule("KssetteApi");
+        if (api != null && api.gammodPlayerSide == "OPPOSITE") {
+            isOpposite = true;
+        }
+        
+        var player = state.currentStage != null ? (isOpposite ? state.currentStage.getDad() : state.currentStage.getBoyfriend()) : null;
         if (player == null) return;
 
         var hitLeft = false;
