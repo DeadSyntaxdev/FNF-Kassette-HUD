@@ -81,6 +81,7 @@ class KssetteApi extends Module {
     
     var _qtModule:Dynamic = null;
     var _cachedBotplay:Bool = false;
+    var _cachedGammodAuto:Bool = false;
     var _cachedModeMsg:String = null;
 
     public var cachedFontMap:Map<String, String> = null;
@@ -296,6 +297,7 @@ class KssetteApi extends Module {
         _cachedSongId = null;
         _cachedModeMsg = null;
         _cachedBotplay = false;
+        _cachedGammodAuto = false;
         _cachedHudFont = "";
         _cachedHudStyleId = "";
     }
@@ -889,7 +891,7 @@ class KssetteApi extends Module {
 
     public function getChallenge():String {
         var msg = getModeMessage();
-        var isBotting:Bool = (msg.indexOf('Botplay') != -1);
+        var isBotting:Bool = (msg.indexOf('Botplay') != -1 || msg.indexOf('AutoPlay') != -1);
         var randomId = FlxG.random.int(100, 999);
         var challenge = 'sync_' + randomId;
 
@@ -929,13 +931,18 @@ class KssetteApi extends Module {
             }
         }
         
-        if (_cachedModeMsg != null && botplay == _cachedBotplay) return _cachedModeMsg;
+        if (_cachedModeMsg != null && botplay == _cachedBotplay && gammodAutoPlay == _cachedGammodAuto) return _cachedModeMsg;
         
         _cachedBotplay = botplay;
+        _cachedGammodAuto = gammodAutoPlay;
         var songName:String = getSongTitle();
 
-        if (botplay) _cachedModeMsg = 'Watching "' + songName + '" with Botplay';
-        else _cachedModeMsg = "";
+        if (botplay) {
+            if (gammodAutoPlay) _cachedModeMsg = 'Watching "' + songName + '" with AutoPlay';
+            else _cachedModeMsg = 'Watching "' + songName + '" with Botplay';
+        } else {
+            _cachedModeMsg = "";
+        }
         
         return _cachedModeMsg; 
     }
@@ -1350,12 +1357,12 @@ class KssetteApi extends Module {
                         isCompromised = true;
                     } else {
                         var msg = getModeMessage();
-                        var isBotting:Bool = (msg != null && msg.indexOf('Botplay') != -1);
+                        var isBotting:Bool = (msg != null && (msg.indexOf('Botplay') != -1 || msg.indexOf('AutoPlay') != -1));
                         
                         if (isBotting) {
                             if (Reflect.hasField(_accModule, "modeText")) {
                                 var modeTxt = Reflect.field(_accModule, "modeText");
-                                if (modeTxt == null || modeTxt.visible == false || modeTxt.alpha < 0.1 || modeTxt.text.indexOf("Botplay") == -1) {
+                                if (modeTxt == null || modeTxt.visible == false || modeTxt.alpha < 0.1 || (modeTxt.text.indexOf("Botplay") == -1 && modeTxt.text.indexOf("AutoPlay") == -1)) {
                                     isCompromised = true;
                                 }
                             } else {

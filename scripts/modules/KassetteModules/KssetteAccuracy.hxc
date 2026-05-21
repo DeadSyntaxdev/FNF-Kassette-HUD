@@ -368,7 +368,7 @@ class KssetteAccuracy extends Module {
             
             cachedModeMsg = Std.string(api.getModeMessage());
             
-            _cIsBotplay = (cachedModeMsg != null && cachedModeMsg.indexOf("Botplay") != -1);
+            _cIsBotplay = (cachedModeMsg != null && (cachedModeMsg.indexOf("Botplay") != -1 || cachedModeMsg.indexOf("AutoPlay") != -1));
             _cJudgesVisible = (_cJudgePos != "Off" && _cJudgePos != "false");
 
             cachedFont = api.getHudFont();
