@@ -118,6 +118,7 @@ class KssetteApi extends Module {
     public var gammodPlaybackRate:Float = 1.0;
     public var gammodAutoPlay:Bool = false;
     public var gammodPlayerSide:String = "NORMAL";
+    public var gammodHighscoreActive:Bool = false;
 
     var _gammodHandler:Dynamic = null;
     var _gammodMult:Dynamic = null;
@@ -1158,7 +1159,12 @@ class KssetteApi extends Module {
                 if (gPlay.curNoRankTxt != null) gPlay.curNoRankTxt.visible = false;
                 if (gPlay.scoreTxtFX != null) gPlay.scoreTxtFX.visible = false;
                 if (gPlay.scoreTxtFXOut != null) gPlay.scoreTxtFXOut.visible = false;
-            } catch(e:Dynamic) {}
+                gammodHighscoreActive = (gPlay.didHighscoreEvents == true);
+            } catch(e:Dynamic) {
+                gammodHighscoreActive = false;
+            }
+        } else {
+            gammodHighscoreActive = false;
         }
 
         _gammodCheckTimer += elapsed;

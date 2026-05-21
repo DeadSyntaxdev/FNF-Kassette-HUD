@@ -69,6 +69,25 @@ class KssetteAccuracy extends Module {
     var _fmtDefault:FlxTextFormat;
     var _fmtUnranked:FlxTextFormat;
     var _fmtRate:FlxTextFormat;
+    var _fmtHighscore:FlxTextFormat;
+    var _rainbowHue:Float = 0.0;
+
+    var _lastBuiltScoreInt:Int = -1;
+    var _lastBuiltMisses:Int = -1;
+    var _lastBuiltAcc:Float = -1;
+    var _lastBuiltRank:String = "";
+    var _lastBuiltTier:String = "";
+    var _lastBuiltRate:Float = 1.0;
+    var _lastBuiltUnranked:Bool = false;
+    
+    var _cachedText:String = "";
+    var _unrankedStart:Int = -1;
+    var _unrankedEnd:Int = -1;
+    var _rateStart:Int = -1;
+    var _rateEnd:Int = -1;
+    var _scoreStart:Int = -1;
+    var _scoreEnd:Int = -1;
+    var _rankStart:Int = -1;
 
     var api:Dynamic = null;
     var _cShowScore:Bool = true;
@@ -215,6 +234,15 @@ class KssetteAccuracy extends Module {
             previewAccTimer = 0.0;
             frameUpdateTimer = 0.0;
             pendingTextUpdate = false;
+
+            _lastBuiltScoreInt = -1;
+            _lastBuiltMisses = -1;
+            _lastBuiltAcc = -1;
+            _lastBuiltRank = "";
+            _lastBuiltTier = "";
+            _lastBuiltRate = 1.0;
+            _lastBuiltUnranked = false;
+            _cachedText = "";
             
             cachedFont = api.getHudFont();
             if (cachedFont == null || cachedFont == "null" || cachedFont == "") cachedFont = "VCR OSD Mono";
@@ -482,11 +510,6 @@ class KssetteAccuracy extends Module {
     public function updateAccuracyText(scoreInt:Int, misses:Int, acc:Float, rankStr:String, tierStr:String) {
         if (uiText == null || !uiText.exists) return;
 
-        var scoreStr = FlxStringUtil.formatMoney(scoreInt, false, true);
-        var strMain = "";
-        var needSep = false;
-
-
         var isUnranked = false;
         var playbackRate:Float = 1.0;
         if (api != null) {
@@ -494,105 +517,142 @@ class KssetteAccuracy extends Module {
             if (api.gammodPlaybackRate != null) playbackRate = api.gammodPlaybackRate;
         }
         
-        var unrankedStart:Int = -1;
-        var unrankedEnd:Int = -1;
-        var rateStart:Int = -1;
-        var rateEnd:Int = -1;
+        var paramsChanged = (_lastBuiltScoreInt != scoreInt || _lastBuiltMisses != misses || _lastBuiltAcc != acc || _lastBuiltRank != rankStr || _lastBuiltTier != tierStr || _lastBuiltRate != playbackRate || _lastBuiltUnranked != isUnranked);
 
-        if (_cShowScore) {
-            if (isUnranked) {
-                strMain += "Score: ";
-                unrankedStart = strMain.length;
-                strMain += "UNRANKED";
-                unrankedEnd = strMain.length;
-            } else {
-                strMain += "Score: " + scoreStr;
-            }
-            needSep = true;
-        }
-
-        if (playbackRate != 1.0) {
-            if (needSep) strMain += separator;
-            rateStart = strMain.length;
-            var rateStr = Std.string(playbackRate);
-            if (rateStr.indexOf(".") == -1) rateStr += ".0";
-            strMain += "Rate: " + rateStr + "x";
-            rateEnd = strMain.length;
-            needSep = true;
-        }
-
-        if (_cShowMisses && !_cJudgesVisible) {
-            if (needSep) strMain += separator;
-            strMain += "Misses: " + misses;
-            needSep = true;
-        }
-
-        if (_cAccMode != "Off" && _cAccMode != "null" && _cAccMode != "false") {
-            if (needSep) strMain += separator;
+        if (paramsChanged || _cachedText == "") {
+            _unrankedStart = -1; _unrankedEnd = -1;
+            _rateStart = -1; _rateEnd = -1;
+            _scoreStart = -1; _scoreEnd = -1;
+            _rankStart = -1;
             
-            var accStr = Std.string(acc);
-            var dotIdx = accStr.indexOf(".");
-            if (dotIdx == -1) {
-                accStr += ".00";
-            } else if (accStr.length - dotIdx == 2) {
-                accStr += "0";
+            var scoreStr = FlxStringUtil.formatMoney(scoreInt, false, true);
+            var strMain = "";
+            var needSep = false;
+
+            if (_cShowScore) {
+                if (isUnranked) {
+                    strMain += "Score: ";
+                    _unrankedStart = strMain.length;
+                    strMain += "UNRANKED";
+                    _unrankedEnd = strMain.length;
+                } else {
+                    _scoreStart = strMain.length;
+                    strMain += "Score: " + scoreStr;
+                    _scoreEnd = strMain.length;
+                }
+                needSep = true;
             }
-            
-            strMain += "Acc: " + accStr + "%";
-            needSep = true;
-        }
 
-        cachedSuffix = "";
-        var suffixNeedSep = false;
-
-        if (_cShowRank) {
-            var fRank = formatRank(rankStr);
-            cachedRankLen = fRank.length;
-            cachedSuffix += "Rank: ";
-            cachedSuffix += fRank;
-            suffixNeedSep = true;
-
-            currentTargetFmt = getRankFormat(rankStr);
-        }
-
-        if (_cShowTier) {
-            if (suffixNeedSep) cachedSuffix += separator;
-            cachedSuffix += tierStr;
-        }
-
-        var newText:String = "";
-        if (strMain != "") newText += strMain;
-        
-        var rIdx:Int = newText.length;
-        
-        if (cachedSuffix != "") {
-            if (newText != "") {
-                newText += separator;
-                rIdx += separator.length;
+            if (playbackRate != 1.0) {
+                if (needSep) strMain += separator;
+                _rateStart = strMain.length;
+                var rateStr = Std.string(playbackRate);
+                if (rateStr.indexOf(".") == -1) rateStr += ".0";
+                strMain += "Rate: " + rateStr + "x";
+                _rateEnd = strMain.length;
+                needSep = true;
             }
-            newText += cachedSuffix;
-        }
-        
-        if (uiText.text != newText) {
-            uiText.text = newText;
+
+            if (_cShowMisses && !_cJudgesVisible) {
+                if (needSep) strMain += separator;
+                strMain += "Misses: " + misses;
+                needSep = true;
+            }
+
+            if (_cAccMode != "Off" && _cAccMode != "null" && _cAccMode != "false") {
+                if (needSep) strMain += separator;
+                
+                var accStr = Std.string(acc);
+                var dotIdx = accStr.indexOf(".");
+                if (dotIdx == -1) {
+                    accStr += ".00";
+                } else if (accStr.length - dotIdx == 2) {
+                    accStr += "0";
+                }
+                
+                strMain += "Acc: " + accStr + "%";
+                needSep = true;
+            }
+
+            cachedSuffix = "";
+            var suffixNeedSep = false;
+
+            if (_cShowRank) {
+                var fRank = formatRank(rankStr);
+                cachedRankLen = fRank.length;
+                cachedSuffix += "Rank: ";
+                cachedSuffix += fRank;
+                suffixNeedSep = true;
+
+                currentTargetFmt = getRankFormat(rankStr);
+            }
+
+            if (_cShowTier) {
+                if (suffixNeedSep) cachedSuffix += separator;
+                cachedSuffix += tierStr;
+            }
+
+            var newText:String = "";
+            if (strMain != "") newText += strMain;
             
+            var rIdx:Int = newText.length;
+            
+            if (cachedSuffix != "") {
+                if (newText != "") {
+                    newText += separator;
+                    rIdx += separator.length;
+                }
+                newText += cachedSuffix;
+            }
+
+            _rankStart = rIdx + 6;
+            _cachedText = newText;
+
+            _lastBuiltScoreInt = scoreInt;
+            _lastBuiltMisses = misses;
+            _lastBuiltAcc = acc;
+            _lastBuiltRank = rankStr;
+            _lastBuiltTier = tierStr;
+            _lastBuiltRate = playbackRate;
+            _lastBuiltUnranked = isUnranked;
+        }
+
+        var isHighscore = false;
+        var hsColor:Int = 0xFFFFFFFF;
+        if (api != null && api.gammodHighscoreActive == true) {
+            isHighscore = true;
+            hsColor = FlxColor.fromHSB(_rainbowHue, 1.0, 1.0);
+        }
+
+        var textChanged = (uiText.text != _cachedText);
+        if (textChanged) {
+            uiText.text = _cachedText;
+        }
+
+        if (textChanged || isHighscore) {
             uiText.clearFormats();
 
-            if (isUnranked && unrankedStart != -1) {
+            if (_lastBuiltUnranked && _unrankedStart != -1) {
                 if (_fmtUnranked == null) _fmtUnranked = new FlxTextFormat(0xFFFF0000);
-                uiText.addFormat(_fmtUnranked, unrankedStart, unrankedEnd);
+                uiText.addFormat(_fmtUnranked, _unrankedStart, _unrankedEnd);
             }
 
-            if (playbackRate != 1.0 && rateStart != -1) {
+            if (_lastBuiltRate != 1.0 && _rateStart != -1) {
                 if (_fmtRate == null) _fmtRate = new FlxTextFormat(0xFF66FFFF);
-                uiText.addFormat(_fmtRate, rateStart, rateEnd);
+                uiText.addFormat(_fmtRate, _rateStart, _rateEnd);
             }
 
-            if (_cShowRank && currentTargetFmt != null) {
-                uiText.addFormat(currentTargetFmt, rIdx + 6, rIdx + 6 + cachedRankLen);
+            if (isHighscore && _scoreStart != -1) {
+                if (_fmtHighscore == null) _fmtHighscore = new FlxTextFormat(hsColor);
+                else _fmtHighscore.format.color = hsColor;
+                uiText.addFormat(_fmtHighscore, _scoreStart, _scoreEnd);
             }
 
-            uiText.screenCenter(0x01);
+            if (_cShowRank && currentTargetFmt != null && _rankStart != -1) {
+                uiText.addFormat(currentTargetFmt, _rankStart, _rankStart + cachedRankLen);
+            }
+
+            if (textChanged) uiText.screenCenter(0x01);
         }
     }
     
@@ -807,6 +867,12 @@ class KssetteAccuracy extends Module {
             var accTextChanged:Bool = (visualAcc != lastVisualAcc);
 
             if (majorChange || minorChange || accTextChanged) {
+                pendingTextUpdate = true;
+            }
+
+            if (api != null && api.gammodHighscoreActive == true) {
+                _rainbowHue += elapsed * 150;
+                if (_rainbowHue >= 360) _rainbowHue -= 360;
                 pendingTextUpdate = true;
             }
 
