@@ -215,8 +215,8 @@ class KssMiddlescroll extends Module {
                 if (receptors != null) {
                     for (receptor in receptors) {
                         if (receptor != null) {
-                            receptor.alpha = 0.25;
-                            receptor.color = 0xFF666666;
+                            receptor.alpha = 0.7;
+                            receptor.color = 0xFFAEAEAE;
                         }
                     }
                 }
