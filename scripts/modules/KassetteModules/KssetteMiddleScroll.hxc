@@ -32,7 +32,6 @@ class KssMiddlescroll extends Module {
 
     var cachedIsArrows:Bool = false;
     var cachedIsPixelStyle:Bool = false;
-    var cachedIsOpposite:Bool = false;
 
     public function new() {
         super('KssMiddlescroll'); 
@@ -94,13 +93,8 @@ class KssMiddlescroll extends Module {
             cachedIsPixelStyle = true;
         }
 
-        cachedIsOpposite = false;
-        if (apiModule != null) {
-            cachedIsOpposite = (apiModule.gammodPlayerSide == "OPPOSITE");
-        }
-
-        var myStrum = cachedIsOpposite ? state.opponentStrumline : state.playerStrumline;
-        var oppStrum = cachedIsOpposite ? state.playerStrumline : state.opponentStrumline;
+        var myStrum = state.playerStrumline;
+        var oppStrum = state.opponentStrumline;
 
         var isArrows = cachedIsArrows;
         var isModActive = (cachedMode != "Off" && cachedMode != "null");
@@ -225,58 +219,6 @@ class KssMiddlescroll extends Module {
                 oppStrum.showNotesplash = false;
                 
                 hasShifted = true;
-            } else if (!hasShifted) {
-                var receptors = oppStrum.strumlineNotes.members;
-                
-                if (cachedMode == "P Style" && receptors != null && receptors.length >= 4) {
-                    var targetLeftX:Float = Constants.STRUMLINE_X_OFFSET;
-                    var targetRightX:Float = FlxG.width - Constants.STRUMLINE_X_OFFSET - receptors[3].width;
-
-                    receptors[0].x = targetLeftX;
-                    receptors[1].x = targetLeftX + Strumline.NOTE_SPACING;
-                    receptors[3].x = targetRightX;
-                    receptors[2].x = targetRightX - Strumline.NOTE_SPACING;
-                    
-                    for (receptor in receptors) {
-                        if (receptor != null) receptor.alpha = 0.6;
-                    }
-                    hasShifted = true;
-                } 
-                else if (cachedMode == "On" && receptors != null && receptors.length > 0) {
-                    
-                    oppStrum.strumlineScale.set(0.65, 0.65);
-
-                    var sizeRatio:Float = 0.65;
-                    var targetSpacing:Float = Strumline.NOTE_SPACING * sizeRatio;
-
-                    for (receptor in receptors) {
-                        if (receptor != null) {
-                            var pixel:Bool = false;
-                            if (receptor.antialiasing == false) pixel = true;
-                            else pixel = cachedIsPixelStyle;
-                            var defaultScale:Float = pixel ? 6.0 : 0.7;
-                            receptor.scale.set(defaultScale * sizeRatio, defaultScale * sizeRatio);
-                            receptor.updateHitbox();
-                            receptor.alpha = 1.0; 
-                        }
-                    }
-
-                    var compactStartX:Float = Constants.STRUMLINE_X_OFFSET;
-
-                    if (cachedOppPos == "Right") {
-                        var exactTotalWidth:Float = (targetSpacing * (receptors.length - 1)) + receptors[receptors.length - 1].width;
-                        compactStartX = FlxG.width - Constants.STRUMLINE_X_OFFSET - exactTotalWidth;
-                    }
-
-                    for (i in 0...receptors.length) {
-                        if (receptors[i] != null) {
-                            receptors[i].x = compactStartX + (targetSpacing * i);
-                            receptors[i].updateHitbox();
-                        }
-                    }
-                    
-                    hasShifted = true;
-                }
             }
 
             if (isArrows && cachedMobileOppNotes) {
@@ -327,7 +269,7 @@ class KssMiddlescroll extends Module {
         if (!isModActive && !applyArrowLogic) return;
 
         var note = event.note;
-        var isOppNote = cachedIsOpposite ? note.noteData.getMustHitNote() : !note.noteData.getMustHitNote();
+        var isOppNote = !note.noteData.getMustHitNote();
 
         if (note != null && isOppNote && cachedOppStrum != null) {
             var opp = cachedOppStrum;
@@ -425,20 +367,54 @@ class KssMiddlescroll extends Module {
     override function onUpdate(event:UpdateScriptEvent) {
         
         var applyArrowLogic = cachedIsArrows && cachedMobileOppNotes;
-        var isModActive = (cachedMode == "On" || cachedMode == "P Style" || cachedMode == "Glass");
+        var isModActive = (cachedMode == "On" || cachedMode == "P Style" || cachedMode == "Glass" || cachedMode == "Hidden Notes");
 
-        if (!isModActive && !applyArrowLogic) return;
-        if (cachedMode == "Hidden Notes") return;
         
         var state = PlayState.instance;
         if (state == null) return;
         
-        var myStrum = cachedIsOpposite ? state.opponentStrumline : state.playerStrumline;
+        var myStrum = state.playerStrumline;
+        var oppStrum = cachedOppStrum;
+
+        var padding:Float = 12;
+        if (myStrum != null && myStrum.background != null && myStrum.background.visible) {
+            var pStartX:Float = myStrum.x;
+            var pNotes = myStrum.strumlineNotes.members;
+            if (pNotes != null && pNotes.length > 0 && pNotes[0] != null) pStartX = pNotes[0].x;
+            myStrum.background.x = pStartX - padding;
+        }
+
+        if (oppStrum != null && oppStrum.background != null && oppStrum.background.visible) {
+            var startX:Float = oppStrum.x;
+            var oNotes = oppStrum.strumlineNotes.members;
+            if (oNotes != null && oNotes.length > 0 && oNotes[0] != null) startX = oNotes[0].x;
+            oppStrum.background.x = startX - padding;
+        }
+
+        if (!isModActive) {
+            if (!pHasShifted && myStrum != null && oppStrum != null) {
+                var gSide = "NORMAL";
+                if (apiModule != null) {
+                    try { gSide = apiModule.gammodPlayerSide; } catch(e:Dynamic) {}
+                }
+                if (gSide == "OPPOSITE") {
+                    var cutoutSize = 0.0;
+                    try { cutoutSize = funkin.ui.FullScreenScaleMode.gameCutoutSize.x / 2.5; } catch(e:Dynamic) {}
+                    myStrum.x = (((FlxG.width / 2) - myStrum.width) - Constants.STRUMLINE_X_OFFSET) - (cutoutSize / 2.0);
+                    oppStrum.x = (FlxG.width - oppStrum.width) - Constants.STRUMLINE_X_OFFSET - cutoutSize;
+                } else if (gSide == "BOTH") {
+                    myStrum.x = (FlxG.width / 2) - (myStrum.width / 2);
+                    oppStrum.visible = false;
+                }
+                pHasShifted = true;
+                hasShifted = true;
+            }
+            if (!applyArrowLogic) return;
+        }
 
         if (myStrum != null && isModActive && !pHasShifted) {
             var pRealWidth:Float = 448;
             var pStartX:Float = myStrum.x;
-            var padding:Float = 12;
             var pNotes = myStrum.strumlineNotes.members;
             if (pNotes != null && pNotes.length > 0) {
                 var firstNote = pNotes[0];
@@ -457,6 +433,72 @@ class KssMiddlescroll extends Module {
             }
             if (cachedMode == "Glass" && cachedOppStrum != null) cachedOppStrum.x = myStrum.x;
             pHasShifted = true;
+        }
+
+        if (cachedOppStrum != null && isModActive && !hasShifted) {
+            var oppStrum = cachedOppStrum;
+            var receptors = oppStrum.strumlineNotes.members;
+            
+            if (cachedMode == "Hidden Notes") {
+                oppStrum.x = -5000;
+                if (receptors != null) {
+                    for (receptor in receptors) {
+                        if (receptor != null) receptor.x = -5000;
+                    }
+                }
+                hasShifted = true;
+            }
+            else if (cachedMode == "P Style" && receptors != null && receptors.length >= 4) {
+                oppStrum.x = 0;
+                
+                var targetLeftX:Float = Constants.STRUMLINE_X_OFFSET;
+                var targetRightX:Float = FlxG.width - Constants.STRUMLINE_X_OFFSET - receptors[3].width;
+
+                receptors[0].x = targetLeftX;
+                receptors[1].x = targetLeftX + Strumline.NOTE_SPACING;
+                receptors[3].x = targetRightX;
+                receptors[2].x = targetRightX - Strumline.NOTE_SPACING;
+                
+                for (receptor in receptors) {
+                    if (receptor != null) receptor.alpha = 0.6;
+                }
+                hasShifted = true;
+            } 
+            else if (cachedMode == "On" && receptors != null && receptors.length > 0) {
+                oppStrum.x = 0;
+                oppStrum.strumlineScale.set(0.65, 0.65);
+
+                var sizeRatio:Float = 0.65;
+                var targetSpacing:Float = Strumline.NOTE_SPACING * sizeRatio;
+
+                for (receptor in receptors) {
+                    if (receptor != null) {
+                        var pixel:Bool = false;
+                        if (receptor.antialiasing == false) pixel = true;
+                        else pixel = cachedIsPixelStyle;
+                        var defaultScale:Float = pixel ? 6.0 : 0.7;
+                        receptor.scale.set(defaultScale * sizeRatio, defaultScale * sizeRatio);
+                        receptor.updateHitbox();
+                        receptor.alpha = 1.0; 
+                    }
+                }
+
+                var compactStartX:Float = Constants.STRUMLINE_X_OFFSET;
+
+                if (cachedOppPos == "Right") {
+                    var exactTotalWidth:Float = (targetSpacing * (receptors.length - 1)) + receptors[receptors.length - 1].width;
+                    compactStartX = FlxG.width - Constants.STRUMLINE_X_OFFSET - exactTotalWidth;
+                }
+
+                for (i in 0...receptors.length) {
+                    if (receptors[i] != null) {
+                        receptors[i].x = compactStartX + (targetSpacing * i);
+                        receptors[i].updateHitbox();
+                    }
+                }
+                
+                hasShifted = true;
+            }
         }
 
         if (cachedOppStrum == null) return;
