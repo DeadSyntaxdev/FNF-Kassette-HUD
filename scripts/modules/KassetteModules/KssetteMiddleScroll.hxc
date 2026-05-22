@@ -204,6 +204,26 @@ class KssMiddlescroll extends Module {
                         if (note != null) note.x = -5000;
                     }
                 }
+            } else if (cachedMode == "Glass") {
+                if (myStrum != null) {
+                    oppStrum.x = myStrum.x;
+                    oppStrum.zIndex = myStrum.zIndex - 10;
+                    if (state != null) state.refresh();
+                }
+                var receptors = oppStrum.strumlineNotes.members;
+                if (receptors != null) {
+                    for (receptor in receptors) {
+                        if (receptor != null) {
+                            receptor.alpha = 0.7;
+                            receptor.color = 0xFFaeaeae;
+                        }
+                    }
+                }
+                var bg = oppStrum.background;
+                if (bg != null) bg.visible = false;
+                oppStrum.showNotesplash = false;
+                
+                hasShifted = true;
             } else if (!hasShifted) {
                 var receptors = oppStrum.strumlineNotes.members;
                 
@@ -325,7 +345,7 @@ class KssMiddlescroll extends Module {
 
         var isArrows = isArrowLayout();
         var applyArrowLogic = isArrows && cachedMobileOppNotes;
-        var isModActive = (cachedMode == "On" || cachedMode == "P Style" || cachedMode == "Hidden Notes");
+        var isModActive = (cachedMode == "On" || cachedMode == "P Style" || cachedMode == "Hidden Notes" || cachedMode == "Glass");
 
         if (!isModActive && !applyArrowLogic) return;
 
@@ -366,6 +386,17 @@ class KssMiddlescroll extends Module {
                 note.alpha = 0.6;
                 return;
             } 
+            else if (cachedMode == "Glass") {
+                if (note.alpha != 0.25) note.alpha = 0.25;
+                if (note.color != 0xFF666666) note.color = 0xFF666666;
+                
+                if (note.holdNoteSprite != null) {
+                    var hold:Dynamic = note.holdNoteSprite;
+                    if (hold.alpha != 0.25) hold.alpha = 0.25;
+                    if (hold.color != 0xFF666666) hold.color = 0xFF666666;
+                }
+                return;
+            }
             
             if (cachedMode == "On" || applyArrowLogic) {
                 var pixel:Bool = isPixelNote(note);
@@ -418,7 +449,7 @@ class KssMiddlescroll extends Module {
         
         var isArrows = isArrowLayout();
         var applyArrowLogic = isArrows && cachedMobileOppNotes;
-        var isModActive = (cachedMode == "On" || cachedMode == "P Style");
+        var isModActive = (cachedMode == "On" || cachedMode == "P Style" || cachedMode == "Glass");
 
         if (!isModActive && !applyArrowLogic) return;
         if (cachedMode == "Hidden Notes") return;
@@ -452,23 +483,11 @@ class KssMiddlescroll extends Module {
                 myStrum.x += shift;
                 if (myStrum.background != null) myStrum.background.x = centeredX - padding;
             }
+            if (cachedMode == "Glass" && cachedOppStrum != null) cachedOppStrum.x = myStrum.x;
             pHasShifted = true;
         }
 
         if (cachedOppStrum == null) return;
-
-        if (cachedOppStrum.holdNotes != null && cachedOppStrum.holdNotes.members != null) {
-            for (hold in cachedOppStrum.holdNotes.members) {
-                if (hold != null && hold.alive) {
-                    if (cachedMode == "P Style") hold.alpha = 0.6;
-                    
-                    var hDynamic:Dynamic = hold;
-                    if (applyArrowLogic && hDynamic.endSprite != null) {
-                        hDynamic.endSprite.alpha = 0.0;
-                    }
-                }
-            }
-        }
 
         splashUpdateTimer += event.elapsed;
         if (splashUpdateTimer >= 0.016) {

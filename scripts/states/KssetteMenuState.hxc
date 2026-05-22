@@ -436,7 +436,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         var upper = StringTools.trim(val).toUpperCase();
         if (upper == "ON" || upper == "ENABLED") return 0xFF00FF00;
         if (upper == "OFF" || upper == "DISABLED") return 0xFFFF0000;
-        if (upper == "P S" || upper == "P STYLE" || StringTools.contains(upper, "LEFT") || StringTools.contains(upper, "RIGHT") || StringTools.contains(upper, "TOP") || StringTools.contains(upper, "BOT") || StringTools.contains(upper, "ABV") || StringTools.contains(upper, "BEL")) return 0xFF00CCFF;
+        if (upper == "P S" || upper == "P STYLE" || upper == "GLA" || upper == "GLASS" || StringTools.contains(upper, "LEFT") || StringTools.contains(upper, "RIGHT") || StringTools.contains(upper, "TOP") || StringTools.contains(upper, "BOT") || StringTools.contains(upper, "ABV") || StringTools.contains(upper, "BEL")) return 0xFF00CCFF;
         if (upper == "CLA" || upper == "CLASSIC" || upper == "ASC" || upper == "ASCENDING") return 0xFFFFCC00;
         if (upper == "HID" || upper == "HIDDEN" || StringTools.contains(upper, "HIDDEN NOTES")) return 0xFF999999;
         if (upper == "VAN" || upper == "SLI" || upper == "FAD" || upper == "VER" || upper == "ZOO") return 0xFF9966FF;
@@ -453,6 +453,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         if (upper == "ON") return "ON ";
         if (upper == "OFF") return "OFF";
         if (upper == "P STYLE") return "P S";
+        if (upper == "GLASS") return "GLA";
         if (upper == "HIDDEN NOTES") return "HID";
         if (upper == "CLASSIC") return "CLA";
         if (upper == "ASCENDING") return "ASC";
@@ -478,6 +479,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         if (upper == "ON") return "ENABLED";
         if (upper == "OFF") return "DISABLED";
         if (upper == "P STYLE") return "P STYLE";
+        if (upper == "GLASS") return "GLASS";
         if (upper == "HIDDEN NOTES") return "HIDDEN";
         return upper;
     }
@@ -546,7 +548,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         }
         
         if (showPCOptions) {
-            createToggle("MIDDLE SCROLL", "kssette_middlescroll", ["Off", "On", "P Style", "Hidden Notes"], "Moves your notes to the center of the screen for better focus.");
+            createToggle("MIDDLE SCROLL", "kssette_middlescroll", ["Off", "On", "P Style", "Glass", "Hidden Notes"], "Moves your notes to the center of the screen for better focus.");
             createToggle("GHOST TAPPING", "kssette_ghost_tapping", ["On", "Off"], "Press keys anytime without penalty. You won't miss if there's no note.");
             
         }
