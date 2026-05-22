@@ -30,6 +30,10 @@ class KssMiddlescroll extends Module {
     var lastNudgedStrum:Dynamic = null;
     var pHasShifted:Bool = false;
 
+    var cachedIsArrows:Bool = false;
+    var cachedIsPixelStyle:Bool = false;
+    var cachedIsOpposite:Bool = false;
+
     public function new() {
         super('KssMiddlescroll'); 
     }
@@ -38,19 +42,6 @@ class KssMiddlescroll extends Module {
         if (val == true) return true;
         var s = Std.string(val);
         return s == "On" || s == "on" || s == "true";
-    }
-
-    function isArrowLayout():Bool {
-        return Preferences.controlsScheme == 'Arrows' && !ControlsHandler.hasExternalInputDevice;
-    }
-
-    function isPixelNote(obj:Dynamic = null):Bool {
-        if (obj != null && obj.antialiasing == false) {
-            return true;
-        }
-        var ps = PlayState.instance;
-        if (ps == null) return false;
-        return ps.currentChart != null && ps.currentChart.noteStyle == 'pixel';
     }
 
     override function onCountdownStart(event:ScriptEvent):Void {
@@ -93,15 +84,25 @@ class KssMiddlescroll extends Module {
         var state = PlayState.instance;
         if (state == null) return;
 
-        var isOpposite = false;
-        if (apiModule != null && Reflect.hasField(apiModule, "gammodPlayerSide")) {
-            isOpposite = apiModule.gammodPlayerSide == "OPPOSITE";
+        cachedIsArrows = false;
+        if (Preferences.controlsScheme == 'Arrows') {
+            cachedIsArrows = !ControlsHandler.hasExternalInputDevice;
         }
 
-        var myStrum = isOpposite ? state.opponentStrumline : state.playerStrumline;
-        var oppStrum = isOpposite ? state.playerStrumline : state.opponentStrumline;
+        cachedIsPixelStyle = false;
+        if (state.currentChart != null && state.currentChart.noteStyle == 'pixel') {
+            cachedIsPixelStyle = true;
+        }
 
-        var isArrows = isArrowLayout();
+        cachedIsOpposite = false;
+        if (apiModule != null) {
+            cachedIsOpposite = (apiModule.gammodPlayerSide == "OPPOSITE");
+        }
+
+        var myStrum = cachedIsOpposite ? state.opponentStrumline : state.playerStrumline;
+        var oppStrum = cachedIsOpposite ? state.playerStrumline : state.opponentStrumline;
+
+        var isArrows = cachedIsArrows;
         var isModActive = (cachedMode != "Off" && cachedMode != "null");
 
         var pRealWidth:Float = 0;
@@ -214,8 +215,8 @@ class KssMiddlescroll extends Module {
                 if (receptors != null) {
                     for (receptor in receptors) {
                         if (receptor != null) {
-                            receptor.alpha = 0.7;
-                            receptor.color = 0xFFaeaeae;
+                            receptor.alpha = 0.25;
+                            receptor.color = 0xFF666666;
                         }
                     }
                 }
@@ -250,7 +251,9 @@ class KssMiddlescroll extends Module {
 
                     for (receptor in receptors) {
                         if (receptor != null) {
-                            var pixel:Bool = isPixelNote(receptor);
+                            var pixel:Bool = false;
+                            if (receptor.antialiasing == false) pixel = true;
+                            else pixel = cachedIsPixelStyle;
                             var defaultScale:Float = pixel ? 6.0 : 0.7;
                             receptor.scale.set(defaultScale * sizeRatio, defaultScale * sizeRatio);
                             receptor.updateHitbox();
@@ -308,27 +311,8 @@ class KssMiddlescroll extends Module {
     }
 
     override function onSongRetry(event:ScriptEvent):Void {
+        // onCountdownStart is called on retry anyway, so this is mostly redundant.
         super.onSongRetry(event);
-        var state = PlayState.instance;
-        var isOpposite = false;
-        if (apiModule != null && Reflect.hasField(apiModule, "gammodPlayerSide")) {
-            isOpposite = apiModule.gammodPlayerSide == "OPPOSITE";
-        }
-        var oppStrum = isOpposite ? state.playerStrumline : state.opponentStrumline;
-
-        if (state != null && oppStrum != null && isArrowLayout() && cachedMobileOppNotes) {
-            oppStrum.notes.visible = true;
-            oppStrum.holdNotes.visible = true;
-            oppStrum.isDownscroll = false;
-            
-            if (lastNudgedStrum != oppStrum) {
-                var nudgeY:Float = -15.0;
-                var nudgeX:Float = -65.0;
-                oppStrum.y += nudgeY;
-                oppStrum.x += nudgeX;
-                lastNudgedStrum = oppStrum;
-            }
-        }
     }
 
     override function onNoteIncoming(event:ScriptEvent) {
@@ -336,24 +320,17 @@ class KssMiddlescroll extends Module {
         
         var state = PlayState.instance;
         if (state == null) return;
-        
-        var isOpposite = false;
-        if (apiModule != null && Reflect.hasField(apiModule, "gammodPlayerSide")) {
-            isOpposite = apiModule.gammodPlayerSide == "OPPOSITE";
-        }
-        var oppStrum = isOpposite ? state.playerStrumline : state.opponentStrumline;
 
-        var isArrows = isArrowLayout();
-        var applyArrowLogic = isArrows && cachedMobileOppNotes;
+        var applyArrowLogic = cachedIsArrows && cachedMobileOppNotes;
         var isModActive = (cachedMode == "On" || cachedMode == "P Style" || cachedMode == "Hidden Notes" || cachedMode == "Glass");
 
         if (!isModActive && !applyArrowLogic) return;
 
         var note = event.note;
-        var isOppNote = isOpposite ? note.noteData.getMustHitNote() : !note.noteData.getMustHitNote();
+        var isOppNote = cachedIsOpposite ? note.noteData.getMustHitNote() : !note.noteData.getMustHitNote();
 
-        if (note != null && isOppNote && oppStrum != null) {
-            var opp = oppStrum;
+        if (note != null && isOppNote && cachedOppStrum != null) {
+            var opp = cachedOppStrum;
 
             if (cachedMode == "Hidden Notes") {
                 note.x = -5000;
@@ -378,9 +355,8 @@ class KssMiddlescroll extends Module {
                     note.x = targetReceptor.x + (targetReceptor.width * 0.5) - (note.width * 0.5);
                     
                     if (note.holdNoteSprite != null) {
-                        var hold:Dynamic = note.holdNoteSprite;
-                        hold.x = targetReceptor.x + (targetReceptor.width * 0.5) - (hold.width * 0.5);
-                        hold.alpha = 0.6;
+                        note.holdNoteSprite.x = targetReceptor.x + (targetReceptor.width * 0.5) - (note.holdNoteSprite.width * 0.5);
+                        note.holdNoteSprite.alpha = 0.6;
                     }
                 }
                 note.alpha = 0.6;
@@ -391,15 +367,16 @@ class KssMiddlescroll extends Module {
                 if (note.color != 0xFF666666) note.color = 0xFF666666;
                 
                 if (note.holdNoteSprite != null) {
-                    var hold:Dynamic = note.holdNoteSprite;
-                    if (hold.alpha != 0.25) hold.alpha = 0.25;
-                    if (hold.color != 0xFF666666) hold.color = 0xFF666666;
+                    note.holdNoteSprite.alpha = 0.25;
+                    note.holdNoteSprite.color = 0xFF666666;
                 }
                 return;
             }
             
             if (cachedMode == "On" || applyArrowLogic) {
-                var pixel:Bool = isPixelNote(note);
+                var pixel:Bool = false;
+                if (note.antialiasing == false) pixel = true;
+                else pixel = cachedIsPixelStyle;
                 var targetScale:Float = 1.0;
                 
                 if (cachedMode == "On") {
@@ -428,7 +405,7 @@ class KssMiddlescroll extends Module {
                     note.x = targetReceptor.x + (targetReceptor.width * 0.5) - (nw * 0.5);
                     
                     if (note.holdNoteSprite != null) {
-                        var holdNote:Dynamic = note.holdNoteSprite;
+                        var holdNote = note.holdNoteSprite;
                         holdNote.flipY = false;
 
                         var holdWidthMul:Float = pixel ? 0.15 : 1.05;
@@ -447,8 +424,7 @@ class KssMiddlescroll extends Module {
 
     override function onUpdate(event:UpdateScriptEvent) {
         
-        var isArrows = isArrowLayout();
-        var applyArrowLogic = isArrows && cachedMobileOppNotes;
+        var applyArrowLogic = cachedIsArrows && cachedMobileOppNotes;
         var isModActive = (cachedMode == "On" || cachedMode == "P Style" || cachedMode == "Glass");
 
         if (!isModActive && !applyArrowLogic) return;
@@ -457,11 +433,7 @@ class KssMiddlescroll extends Module {
         var state = PlayState.instance;
         if (state == null) return;
         
-        var isOpposite = false;
-        if (apiModule != null && Reflect.hasField(apiModule, "gammodPlayerSide")) {
-            isOpposite = apiModule.gammodPlayerSide == "OPPOSITE";
-        }
-        var myStrum = isOpposite ? state.opponentStrumline : state.playerStrumline;
+        var myStrum = cachedIsOpposite ? state.opponentStrumline : state.playerStrumline;
 
         if (myStrum != null && isModActive && !pHasShifted) {
             var pRealWidth:Float = 448;
@@ -490,7 +462,7 @@ class KssMiddlescroll extends Module {
         if (cachedOppStrum == null) return;
 
         splashUpdateTimer += event.elapsed;
-        if (splashUpdateTimer >= 0.016) {
+        if (splashUpdateTimer >= 0.033) {
             splashUpdateTimer = 0.0;
             var splashes = cachedSplashes;
             if (splashes != null && splashes.members != null) {
@@ -500,7 +472,7 @@ class KssMiddlescroll extends Module {
                 var offX:Float = cachedSplashOffsetX;
                 
                 for (splash in splashes.members) {
-                    if (splash != null && splash.alive && splash.animation != null && splash.animation.name != null) {
+                    if (splash != null && splash.alive && splash.visible && splash.alpha > 0 && splash.animation != null && splash.animation.name != null) {
                         var animName = splash.animation.name;
                         var dir:Int = -1;
                         
