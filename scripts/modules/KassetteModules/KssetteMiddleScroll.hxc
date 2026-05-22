@@ -378,17 +378,23 @@ class KssMiddlescroll extends Module {
 
         var padding:Float = 12;
         if (myStrum != null && myStrum.background != null && myStrum.background.visible) {
-            var pStartX:Float = myStrum.x;
             var pNotes = myStrum.strumlineNotes.members;
-            if (pNotes != null && pNotes.length > 0 && pNotes[0] != null) pStartX = pNotes[0].x;
-            myStrum.background.x = pStartX - padding;
+            if (pNotes != null && pNotes.length > 0) {
+                var minX = Math.POSITIVE_INFINITY;
+                for (note in pNotes) if (note != null && note.exists && note.x < minX) minX = note.x;
+                if (minX != Math.POSITIVE_INFINITY)
+                    myStrum.background.x = minX - padding;
+            }
         }
 
         if (oppStrum != null && oppStrum.background != null && oppStrum.background.visible) {
-            var startX:Float = oppStrum.x;
             var oNotes = oppStrum.strumlineNotes.members;
-            if (oNotes != null && oNotes.length > 0 && oNotes[0] != null) startX = oNotes[0].x;
-            oppStrum.background.x = startX - padding;
+            if (oNotes != null && oNotes.length > 0) {
+                var minX = Math.POSITIVE_INFINITY;
+                for (note in oNotes) if (note != null && note.exists && note.x < minX) minX = note.x;
+                if (minX != Math.POSITIVE_INFINITY)
+                    oppStrum.background.x = minX - padding;
+            }
         }
 
         if (!isModActive) {
@@ -397,6 +403,7 @@ class KssMiddlescroll extends Module {
                 if (apiModule != null) {
                     try { gSide = apiModule.gammodPlayerSide; } catch(e:Dynamic) {}
                 }
+
                 if (gSide == "OPPOSITE") {
                     var cutoutSize = 0.0;
                     try { cutoutSize = funkin.ui.FullScreenScaleMode.gameCutoutSize.x / 2.5; } catch(e:Dynamic) {}
