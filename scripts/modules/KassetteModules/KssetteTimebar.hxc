@@ -124,13 +124,15 @@ class KssetteTimeBar extends Module {
         var paddingY:Float = 20;
 
         var cutoutSize:Float = 0.0;
-        if (FlxG.onMobile) {
+        var isMob:Bool = FlxG.onMobile;
+        if (apiModule != null && apiModule.isMobileMode == true) isMob = true;
+
+        if (isMob) {
             try { cutoutSize = funkin.ui.FullScreenScaleMode.gameNotchSize.x; } catch(e:Dynamic) {}
             if (cutoutSize <= 0) {
                 try { cutoutSize = funkin.ui.FullScreenScaleMode.gameCutoutSize.x; } catch(e:Dynamic) {}
             }
-            if (cutoutSize <= 0) cutoutSize = 35.0;
-            cutoutSize += 15.0;
+            if (cutoutSize < 85.0) cutoutSize = 85.0; // Anti-Notch
         }
 
         switch (timeBarPos) {

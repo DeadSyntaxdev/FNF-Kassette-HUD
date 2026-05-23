@@ -68,7 +68,7 @@ class KssetteAccuracy extends Module {
     var _fmtShit:FlxTextFormat;
     var _fmtDefault:FlxTextFormat;
     var _fmtUnranked:FlxTextFormat;
-    var _fmtRate:FlxTextFormat;
+    var _fmtMult:FlxTextFormat;
     var _fmtHighscore:FlxTextFormat;
     var _rainbowHue:Float = 0.0;
 
@@ -77,14 +77,14 @@ class KssetteAccuracy extends Module {
     var _lastBuiltAcc:Float = -1;
     var _lastBuiltRank:String = "";
     var _lastBuiltTier:String = "";
-    var _lastBuiltRate:Float = 1.0;
+    var _lastBuiltMult:Float = 1.0;
     var _lastBuiltUnranked:Bool = false;
     
     var _cachedText:String = "";
     var _unrankedStart:Int = -1;
     var _unrankedEnd:Int = -1;
-    var _rateStart:Int = -1;
-    var _rateEnd:Int = -1;
+    var _multStart:Int = -1;
+    var _multEnd:Int = -1;
     var _scoreStart:Int = -1;
     var _scoreEnd:Int = -1;
     var _rankStart:Int = -1;
@@ -240,7 +240,7 @@ class KssetteAccuracy extends Module {
             _lastBuiltAcc = -1;
             _lastBuiltRank = "";
             _lastBuiltTier = "";
-            _lastBuiltRate = 1.0;
+            _lastBuiltMult = 1.0;
             _lastBuiltUnranked = false;
             _cachedText = "";
             
@@ -527,17 +527,17 @@ class KssetteAccuracy extends Module {
         if (uiText == null || !uiText.exists) return;
 
         var isUnranked = false;
-        var playbackRate:Float = 1.0;
+        var multiplierValue:Float = 1.0;
         if (api != null) {
             isUnranked = api.gammodUnranked == true;
-            if (api.gammodPlaybackRate != null) playbackRate = api.gammodPlaybackRate;
+            if (api.gammodMultiplier != null) multiplierValue = api.gammodMultiplier;
         }
         
-        var paramsChanged = (_lastBuiltScoreInt != scoreInt || _lastBuiltMisses != misses || _lastBuiltAcc != acc || _lastBuiltRank != rankStr || _lastBuiltTier != tierStr || _lastBuiltRate != playbackRate || _lastBuiltUnranked != isUnranked);
+        var paramsChanged = (_lastBuiltScoreInt != scoreInt || _lastBuiltMisses != misses || _lastBuiltAcc != acc || _lastBuiltRank != rankStr || _lastBuiltTier != tierStr || _lastBuiltMult != multiplierValue || _lastBuiltUnranked != isUnranked);
 
         if (paramsChanged || _cachedText == "") {
             _unrankedStart = -1; _unrankedEnd = -1;
-            _rateStart = -1; _rateEnd = -1;
+            _multStart = -1; _multEnd = -1;
             _scoreStart = -1; _scoreEnd = -1;
             _rankStart = -1;
             
@@ -559,13 +559,13 @@ class KssetteAccuracy extends Module {
                 needSep = true;
             }
 
-            if (playbackRate != 1.0) {
+            if (multiplierValue != 1.0) {
                 if (needSep) strMain += separator;
-                _rateStart = strMain.length;
-                var rateStr = Std.string(playbackRate);
-                if (rateStr.indexOf(".") == -1) rateStr += ".0";
-                strMain += "Rate: " + rateStr + "x";
-                _rateEnd = strMain.length;
+                _multStart = strMain.length;
+                var multStr = Std.string(multiplierValue);
+                if (multStr.indexOf(".") == -1) multStr += ".0";
+                strMain += "Mult: " + multStr + "x";
+                _multEnd = strMain.length;
                 needSep = true;
             }
 
@@ -629,7 +629,7 @@ class KssetteAccuracy extends Module {
             _lastBuiltAcc = acc;
             _lastBuiltRank = rankStr;
             _lastBuiltTier = tierStr;
-            _lastBuiltRate = playbackRate;
+            _lastBuiltMult = multiplierValue;
             _lastBuiltUnranked = isUnranked;
         }
 
@@ -653,9 +653,9 @@ class KssetteAccuracy extends Module {
                 uiText.addFormat(_fmtUnranked, _unrankedStart, _unrankedEnd);
             }
 
-            if (_lastBuiltRate != 1.0 && _rateStart != -1) {
-                if (_fmtRate == null) _fmtRate = new FlxTextFormat(0xFF66FFFF);
-                uiText.addFormat(_fmtRate, _rateStart, _rateEnd);
+            if (_lastBuiltMult != 1.0 && _multStart != -1) {
+                if (_fmtMult == null) _fmtMult = new FlxTextFormat(0xFF66FFFF);
+                uiText.addFormat(_fmtMult, _multStart, _multEnd);
             }
 
             if (isHighscore && _scoreStart != -1) {
@@ -882,7 +882,14 @@ class KssetteAccuracy extends Module {
             var visualAcc:Float = Math.floor(displayedAcc * 100) / 100;
             var accTextChanged:Bool = (visualAcc != lastVisualAcc);
 
-            if (majorChange || minorChange || accTextChanged) {
+            var gammodChanged:Bool = false;
+            if (api != null) {
+                if (_lastBuiltUnranked != (api.gammodUnranked == true)) gammodChanged = true;
+                var currentMult:Float = api.gammodMultiplier != null ? api.gammodMultiplier : 1.0;
+                if (_lastBuiltMult != currentMult) gammodChanged = true;
+            }
+
+            if (majorChange || minorChange || accTextChanged || gammodChanged) {
                 pendingTextUpdate = true;
             }
 

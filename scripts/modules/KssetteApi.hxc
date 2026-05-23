@@ -117,6 +117,7 @@ class KssetteApi extends Module {
     public var isGammodMode:Bool = false;
     public var gammodUnranked:Bool = false;
     public var gammodPlaybackRate:Float = 1.0;
+    public var gammodMultiplier:Float = 1.0;
     public var gammodAutoPlay:Bool = false;
     public var gammodPlayerSide:String = "NORMAL";
     public var gammodHighscoreActive:Bool = false;
@@ -1204,6 +1205,7 @@ class KssetteApi extends Module {
 
         var gammodMult = _gammodMult;
         var unrankedRaw:Dynamic = null;
+        var multRaw:Dynamic = null;
         if (gammodMult != null) {
             unrankedRaw = Reflect.getProperty(gammodMult, "unranked");
             if (unrankedRaw == null) unrankedRaw = Reflect.field(gammodMult, "unranked");
@@ -1214,8 +1216,20 @@ class KssetteApi extends Module {
                 try { unrankedRaw = Reflect.field(gammodMult, "isUnranked")(); } catch(e:Dynamic) {}
             }
             gammodUnranked = (unrankedRaw == true);
+
+            multRaw = Reflect.getProperty(gammodMult, "score_multiplier");
+            if (multRaw == null) multRaw = Reflect.field(gammodMult, "score_multiplier");
+            if (multRaw == null) {
+                try { multRaw = gammodMult.scriptGet("score_multiplier"); } catch(e:Dynamic) {}
+            }
+            if (multRaw == null) {
+                try { multRaw = Reflect.field(gammodMult, "curMult")(); } catch(e:Dynamic) {}
+            }
+            if (multRaw != null) gammodMultiplier = multRaw;
+            else gammodMultiplier = 1.0;
         } else {
             gammodUnranked = false;
+            gammodMultiplier = 1.0;
         }
 
         var gammodRate = _gammodRate;
