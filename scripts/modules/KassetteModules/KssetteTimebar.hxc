@@ -8,6 +8,9 @@ import flixel.FlxSprite;
 import flixel.FlxCamera;
 import Std;
 import Reflect;
+import funkin.Preferences;
+import funkin.modding.events.SubStateScriptEvent;
+import funkin.play.PauseSubState;
 
 class KssetteTimeBar extends Module {
     public var timeBar:FlxSprite;
@@ -20,6 +23,7 @@ class KssetteTimeBar extends Module {
     var playState:PlayState = null;
     var songLengthMs:Float = 0.0;
     var updateTimer:Float = 0.0;
+    var customCam:FlxCamera = null;
 
     public var isPreview:Bool = false;
     public var previewCam:FlxCamera = null;
@@ -66,6 +70,11 @@ class KssetteTimeBar extends Module {
             try { FlxG.state.remove(timeBarBG, true); } catch(e:Dynamic) {}
             timeBarBG.destroy();
         }
+        if (customCam != null) {
+            FlxG.cameras.remove(customCam);
+            customCam.destroy();
+            customCam = null;
+        }
         timeBar = null;
         timeBarBG = null;
     }
@@ -73,49 +82,100 @@ class KssetteTimeBar extends Module {
     public function setupUI(cam:FlxCamera) {
         cleanupUI();
 
-        timeBarBG = makeBar(0, Std.int(barSize + 4), 0xFF000000, 1018, cam);
-        timeBar = makeBar(2, Std.int(barSize), 0xFFFFFFFF, 1019, cam);
+        var isBorder:Bool = (timeBarPos == "Top" || timeBarPos == "Bottom" || timeBarPos == "Vertical Left" || timeBarPos == "Vertical Right");
+        var targetCam:FlxCamera = cam;
+
+        if (isBorder && !isPreview) {
+            if (customCam == null) {
+                customCam = new FlxCamera();
+                customCam.bgColor = 0x00000000;
+                FlxG.cameras.add(customCam, false);
+            }
+            targetCam = customCam;
+        }
+
+        var zIdx:Int = isBorder ? 1018 : (timeBarPos == "In Health" ? 109 : 15);
+
+        timeBarBG = makeBar(0, Std.int(barSize + 4), 0xFF000000, zIdx, targetCam);
+        timeBar = makeBar(2, Std.int(barSize), 0xFFFFFFFF, zIdx + 1, targetCam);
         try { FlxG.state.refresh(); } catch(e:Dynamic) {}
     }
 
     public function updatePositions() {
         if (timeBarBG == null || timeBar == null) return;
 
+        var isVertical:Bool = (timeBarPos == "Vertical Left" || timeBarPos == "Vertical Right");
+        var isInHealth:Bool = (timeBarPos == "In Health");
         var isMini:Bool = (timeBarPos == "Bottom Left" || timeBarPos == "Bottom Right" || timeBarPos == "Top Left" || timeBarPos == "Top Right");
-        var currentBarWidth:Int = isMini ? 360 : FlxG.width;
 
-        if (Std.int(timeBarBG.width) != currentBarWidth) {
-            timeBarBG.makeGraphic(currentBarWidth, Std.int(barSize + 4), 0xFF000000);
-            timeBar.makeGraphic(currentBarWidth, Std.int(barSize), 0xFFFFFFFF);
-            timeBarBG.origin.set(0, 0);
-            timeBar.origin.set(0, 0);
+        var currentBgW:Int = isVertical ? Std.int(barSize + 4) : (isMini ? 360 : (isInHealth ? 360 : FlxG.width));
+        var currentBgH:Int = isVertical ? FlxG.height : Std.int(barSize + 4);
+        var currentBarW:Int = isVertical ? Std.int(barSize) : currentBgW;
+        var currentBarH:Int = isVertical ? currentBgH : Std.int(barSize);
+
+        if (Std.int(timeBarBG.width) != currentBgW || Std.int(timeBarBG.height) != currentBgH) {
+            timeBarBG.makeGraphic(currentBgW, currentBgH, 0xFF000000);
+            timeBar.makeGraphic(currentBarW, currentBarH, 0xFFFFFFFF);
         }
+
+        timeBarBG.origin.set(0, 0);
+        timeBar.origin.set(0, isVertical ? currentBarH : 0);
 
         var cachedX:Float = 0;
         var cachedY:Float = 0;
         var paddingX:Float = 0;
         var paddingY:Float = 20;
 
+        var cutoutSize:Float = 0.0;
+        if (FlxG.onMobile) {
+            try { cutoutSize = funkin.ui.FullScreenScaleMode.gameNotchSize.x; } catch(e:Dynamic) {}
+            if (cutoutSize <= 0) {
+                try { cutoutSize = funkin.ui.FullScreenScaleMode.gameCutoutSize.x; } catch(e:Dynamic) {}
+            }
+            if (cutoutSize <= 0) cutoutSize = 35.0;
+        }
+
         switch (timeBarPos) {
             case "Top":
-                cachedX = (FlxG.width - currentBarWidth) / 2;
+                cachedX = (FlxG.width - currentBgW) / 2;
             case "Top Left":
-                cachedX = paddingX; cachedY = paddingY;
+                cachedX = paddingX + cutoutSize; cachedY = paddingY;
             case "Top Right":
-                cachedX = FlxG.width - currentBarWidth - paddingX; cachedY = paddingY;
+                cachedX = FlxG.width - currentBgW - paddingX - cutoutSize; cachedY = paddingY;
             case "Bottom Left":
-                cachedX = paddingX; cachedY = FlxG.height - (barSize + 4) - paddingY;
+                cachedX = paddingX + cutoutSize; cachedY = FlxG.height - currentBgH - paddingY;
             case "Bottom Right":
-                cachedX = FlxG.width - currentBarWidth - paddingX; cachedY = FlxG.height - (barSize + 4) - paddingY;
+                cachedX = FlxG.width - currentBgW - paddingX - cutoutSize; cachedY = FlxG.height - currentBgH - paddingY;
+            case "Vertical Left":
+                cachedX = paddingX + cutoutSize; cachedY = 0;
+            case "Vertical Right":
+                cachedX = FlxG.width - currentBgW - paddingX - cutoutSize; cachedY = 0;
+            case "In Health":
+                var hbX:Float = (FlxG.width - currentBgW) / 2;
+                var hbY:Float = Preferences.downscroll ? FlxG.height * 0.11 : FlxG.height * 0.89;
+                var hbH:Float = 19;
+                if (playState != null && playState.healthBarBG != null) {
+                    hbX = playState.healthBarBG.x + (playState.healthBarBG.width - currentBgW) / 2;
+                    hbY = playState.healthBarBG.y;
+                    hbH = playState.healthBarBG.height;
+                }
+                cachedX = hbX;
+                cachedY = Preferences.downscroll ? hbY + hbH : hbY - currentBgH;
             default:
-                cachedX = (FlxG.width - currentBarWidth) / 2;
-                cachedY = FlxG.height - (barSize + 4);
+                cachedX = (FlxG.width - currentBgW) / 2;
+                cachedY = FlxG.height - currentBgH;
         }
 
         timeBarBG.x = cachedX;
         timeBarBG.y = cachedY;
-        timeBar.x = cachedX;
-        timeBar.y = cachedY + 2;
+        
+        if (isVertical) {
+            timeBar.x = cachedX + 2;
+            timeBar.y = cachedY;
+        } else {
+            timeBar.x = cachedX;
+            timeBar.y = cachedY + 2;
+        }
     }
 
     public function buildPreview(cam:FlxCamera) {
@@ -140,7 +200,14 @@ class KssetteTimeBar extends Module {
         if (timeBarBG != null) timeBarBG.visible = cachedActive;
         if (timeBar != null) {
             timeBar.visible = cachedActive;
-            timeBar.scale.x = 0.5;
+            var isVertical:Bool = (timeBarPos == "Vertical Left" || timeBarPos == "Vertical Right");
+            if (isVertical) {
+                timeBar.scale.y = 0.5;
+                timeBar.scale.x = 1.0;
+            } else {
+                timeBar.scale.x = 0.5;
+                timeBar.scale.y = 1.0;
+            }
         }
     }
 
@@ -170,7 +237,36 @@ class KssetteTimeBar extends Module {
             if (timeBarBG != null) timeBarBG.visible = cachedActive;
             if (timeBar != null) {
                 timeBar.visible = cachedActive;
-                timeBar.scale.x = 0;
+                var isVertical:Bool = (timeBarPos == "Vertical Left" || timeBarPos == "Vertical Right");
+                if (isVertical) {
+                    timeBar.scale.y = 0;
+                    timeBar.scale.x = 1.0;
+                } else {
+                    timeBar.scale.x = 0;
+                    timeBar.scale.y = 1.0;
+                }
+            }
+        }
+    }
+
+    override public function onSubStateOpenBegin(event:SubStateScriptEvent) {
+        super.onSubStateOpenBegin(event);
+        if (event.targetState != null && Std.isOfType(event.targetState, PauseSubState)) {
+            var isBorder:Bool = (timeBarPos == "Top" || timeBarPos == "Bottom" || timeBarPos == "Vertical Left" || timeBarPos == "Vertical Right");
+            if (isBorder) {
+                if (timeBarBG != null) timeBarBG.visible = false;
+                if (timeBar != null) timeBar.visible = false;
+            }
+        }
+    }
+
+    override public function onSubStateCloseEnd(event:SubStateScriptEvent) {
+        super.onSubStateCloseEnd(event);
+        if (event.targetState != null && Std.isOfType(event.targetState, PauseSubState)) {
+            var isBorder:Bool = (timeBarPos == "Top" || timeBarPos == "Bottom" || timeBarPos == "Vertical Left" || timeBarPos == "Vertical Right");
+            if (isBorder) {
+                if (timeBarBG != null) timeBarBG.visible = cachedActive;
+                if (timeBar != null) timeBar.visible = cachedActive;
             }
         }
     }
@@ -178,6 +274,14 @@ class KssetteTimeBar extends Module {
     override public function onUpdate(event) {
 
         if (isPreview) return;
+
+        if (customCam != null && playState != null && playState.camHUD != null) {
+            try {
+                customCam.visible = playState.camHUD.visible;
+                customCam.alpha = playState.camHUD.alpha;
+            } catch(e:Dynamic) {}
+        }
+
         if (!cachedActive || timeBar == null || !timeBar.exists || playState == null || playState.conductorInUse == null) return;
         if (songLengthMs <= 0) {
             try { songLengthMs = playState.currentSongLengthMs; } catch(e:Dynamic) {}
@@ -192,7 +296,15 @@ class KssetteTimeBar extends Module {
             var progress:Float = playState.conductorInUse.songPosition / songLengthMs;
             if (progress < 0) progress = 0;
             else if (progress > 1) progress = 1;
-            timeBar.scale.x = progress;
+                
+                var isVertical:Bool = (timeBarPos == "Vertical Left" || timeBarPos == "Vertical Right");
+                if (isVertical) {
+                    timeBar.scale.y = progress;
+                    timeBar.scale.x = 1.0;
+                } else {
+                    timeBar.scale.x = progress;
+                    timeBar.scale.y = 1.0;
+                }
         } catch(e:Dynamic) {}
     }
 }

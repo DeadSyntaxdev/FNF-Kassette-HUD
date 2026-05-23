@@ -451,23 +451,30 @@ class KssetteAccuracy extends Module {
         var safeX:Float = 18;
         if (api.isMobileMode == true) safeX = 85;
 
+        var safeLeft:Float = safeX;
+        var safeRight:Float = safeX;
+        if (showTimeBar) {
+            if (timeBarPos == "Vertical Left") safeLeft += 22;
+            if (timeBarPos == "Vertical Right") safeRight += 22;
+        }
+
         var tX:Float = 0; var tY:Float = 0; var tW:Float = FlxG.width; var tA:String = "center";
         var iX:Float = 0; var iY:Float = 0; var iW:Float = FlxG.width; var iA:String = "center";
 
         if (infoPos == "Bottom Left") {
             var yOffset:Float = 0;
             if (showTimeBar == true && timeBarPos == "Bottom Left") yOffset = 25;
-            tX = safeX; tY = FlxG.height - 85 - yOffset; tA = "left";
-            iX = safeX; iY = FlxG.height - 50 - yOffset; iA = "left";
-            tW = FlxG.width; iW = FlxG.width;
+            tX = safeLeft; tY = FlxG.height - 85 - yOffset; tA = "left";
+            iX = safeLeft; iY = FlxG.height - 50 - yOffset; iA = "left";
+            tW = FlxG.width - safeLeft - safeRight; iW = FlxG.width - safeLeft - safeRight;
         } else {
             if (!downscroll) {
-                tY = 15; iY = 24; tX = 0; tW = (FlxG.width / 2) - 10; tA = "right";
-                iX = (FlxG.width / 2) + 10; iW = (FlxG.width / 2) - 10; iA = "left";
+                tY = 15; iY = 24; tX = safeLeft; tW = (FlxG.width / 2) - 10 - safeLeft; tA = "right";
+                iX = (FlxG.width / 2) + 10; iW = (FlxG.width / 2) - 10 - safeRight; iA = "left";
             } else {
                 tA = "center"; iA = "center";
-                tX = 0; iX = 0;
-                tW = FlxG.width; iW = FlxG.width;
+                tX = safeLeft; iX = safeLeft;
+                tW = FlxG.width - safeLeft - safeRight; iW = FlxG.width - safeLeft - safeRight;
                 tY = uiText.y + 24;
                 iY = tY + 32;
             }
@@ -486,13 +493,22 @@ class KssetteAccuracy extends Module {
         }
 
         var jPos:String = Std.string(api.getKssValue("kssette_judge_pos"));
-        var jMargin:Float = 6;
-        if (api.isMobileMode == true) jMargin = 85;
 
-        var tw = 200; var sy = 22; var sx = jMargin; var sY = (FlxG.height - judgeNames.length * sy) * 0.5;
-        if (jPos == "Right") sx = FlxG.width - tw - jMargin;
+        var jMarginLeft:Float = 6;
+        var jMarginRight:Float = 6;
+        if (api.isMobileMode == true) {
+            jMarginLeft = 85;
+            jMarginRight = 85;
+        }
+        if (showTimeBar) {
+            if (timeBarPos == "Vertical Left") jMarginLeft += 22;
+            if (timeBarPos == "Vertical Right") jMarginRight += 22;
+        }
+
+        var tw = 200; var sy = 22; var sx = jMarginLeft; var sY = (FlxG.height - judgeNames.length * sy) * 0.5;
+        if (jPos == "Right") sx = FlxG.width - tw - jMarginRight;
         if (jPos == "Top Left") sY = 100;
-        if (jPos == "Top Right") { sx = FlxG.width - tw - jMargin; sY = 100; }
+        if (jPos == "Top Right") { sx = FlxG.width - tw - jMarginRight; sY = 100; }
         
         for (i in 0...judgeLabels.length) {
             var nx = sx; var ny = sY + (i * sy);

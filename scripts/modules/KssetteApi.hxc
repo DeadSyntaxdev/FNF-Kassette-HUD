@@ -153,6 +153,8 @@ class KssetteApi extends Module {
         _gammodAuto = null;
         _gammodSide = null;
         _gammodPlay = null;
+        _lastParsedChartId = "";
+        playerNoteTimes = [];
     }
 
     public function preloadFontsIndex():Void {
@@ -300,6 +302,8 @@ class KssetteApi extends Module {
         _cachedGammodAuto = false;
         _cachedHudFont = "";
         _cachedHudStyleId = "";
+        _lastParsedChartId = "";
+        playerNoteTimes = [];
     }
 
     function clearScoreCache():Void {

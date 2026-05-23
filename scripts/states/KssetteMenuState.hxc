@@ -436,7 +436,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         var upper = StringTools.trim(val).toUpperCase();
         if (upper == "ON" || upper == "ENABLED") return 0xFF00FF00;
         if (upper == "OFF" || upper == "DISABLED") return 0xFFFF0000;
-        if (upper == "P S" || upper == "P STYLE" || upper == "GLA" || upper == "GLASS" || StringTools.contains(upper, "LEFT") || StringTools.contains(upper, "RIGHT") || StringTools.contains(upper, "TOP") || StringTools.contains(upper, "BOT") || StringTools.contains(upper, "ABV") || StringTools.contains(upper, "BEL")) return 0xFF00CCFF;
+        if (upper == "P S" || upper == "P STYLE" || upper == "GLA" || upper == "GLASS" || StringTools.contains(upper, "LEFT") || StringTools.contains(upper, "RIGHT") || StringTools.contains(upper, "TOP") || StringTools.contains(upper, "BOT") || StringTools.contains(upper, "ABV") || StringTools.contains(upper, "BEL") || upper == "V L" || upper == "V R" || upper == "IN HEALTH" || upper == "HLT") return 0xFF00CCFF;
         if (upper == "CLA" || upper == "CLASSIC" || upper == "ASC" || upper == "ASCENDING") return 0xFFFFCC00;
         if (upper == "HID" || upper == "HIDDEN" || StringTools.contains(upper, "HIDDEN NOTES")) return 0xFF999999;
         if (upper == "VAN" || upper == "SLI" || upper == "FAD" || upper == "VER" || upper == "ZOO") return 0xFF9966FF;
@@ -467,6 +467,9 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         if (upper == "BOTTOM RIGHT") return "B R";
         if (upper == "ABOVE ARROWS") return "ABV";
         if (upper == "BELOW SCORE") return "BEL";
+        if (upper == "VERTICAL LEFT") return "V L";
+        if (upper == "VERTICAL RIGHT") return "V R";
+        if (upper == "IN HEALTH") return "HLT";
         if (upper == "ON NOTE HIT") return "HIT";
         if (upper == "ANYTIME") return "ANY";
         return upper.substr(0, 3);
@@ -481,6 +484,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         if (upper == "P STYLE") return "P STYLE";
         if (upper == "GLASS") return "GLASS";
         if (upper == "HIDDEN NOTES") return "HIDDEN";
+        if (upper == "IN HEALTH") return "IN HEALTH";
         return upper;
     }
 
@@ -583,7 +587,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         if (showPCOptions) {
             createToggle("OPPONENT POS", "kssette_opponent_pos", ["Left", "Right"], "Where to put the opponent's notes when Middle Scroll is ON.");
         }
-        createToggle("TIME BAR POS", "kssette_timebar_pos", ["Bottom", "Top", "Bottom Left", "Bottom Right", "Top Left", "Top Right"], "Choose where the Song Progress Bar is placed on screen.");
+        createToggle("TIME BAR POS", "kssette_timebar_pos", ["Bottom", "Top", "Bottom Left", "Bottom Right", "Top Left", "Top Right", "Vertical Left", "Vertical Right", "In Health"], "Choose where the Song Progress Bar is placed on screen.");
 
         var forceDownscrollLook = false;
         try {
