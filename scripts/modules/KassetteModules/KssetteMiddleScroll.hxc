@@ -382,6 +382,34 @@ class KssMiddlescroll extends Module {
         var myStrum = state.playerStrumline;
         var oppStrum = cachedOppStrum;
 
+        var isMob:Bool = FlxG.onMobile;
+        if (apiModule != null && apiModule.isMobileMode == true) isMob = true;
+        
+        var cutoutSize:Float = 0.0;
+        if (isMob) {
+            try { cutoutSize = funkin.ui.FullScreenScaleMode.gameNotchSize.x; } catch(e:Dynamic) {}
+            if (cutoutSize <= 0) { try { cutoutSize = funkin.ui.FullScreenScaleMode.gameCutoutSize.x; } catch(e:Dynamic) {} }
+            if (cutoutSize < 85.0) cutoutSize = 85.0;
+        } else {
+            try { cutoutSize = funkin.ui.FullScreenScaleMode.gameNotchSize.x; } catch(e:Dynamic) {}
+            if (cutoutSize <= 0) { try { cutoutSize = funkin.ui.FullScreenScaleMode.gameCutoutSize.x; } catch(e:Dynamic) {} }
+        }
+
+        var showTimeBar:Bool = false;
+        var timeBarPos:String = "Bottom";
+        if (apiModule != null) {
+            showTimeBar = apiModule.getKssValue("kssette_show_timebar") == true;
+            timeBarPos = Std.string(apiModule.getKssValue("kssette_timebar_pos"));
+        }
+
+        var marginLeft:Float = Constants.STRUMLINE_X_OFFSET + cutoutSize;
+        var marginRight:Float = Constants.STRUMLINE_X_OFFSET + cutoutSize;
+
+        if (showTimeBar) {
+            if (timeBarPos == "Vertical Left") marginLeft += 22;
+            if (timeBarPos == "Vertical Right") marginRight += 22;
+        }
+
         var padding:Float = 12;
         if (myStrum != null && myStrum.background != null && myStrum.background.visible) {
             var pNotes = myStrum.strumlineNotes.members;
@@ -413,12 +441,8 @@ class KssMiddlescroll extends Module {
                 if (gSide == "OPPOSITE") {
                     if (applyArrowLogic && !cachedIsMobPC) {
                     } else {
-                        var cutoutSize = 0.0;
-                                try { cutoutSize = funkin.ui.FullScreenScaleMode.gameNotchSize.x; } catch(e:Dynamic) {}
-                                if (cutoutSize <= 0) { try { cutoutSize = funkin.ui.FullScreenScaleMode.gameCutoutSize.x; } catch(e:Dynamic) {} }
-                                if (cutoutSize <= 0 && FlxG.onMobile) cutoutSize = 35.0;
-                                myStrum.x = (((FlxG.width / 2) - myStrum.width) - Constants.STRUMLINE_X_OFFSET) + cutoutSize;
-                        oppStrum.x = (FlxG.width - oppStrum.width) - Constants.STRUMLINE_X_OFFSET - cutoutSize;
+                        myStrum.x = marginLeft;
+                        oppStrum.x = FlxG.width - oppStrum.width - marginRight;
                     }
                 } else if (gSide == "BOTH") {
                     if (applyArrowLogic && !cachedIsMobPC) {
@@ -429,13 +453,7 @@ class KssMiddlescroll extends Module {
                     }
                 } else {
                     if (!(applyArrowLogic && !cachedIsMobPC)) {
-                        var cutoutSize = 0.0;
-                        try { cutoutSize = funkin.ui.FullScreenScaleMode.gameNotchSize.x; } catch(e:Dynamic) {}
-                        if (cutoutSize <= 0) {
-                            try { cutoutSize = funkin.ui.FullScreenScaleMode.gameCutoutSize.x; } catch(e:Dynamic) {}
-                        }
-                                if (cutoutSize <= 0 && FlxG.onMobile) cutoutSize = 35.0;
-                                oppStrum.x = Constants.STRUMLINE_X_OFFSET + cutoutSize;
+                        oppStrum.x = marginLeft;
                     }
                 }
                 pHasShifted = true;
@@ -447,11 +465,6 @@ class KssMiddlescroll extends Module {
                 if (apiModule != null) {
                     try { gSide = apiModule.gammodPlayerSide; } catch(e:Dynamic) {}
                 }
-                var cutoutSize = 0.0;
-                try { cutoutSize = funkin.ui.FullScreenScaleMode.gameNotchSize.x; } catch(e:Dynamic) {}
-                if (cutoutSize <= 0) {
-                    try { cutoutSize = funkin.ui.FullScreenScaleMode.gameCutoutSize.x; } catch(e:Dynamic) {}
-                }
                 
                 var oppRealWidth:Float = oppStrum.width;
                 var oNotes = oppStrum.strumlineNotes.members;
@@ -460,8 +473,8 @@ class KssMiddlescroll extends Module {
                 }
                 if (oppRealWidth <= 0) oppRealWidth = 300; 
 
-                    var safeLeft:Float = Constants.STRUMLINE_X_OFFSET + cutoutSize;
-                    var safeRight:Float = FlxG.width - oppRealWidth - Constants.STRUMLINE_X_OFFSET - cutoutSize;
+                var safeLeft:Float = marginLeft;
+                var safeRight:Float = FlxG.width - oppRealWidth - marginRight;
 
                 if (gSide == "OPPOSITE") {
                     oppStrum.x = safeRight;
@@ -512,15 +525,8 @@ class KssMiddlescroll extends Module {
             else if (cachedMode == "P Style" && receptors != null && receptors.length >= 4) {
                 oppStrum.x = 0;
                 
-                var cutoutSize = 0.0;
-                try { cutoutSize = funkin.ui.FullScreenScaleMode.gameNotchSize.x; } catch(e:Dynamic) {}
-                if (cutoutSize <= 0) {
-                    try { cutoutSize = funkin.ui.FullScreenScaleMode.gameCutoutSize.x; } catch(e:Dynamic) {}
-                }
-                if (cutoutSize <= 0 && FlxG.onMobile) cutoutSize = 35.0;
-
-                var targetLeftX:Float = Constants.STRUMLINE_X_OFFSET + cutoutSize;
-                var targetRightX:Float = FlxG.width - Constants.STRUMLINE_X_OFFSET - receptors[3].width - cutoutSize;
+                var targetLeftX:Float = marginLeft;
+                var targetRightX:Float = FlxG.width - marginRight - receptors[3].width;
 
                 receptors[0].x = targetLeftX;
                 receptors[1].x = targetLeftX + Strumline.NOTE_SPACING;
@@ -539,13 +545,6 @@ class KssMiddlescroll extends Module {
                 var sizeRatio:Float = 0.65;
                 var targetSpacing:Float = Strumline.NOTE_SPACING * sizeRatio;
 
-                var cutoutSize = 0.0;
-                try { cutoutSize = funkin.ui.FullScreenScaleMode.gameNotchSize.x; } catch(e:Dynamic) {}
-                if (cutoutSize <= 0) {
-                    try { cutoutSize = funkin.ui.FullScreenScaleMode.gameCutoutSize.x; } catch(e:Dynamic) {}
-                }
-                if (cutoutSize <= 0 && FlxG.onMobile) cutoutSize = 35.0;
-
                 for (receptor in receptors) {
                     if (receptor != null) {
                         var pixel:Bool = false;
@@ -558,11 +557,11 @@ class KssMiddlescroll extends Module {
                     }
                 }
 
-                var compactStartX:Float = Constants.STRUMLINE_X_OFFSET + cutoutSize;
+                var compactStartX:Float = marginLeft;
 
                 if (cachedOppPos == "Right") {
                     var exactTotalWidth:Float = (targetSpacing * (receptors.length - 1)) + receptors[receptors.length - 1].width;
-                    compactStartX = FlxG.width - Constants.STRUMLINE_X_OFFSET - exactTotalWidth - cutoutSize;
+                    compactStartX = FlxG.width - marginRight - exactTotalWidth;
                 }
 
                 for (i in 0...receptors.length) {
