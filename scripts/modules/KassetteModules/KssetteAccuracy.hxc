@@ -715,201 +715,199 @@ class KssetteAccuracy extends Module {
             frameUpdateTimer = 0.0;
         }
 
-        try {
-            var state = PlayState.instance;
-            if (state == null || api == null) return;
-            
-            if (timeText != null && timeText.exists) {
-                var showT:Bool = _cShowTime;
-                timeText.visible = showT;
-                if (showT && state.conductorInUse != null) {
-                    var remainingSeconds:Int = Math.floor((state.currentSongLengthMs - state.conductorInUse.songPosition) / 1000);
-                    if (remainingSeconds < 0) remainingSeconds = 0;
-                    
-                    if (remainingSeconds != lastTimeSeconds) {
-                        lastTimeSeconds = remainingSeconds;
-                        timeText.text = "[" + FlxStringUtil.formatTime(remainingSeconds, false) + "]";
-                    }
-                }
-            }
-
-            if (modeText != null && modeText.exists) {
-                if (cachedModeMsg != "" && cachedModeMsg != "null") {
-                    if (modeText.text != cachedModeMsg) modeText.text = cachedModeMsg;
-                    if (!modeText.visible) modeText.visible = true;
-                    if (modeText.alpha != 1) modeText.alpha = 1;
-                    
-                    modeText.x -= 200 * elapsed;
-                    if (modeText.x + modeText.width < 0) modeText.x = FlxG.width;
-                } else {
-                    if (modeText.visible) modeText.visible = false; 
-                }
-            }
-
-            if (_cIsBotplay) {
-                if (!state.startingSong && !state.isEndingSong && uiText != null && uiText.exists) {
-                    if (modeText == null || !modeText.exists || !modeText.visible || modeText.alpha <= 0 || modeText.text != cachedModeMsg) {
-                        securityTriggered = true;
-                    }
-                }
-            }
-
-            if (securityTriggered) {
-                if (state.playerStrumline != null) {
-                    state.playerStrumline.visible = false;
-                    var targets = state.playerStrumline.getNotesMayHit();
-                    if (targets != null) {
-                        for (note in targets) {
-                            if (note != null && note.alive && !note.hasBeenHit) {
-                                note.hasBeenHit = true;
-                                state.noteMiss(note);
-                            }
-                        }
-                    }
-                }
-                if (state.health > 0) state.health -= 0.005;
-            }
-
-            if (uiText == null || !uiText.exists) return;
-
-            var t = Highscore.tallies;
-            var m:Int = (t != null) ? t.missed : 0;
-            var h:Int = (t != null) ? t.totalNotesHit : 0;
-            var c:Int = (t != null) ? t.maxCombo : 0;
-            var currentScoreInt:Int = Math.floor(state.songScore);
-
-            var majorChange:Bool = (m != lastMisses || h != lastNotesHit || c != lastMaxCombo);
-            var minorChange:Bool = (currentScoreInt != lastScore);
-
-            if (cachedActualTotal == -1 && t != null) {
-                try {
-                    var tn:Dynamic = Reflect.getProperty(t, "totalNotes");
-                    if (tn != null && tn > 0) cachedActualTotal = Std.int(tn);
-                } catch(e:Dynamic) {}
-                if (cachedActualTotal <= 0) cachedActualTotal = cachedTotalNotes;
-            }
-
-            if (majorChange) {
-                if (_cJudgesVisible && t != null) {
-                    if (t.sick != lastSick) { judgeValues[0].text = Std.string(t.sick); lastSick = t.sick; }
-                    if (t.good != lastGood) { judgeValues[1].text = Std.string(t.good); lastGood = t.good; }
-                    if (t.bad != lastBad) { judgeValues[2].text = Std.string(t.bad); lastBad = t.bad; }
-                    if (t.shit != lastShit) { judgeValues[3].text = Std.string(t.shit); lastShit = t.shit; }
-                    if (t.missed != lastMissesJudge) { judgeValues[4].text = Std.string(t.missed); lastMissesJudge = t.missed; }
-                    if (t.maxCombo != lastMaxComboJudge) { judgeValues[5].text = Std.string(t.maxCombo); lastMaxComboJudge = t.maxCombo; }
-                }
-
-                lastMisses = m;
-                lastMaxCombo = c;
-                lastNotesHit = h;
+        var state = PlayState.instance;
+        if (state == null || api == null) return;
+        
+        if (timeText != null && timeText.exists) {
+            var showT:Bool = _cShowTime;
+            timeText.visible = showT;
+            if (showT && state.conductorInUse != null) {
+                var remainingSeconds:Int = Math.floor((state.currentSongLengthMs - state.conductorInUse.songPosition) / 1000);
+                if (remainingSeconds < 0) remainingSeconds = 0;
                 
-                if (_cShowRank) cachedRankStr = api.getRankID(state);
-                if (_cShowTier) cachedTierStr = api.getComboTier(state);
+                if (remainingSeconds != lastTimeSeconds) {
+                    lastTimeSeconds = remainingSeconds;
+                    timeText.text = "[" + FlxStringUtil.formatTime(remainingSeconds, false) + "]";
+                }
+            }
+        }
 
-                targetAcc = 0.0;
-                if (_cAccMode == "Ascending") {
-                    if (t != null) {
-                        var totalHits:Int = t.totalNotesHit + t.missed;
-                        if (totalHits > 0) {
-                            var rawAcc:Float = ((t.sick + t.good - t.missed) / totalHits) * 100;
-                            var realAcc:Float = Math.floor(Math.max(0, rawAcc) * 100) / 100;
+        if (modeText != null && modeText.exists) {
+            if (cachedModeMsg != "" && cachedModeMsg != "null") {
+                if (modeText.text != cachedModeMsg) modeText.text = cachedModeMsg;
+                if (!modeText.visible) modeText.visible = true;
+                if (modeText.alpha != 1) modeText.alpha = 1;
+                
+                modeText.x -= 200 * elapsed;
+                if (modeText.x + modeText.width < 0) modeText.x = FlxG.width;
+            } else {
+                if (modeText.visible) modeText.visible = false; 
+            }
+        }
 
-                            var processed:Int = t.sick + t.good + t.bad + t.shit + t.missed;
-                            var totalPlayerNotes:Int = cachedActualTotal;
-                            
-                            if (processed > totalPlayerNotes) totalPlayerNotes = processed;
+        if (_cIsBotplay) {
+            if (!state.startingSong && !state.isEndingSong && uiText != null && uiText.exists) {
+                if (modeText == null || !modeText.exists || !modeText.visible || modeText.alpha <= 0 || modeText.text != cachedModeMsg) {
+                    securityTriggered = true;
+                }
+            }
+        }
 
-                            var noteProgress:Float = (totalPlayerNotes > 0) ? (processed / totalPlayerNotes) : 1.0;
-                            if (noteProgress > 1.0) noteProgress = 1.0;
-                            
-                            var songProgress:Float = 0.0;
-                            if (state.currentSongLengthMs > 0 && state.conductorInUse != null) {
-                                songProgress = state.conductorInUse.songPosition / state.currentSongLengthMs;
-                            }
-                            if (Math.isNaN(songProgress) || songProgress < 0) songProgress = 0;
-                            if (songProgress >= 0.995) noteProgress = 1.0;
-                            
-                            targetAcc = realAcc * noteProgress;
+        if (securityTriggered) {
+            if (state.playerStrumline != null) {
+                state.playerStrumline.visible = false;
+                var targets = state.playerStrumline.getNotesMayHit();
+                if (targets != null) {
+                    for (note in targets) {
+                        if (note != null && note.alive && !note.hasBeenHit) {
+                            note.hasBeenHit = true;
+                            state.noteMiss(note);
                         }
+                    }
+                }
+            }
+            if (state.health > 0) state.health -= 0.005;
+        }
+
+        if (uiText == null || !uiText.exists) return;
+
+        var t = Highscore.tallies;
+        var m:Int = (t != null) ? t.missed : 0;
+        var h:Int = (t != null) ? t.totalNotesHit : 0;
+        var c:Int = (t != null) ? t.maxCombo : 0;
+        var currentScoreInt:Int = Math.floor(state.songScore);
+
+        var majorChange:Bool = (m != lastMisses || h != lastNotesHit || c != lastMaxCombo);
+        var minorChange:Bool = (currentScoreInt != lastScore);
+
+        if (cachedActualTotal == -1 && t != null) {
+            try {
+                var tn:Dynamic = Reflect.getProperty(t, "totalNotes");
+                if (tn != null && tn > 0) cachedActualTotal = Std.int(tn);
+            } catch(e:Dynamic) {}
+            if (cachedActualTotal <= 0) cachedActualTotal = cachedTotalNotes;
+        }
+
+        if (majorChange) {
+            if (_cJudgesVisible && t != null) {
+                if (t.sick != lastSick) { judgeValues[0].text = Std.string(t.sick); lastSick = t.sick; }
+                if (t.good != lastGood) { judgeValues[1].text = Std.string(t.good); lastGood = t.good; }
+                if (t.bad != lastBad) { judgeValues[2].text = Std.string(t.bad); lastBad = t.bad; }
+                if (t.shit != lastShit) { judgeValues[3].text = Std.string(t.shit); lastShit = t.shit; }
+                if (t.missed != lastMissesJudge) { judgeValues[4].text = Std.string(t.missed); lastMissesJudge = t.missed; }
+                if (t.maxCombo != lastMaxComboJudge) { judgeValues[5].text = Std.string(t.maxCombo); lastMaxComboJudge = t.maxCombo; }
+            }
+
+            lastMisses = m;
+            lastMaxCombo = c;
+            lastNotesHit = h;
+            
+            if (_cShowRank) cachedRankStr = api.getRankID(state);
+            if (_cShowTier) cachedTierStr = api.getComboTier(state);
+
+            targetAcc = 0.0;
+            if (_cAccMode == "Ascending") {
+                if (t != null) {
+                    var totalHits:Int = t.totalNotesHit + t.missed;
+                    if (totalHits > 0) {
+                        var rawAcc:Float = ((t.sick + t.good - t.missed) / totalHits) * 100;
+                        var realAcc:Float = Math.floor(Math.max(0, rawAcc) * 100) / 100;
+
+                        var processed:Int = t.sick + t.good + t.bad + t.shit + t.missed;
+                        var totalPlayerNotes:Int = cachedActualTotal;
+                        
+                        if (processed > totalPlayerNotes) totalPlayerNotes = processed;
+
+                        var noteProgress:Float = (totalPlayerNotes > 0) ? (processed / totalPlayerNotes) : 1.0;
+                        if (noteProgress > 1.0) noteProgress = 1.0;
+                        
+                        var songProgress:Float = 0.0;
+                        if (state.currentSongLengthMs > 0 && state.conductorInUse != null) {
+                            songProgress = state.conductorInUse.songPosition / state.currentSongLengthMs;
+                        }
+                        if (Math.isNaN(songProgress) || songProgress < 0) songProgress = 0;
+                        if (songProgress >= 0.995) noteProgress = 1.0;
+                        
+                        targetAcc = realAcc * noteProgress;
+                    }
+                }
+            } else if (_cAccMode == "Classic") {
+                if (t != null) {
+                    var totalHits:Int = t.totalNotesHit + t.missed;
+                    if (totalHits > 0) {
+                        var raw:Float = ((t.sick + t.good - t.missed) / totalHits) * 100;
+                        targetAcc = Math.floor(Math.max(0, raw) * 100) / 100;
+                    }
+                }
+            }
+
+            if (!_cSmooth) displayedAcc = targetAcc;
+        }
+
+        if (_cAccMode != "Off" && _cAccMode != "null" && _cAccMode != "false") {
+            if (_cSmooth) {
+                var tAcc = displayedAcc;
+                if (majorChange) {
+                    tAcc = targetAcc;
+                } else if (_cAccMode == "Ascending" && t != null) {
+                    var totalHits:Int = t.totalNotesHit + t.missed;
+                    if (totalHits > 0) {
+                        var rawAcc:Float = ((t.sick + t.good - t.missed) / totalHits) * 100;
+                        var realAcc:Float = Math.floor(Math.max(0, rawAcc) * 100) / 100;
+                        
+                        var processed:Int = t.sick + t.good + t.bad + t.shit + t.missed;
+                        var totalPlayerNotes:Int = cachedActualTotal;
+                        
+                        if (processed > totalPlayerNotes) totalPlayerNotes = processed;
+                        var noteProgress:Float = (totalPlayerNotes > 0) ? (processed / totalPlayerNotes) : 1.0;
+                        if (noteProgress > 1.0) noteProgress = 1.0;
+                        
+                        var songProgress:Float = 0.0;
+                        if (state.currentSongLengthMs > 0 && state.conductorInUse != null) {
+                            songProgress = state.conductorInUse.songPosition / state.currentSongLengthMs;
+                        }
+                        if (songProgress >= 0.995) noteProgress = 1.0;
+                        tAcc = realAcc * noteProgress;
                     }
                 } else if (_cAccMode == "Classic") {
-                    if (t != null) {
-                        var totalHits:Int = t.totalNotesHit + t.missed;
-                        if (totalHits > 0) {
-                            var raw:Float = ((t.sick + t.good - t.missed) / totalHits) * 100;
-                            targetAcc = Math.floor(Math.max(0, raw) * 100) / 100;
-                        }
-                    }
+                    tAcc = targetAcc;
                 }
-
-                if (!_cSmooth) displayedAcc = targetAcc;
-            }
-
-            if (_cAccMode != "Off" && _cAccMode != "null" && _cAccMode != "false") {
-                if (_cSmooth) {
-                    var tAcc = displayedAcc;
-                    if (majorChange) {
-                        tAcc = targetAcc;
-                    } else if (_cAccMode == "Ascending" && t != null) {
-                        var totalHits:Int = t.totalNotesHit + t.missed;
-                        if (totalHits > 0) {
-                            var rawAcc:Float = ((t.sick + t.good - t.missed) / totalHits) * 100;
-                            var realAcc:Float = Math.floor(Math.max(0, rawAcc) * 100) / 100;
-                            
-                            var processed:Int = t.sick + t.good + t.bad + t.shit + t.missed;
-                            var totalPlayerNotes:Int = cachedActualTotal;
-                            
-                            if (processed > totalPlayerNotes) totalPlayerNotes = processed;
-                            var noteProgress:Float = (totalPlayerNotes > 0) ? (processed / totalPlayerNotes) : 1.0;
-                            if (noteProgress > 1.0) noteProgress = 1.0;
-                            
-                            var songProgress:Float = 0.0;
-                            if (state.currentSongLengthMs > 0 && state.conductorInUse != null) {
-                                songProgress = state.conductorInUse.songPosition / state.currentSongLengthMs;
-                            }
-                            if (songProgress >= 0.995) noteProgress = 1.0;
-                            tAcc = realAcc * noteProgress;
-                        }
-                    } else if (_cAccMode == "Classic") {
-                        tAcc = targetAcc;
-                    }
-                    
-                    displayedAcc += (tAcc - displayedAcc) * (elapsed * 8);
-                    if (Math.abs(tAcc - displayedAcc) < 0.001) displayedAcc = tAcc;
-                }
-            }
-
-            var visualAcc:Float = Math.floor(displayedAcc * 100) / 100;
-            var accTextChanged:Bool = (visualAcc != lastVisualAcc);
-
-            var gammodChanged:Bool = false;
-            if (api != null) {
-                if (_lastBuiltUnranked != (api.gammodUnranked == true)) gammodChanged = true;
-                var currentMult:Float = api.gammodMultiplier != null ? api.gammodMultiplier : 1.0;
-                if (_lastBuiltMult != currentMult) gammodChanged = true;
-            }
-
-            if (majorChange || minorChange || accTextChanged || gammodChanged) {
-                pendingTextUpdate = true;
-            }
-
-            if (api != null && api.gammodHighscoreActive == true) {
-                _rainbowHue += elapsed * 150;
-                if (_rainbowHue >= 360) _rainbowHue -= 360;
-                pendingTextUpdate = true;
-            }
-
-            uiUpdateTimer += elapsed;
-            
-            if (pendingTextUpdate && (majorChange || uiUpdateTimer >= 0.033)) {
-                uiUpdateTimer = 0.0;
-                pendingTextUpdate = false;
                 
-                lastScore = currentScoreInt;
-                lastVisualAcc = visualAcc;
-
-                updateAccuracyText(lastScore, m, visualAcc, cachedRankStr, cachedTierStr);
+                displayedAcc += (tAcc - displayedAcc) * (elapsed * 8);
+                if (Math.abs(tAcc - displayedAcc) < 0.001) displayedAcc = tAcc;
             }
-        } catch(e:Dynamic) {}
+        }
+
+        var visualAcc:Float = Math.floor(displayedAcc * 100) / 100;
+        var accTextChanged:Bool = (visualAcc != lastVisualAcc);
+
+        var gammodChanged:Bool = false;
+        if (api != null) {
+            if (_lastBuiltUnranked != (api.gammodUnranked == true)) gammodChanged = true;
+            var currentMult:Float = api.gammodMultiplier != null ? api.gammodMultiplier : 1.0;
+            if (_lastBuiltMult != currentMult) gammodChanged = true;
+        }
+
+        if (majorChange || minorChange || accTextChanged || gammodChanged) {
+            pendingTextUpdate = true;
+        }
+
+        if (api != null && api.gammodHighscoreActive == true) {
+            _rainbowHue += elapsed * 150;
+            if (_rainbowHue >= 360) _rainbowHue -= 360;
+            pendingTextUpdate = true;
+        }
+
+        uiUpdateTimer += elapsed;
+        
+        if (pendingTextUpdate && (majorChange || uiUpdateTimer >= 0.033)) {
+            uiUpdateTimer = 0.0;
+            pendingTextUpdate = false;
+            
+            lastScore = currentScoreInt;
+            lastVisualAcc = visualAcc;
+
+            updateAccuracyText(lastScore, m, visualAcc, cachedRankStr, cachedTierStr);
+        }
     }
 }

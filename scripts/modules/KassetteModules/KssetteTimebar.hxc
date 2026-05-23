@@ -132,7 +132,7 @@ class KssetteTimeBar extends Module {
             if (cutoutSize <= 0) {
                 try { cutoutSize = funkin.ui.FullScreenScaleMode.gameCutoutSize.x; } catch(e:Dynamic) {}
             }
-            if (cutoutSize < 85.0) cutoutSize = 85.0; // Anti-Notch
+            if (cutoutSize < 60.0) cutoutSize = 60.0; // Anti-Notch
         }
 
         switch (timeBarPos) {
@@ -276,10 +276,8 @@ class KssetteTimeBar extends Module {
         if (isPreview) return;
 
         if (customCam != null && playState != null && playState.camHUD != null) {
-            try {
-                customCam.visible = playState.camHUD.visible;
-                customCam.alpha = playState.camHUD.alpha;
-            } catch(e:Dynamic) {}
+            if (customCam.visible != playState.camHUD.visible) customCam.visible = playState.camHUD.visible;
+            if (customCam.alpha != playState.camHUD.alpha) customCam.alpha = playState.camHUD.alpha;
         }
 
         if (!cachedActive || timeBar == null || !timeBar.exists || playState == null || playState.conductorInUse == null) return;
@@ -292,19 +290,17 @@ class KssetteTimeBar extends Module {
         if (updateTimer < 0.008) return;
         updateTimer = 0.0;
 
-        try {
-            var progress:Float = playState.conductorInUse.songPosition / songLengthMs;
-            if (progress < 0) progress = 0;
-            else if (progress > 1) progress = 1;
-                
-                var isVertical:Bool = (timeBarPos == "Vertical Left" || timeBarPos == "Vertical Right");
-                if (isVertical) {
-                    timeBar.scale.y = progress;
-                    timeBar.scale.x = 1.0;
-                } else {
-                    timeBar.scale.x = progress;
-                    timeBar.scale.y = 1.0;
-                }
-        } catch(e:Dynamic) {}
+        var progress:Float = playState.conductorInUse.songPosition / songLengthMs;
+        if (progress < 0) progress = 0;
+        else if (progress > 1) progress = 1;
+            
+        var isVertical:Bool = (timeBarPos == "Vertical Left" || timeBarPos == "Vertical Right");
+        if (isVertical) {
+            timeBar.scale.y = progress;
+            timeBar.scale.x = 1.0;
+        } else {
+            timeBar.scale.x = progress;
+            timeBar.scale.y = 1.0;
+        }
     }
 }

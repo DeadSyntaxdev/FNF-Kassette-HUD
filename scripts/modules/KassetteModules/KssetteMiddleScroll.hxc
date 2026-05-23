@@ -33,6 +33,7 @@ class KssMiddlescroll extends Module {
     var cachedIsArrows:Bool = false;
     var cachedIsPixelStyle:Bool = false;
     var cachedIsMobPC:Bool = true;
+    var cachedCutoutSize:Float = -1.0;
 
     public function new() {
         super('KssMiddlescroll'); 
@@ -53,6 +54,7 @@ class KssMiddlescroll extends Module {
         cachedHasSplashOffsets = false;
         cachedSplashOffsetX = 0.0;
         splashUpdateTimer = 0.0;
+        cachedCutoutSize = -1.0;
         
         var isMobLayout = false;
         apiModule = ModuleHandler.getModule("KssetteApi");
@@ -385,15 +387,17 @@ class KssMiddlescroll extends Module {
         var isMob:Bool = FlxG.onMobile;
         if (apiModule != null && apiModule.isMobileMode == true) isMob = true;
         
-        var cutoutSize:Float = 0.0;
-        if (isMob) {
-            try { cutoutSize = funkin.ui.FullScreenScaleMode.gameNotchSize.x; } catch(e:Dynamic) {}
-            if (cutoutSize <= 0) { try { cutoutSize = funkin.ui.FullScreenScaleMode.gameCutoutSize.x; } catch(e:Dynamic) {} }
-            if (cutoutSize < 85.0) cutoutSize = 85.0;
-        } else {
-            try { cutoutSize = funkin.ui.FullScreenScaleMode.gameNotchSize.x; } catch(e:Dynamic) {}
-            if (cutoutSize <= 0) { try { cutoutSize = funkin.ui.FullScreenScaleMode.gameCutoutSize.x; } catch(e:Dynamic) {} }
+        if (cachedCutoutSize < 0) {
+            var cutout:Float = 0.0;
+            try { cutout = funkin.ui.FullScreenScaleMode.gameNotchSize.x; } catch(e:Dynamic) {}
+            if (cutout <= 0) { 
+                try { cutout = funkin.ui.FullScreenScaleMode.gameCutoutSize.x; } catch(e:Dynamic) {} 
+            }
+            if (isMob && cutout < 60.0) cutout = 60.0;
+            cachedCutoutSize = cutout;
         }
+        
+        var cutoutSize:Float = cachedCutoutSize;
 
         var showTimeBar:Bool = false;
         var timeBarPos:String = "Bottom";
@@ -434,9 +438,7 @@ class KssMiddlescroll extends Module {
         if (!isModActive) {
             if (!pHasShifted && myStrum != null && oppStrum != null) {
                 var gSide = "NORMAL";
-                if (apiModule != null) {
-                    try { gSide = apiModule.gammodPlayerSide; } catch(e:Dynamic) {}
-                }
+                if (apiModule != null && apiModule.gammodPlayerSide != null) gSide = apiModule.gammodPlayerSide;
 
                 if (gSide == "OPPOSITE") {
                     if (applyArrowLogic && !cachedIsMobPC) {
@@ -462,9 +464,7 @@ class KssMiddlescroll extends Module {
             
             if (applyArrowLogic && !cachedIsMobPC && oppStrum != null) {
                 var gSide = "NORMAL";
-                if (apiModule != null) {
-                    try { gSide = apiModule.gammodPlayerSide; } catch(e:Dynamic) {}
-                }
+                if (apiModule != null && apiModule.gammodPlayerSide != null) gSide = apiModule.gammodPlayerSide;
                 
                 var oppRealWidth:Float = oppStrum.width;
                 var oNotes = oppStrum.strumlineNotes.members;

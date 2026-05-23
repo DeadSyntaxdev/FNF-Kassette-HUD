@@ -29,7 +29,7 @@ import openfl.utils.Assets;
 
 class KssetteApi extends Module {
     final optionsID:String = "kassette-hud";
-    public var hudVersion:String = "0.2.1.t1";
+    public var hudVersion:String = "0.2.1.b3";
     var optionKeys:Array<String> = [
         "kssette_show_score", "kssette_show_misses",
         "kssette_acc_mode", "kssette_show_rank", "kssette_show_tier",
