@@ -39,9 +39,6 @@ class KssetteTimeBar extends Module {
     }
 
     function hudCamera(state:PlayState):FlxCamera {
-        var cam:Dynamic = null;
-        try { cam = Reflect.field(state, "camControls"); } catch(e:Dynamic) {}
-        if (cam != null) return cam;
         return state.camHUD;
     }
 
@@ -133,6 +130,7 @@ class KssetteTimeBar extends Module {
                 try { cutoutSize = funkin.ui.FullScreenScaleMode.gameCutoutSize.x; } catch(e:Dynamic) {}
             }
             if (cutoutSize <= 0) cutoutSize = 35.0;
+            cutoutSize += 15.0;
         }
 
         switch (timeBarPos) {
