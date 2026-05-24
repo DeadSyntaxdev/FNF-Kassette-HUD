@@ -10,6 +10,7 @@ import funkin.play.notes.Strumline;
 import funkin.util.Constants;
 import funkin.Preferences;
 import funkin.mobile.input.ControlsHandler;
+import funkin.ui.FullScreenScaleMode;
 import Std;
 import Math;
 import Reflect;
@@ -389,9 +390,9 @@ class KssMiddlescroll extends Module {
         
         if (cachedCutoutSize < 0) {
             var cutout:Float = 0.0;
-            try { cutout = funkin.ui.FullScreenScaleMode.gameNotchSize.x; } catch(e:Dynamic) {}
+            cutout = FullScreenScaleMode.gameNotchSize.x;
             if (cutout <= 0) { 
-                try { cutout = funkin.ui.FullScreenScaleMode.gameCutoutSize.x; } catch(e:Dynamic) {} 
+                cutout = FullScreenScaleMode.gameCutoutSize.x; 
             }
             if (isMob && cutout < 60.0) cutout = 60.0;
             cachedCutoutSize = cutout;

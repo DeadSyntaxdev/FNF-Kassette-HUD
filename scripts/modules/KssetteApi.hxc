@@ -29,7 +29,7 @@ import openfl.utils.Assets;
 
 class KssetteApi extends Module {
     final optionsID:String = "kassette-hud";
-    public var hudVersion:String = "0.2.1.b3";
+    public var hudVersion:String = "0.2.1";
     var optionKeys:Array<String> = [
         "kssette_show_score", "kssette_show_misses",
         "kssette_acc_mode", "kssette_show_rank", "kssette_show_tier",
@@ -172,7 +172,7 @@ class KssetteApi extends Module {
             for (k in keys) {
                 var fFile = fontMap.get(k);
                 var fPath = "VCR OSD Mono";
-                try { fPath = resolveCustomFont(fFile); } catch(e:Dynamic) {}
+                fPath = resolveCustomFont(fFile);
 
                 var rawName = k;
                 var lowerK = k.toLowerCase();
@@ -368,21 +368,19 @@ class KssetteApi extends Module {
     
     public function preCacheIconColor(iconId:String, isPlayer:Bool = false):Void {
         if (iconId == null || iconId == "" || iconId == "generic_p1" || iconId == "generic_p2") return;
-        try {
-            if (Reflect.hasField(_iconColorCache, iconId)) return;
+        if (Reflect.hasField(_iconColorCache, iconId)) return;
 
-            var graphic = null;
-            try { graphic = funkin.Paths.image('icons/' + iconId); } catch(e:Dynamic) {}
-            if (graphic == null) {
-                try { graphic = funkin.Paths.image('icons/icon-' + iconId); } catch(e:Dynamic) {}
-            }
+        var graphic = null;
+        graphic = funkin.Paths.image('icons/' + iconId);
+        if (graphic == null) {
+            graphic = funkin.Paths.image('icons/icon-' + iconId);
+        }
 
-            if (graphic != null) {
-                var tempIcon = new flixel.FlxSprite().loadGraphic(graphic);
-                extractIconColor(tempIcon, isPlayer, iconId);
-                tempIcon.destroy();
-            }
-        } catch(e:Dynamic) {}
+        if (graphic != null) {
+            var tempIcon = new flixel.FlxSprite().loadGraphic(graphic);
+            extractIconColor(tempIcon, isPlayer, iconId);
+            tempIcon.destroy();
+        }
     }
 
     override public function onSongRetry(event:ScriptEvent) {
@@ -397,11 +395,9 @@ class KssetteApi extends Module {
         var state = PlayState.instance;
         if (state != null && state.isChartingMode && state.isMinimalMode) {
             Reflect.setField(state, "isMinimalMode", false);
-            try {
-                Reflect.callMethod(state, Reflect.field(state, "initStage"), []);
-                Reflect.callMethod(state, Reflect.field(state, "initCharacters"), []);
-                state.refresh();
-            } catch (e:Dynamic) {}
+            Reflect.callMethod(state, Reflect.field(state, "initStage"), []);
+            Reflect.callMethod(state, Reflect.field(state, "initCharacters"), []);
+            state.refresh();
         }
 
         super.onCountdownStart(event);
@@ -416,13 +412,11 @@ class KssetteApi extends Module {
         _gammodCheckTimer = 0.25;
 
         if (_gammodPlay != null) {
-            try {
-                var gPlay:Dynamic = _gammodPlay;
-                if (gPlay.curMultTxt != null) gPlay.curMultTxt.visible = false;
-                if (gPlay.curNoRankTxt != null) gPlay.curNoRankTxt.visible = false;
-                if (gPlay.scoreTxtFX != null) gPlay.scoreTxtFX.visible = false;
-                if (gPlay.scoreTxtFXOut != null) gPlay.scoreTxtFXOut.visible = false;
-            } catch(e:Dynamic) {}
+            var gPlay:Dynamic = _gammodPlay;
+            if (gPlay.curMultTxt != null) gPlay.curMultTxt.visible = false;
+            if (gPlay.curNoRankTxt != null) gPlay.curNoRankTxt.visible = false;
+            if (gPlay.scoreTxtFX != null) gPlay.scoreTxtFX.visible = false;
+            if (gPlay.scoreTxtFXOut != null) gPlay.scoreTxtFXOut.visible = false;
         }
 
         clearScoreCache();
@@ -446,13 +440,13 @@ class KssetteApi extends Module {
         if (state != null && _cColoredHB) {
             if (state.iconP1 != null) {
                 var p1Id = "generic_p1";
-                try { if (state.iconP1.characterId != null) p1Id = Std.string(state.iconP1.characterId); } catch(e:Dynamic) {}
+                if (state.iconP1.characterId != null) p1Id = Std.string(state.iconP1.characterId);
                 if (!Reflect.hasField(_iconColorCache, p1Id)) extractIconColor(state.iconP1, true, p1Id);
             }
             
             if (state.iconP2 != null) {
                 var p2Id = "generic_p2";
-                try { if (state.iconP2.characterId != null) p2Id = Std.string(state.iconP2.characterId); } catch(e:Dynamic) {}
+                if (state.iconP2.characterId != null) p2Id = Std.string(state.iconP2.characterId);
                 if (!Reflect.hasField(_iconColorCache, p2Id)) extractIconColor(state.iconP2, false, p2Id);
             }
         }
@@ -483,12 +477,10 @@ class KssetteApi extends Module {
                                     else if (Reflect.hasField(val, "character")) iconId = Std.string(Reflect.field(val, "character"));
                                     
                                     var isPlayerEvent = false;
-                                    try {
-                                        if (Reflect.hasField(val, "char")) {
-                                            var charVal = Std.parseInt(Std.string(Reflect.field(val, "char")));
-                                            if (charVal == 0) isPlayerEvent = true; 
-                                        }
-                                    } catch(e:Dynamic) {}
+                                    if (Reflect.hasField(val, "char")) {
+                                        var charVal = Std.parseInt(Std.string(Reflect.field(val, "char")));
+                                        if (charVal == 0) isPlayerEvent = true; 
+                                    }
 
                                     if (iconId != "" && iconId != "null" && iconId != "generic_p1" && iconId != "generic_p2") {
                                         preCacheIconColor(iconId, isPlayerEvent);
@@ -548,11 +540,9 @@ class KssetteApi extends Module {
         var fallbackColor:Int = isPlayer ? 0xFF66FF33 : 0xFFFF0000;
 
         if (isCacheable) {
-            try {
-                if (Reflect.hasField(_iconColorCache, iconId)) {
-                    return Reflect.field(_iconColorCache, iconId);
-                }
-            } catch(e:Dynamic) {}
+            if (Reflect.hasField(_iconColorCache, iconId)) {
+                return Reflect.field(_iconColorCache, iconId);
+            }
         }
 
         if (icon == null) {
@@ -560,74 +550,68 @@ class KssetteApi extends Module {
             return fallbackColor;
         }
         
-        try {
-            var bitmap = null;
-            try { if (icon.pixels != null) bitmap = icon.pixels; } catch(e:Dynamic) {}
-            if (bitmap == null) {
-                try { if (icon.graphic != null && icon.graphic.bitmap != null) bitmap = icon.graphic.bitmap; } catch(e:Dynamic) {}
-            }
-            
-            if (bitmap == null) {
-                if (isCacheable) Reflect.setField(_iconColorCache, iconId, fallbackColor);
-                return fallbackColor;
-            }
-            
-            var bWidth:Int = 150;
-            var bHeight:Int = 150;
-            if (bitmap.width != null) bWidth = Std.int(bitmap.width);
-            if (bitmap.height != null) bHeight = Std.int(bitmap.height);
-            
-            var w:Int = bWidth > 150 ? 150 : bWidth;
-            var h:Int = bHeight > 150 ? 150 : bHeight;
-            
-            var detail:Int = 4; 
-            var frequency:Map<Int, Int> = [-1 => 0];
-            frequency.remove(-1);
-            var bestColor:Int = fallbackColor;
-            var maxFreq:Int = 0;
-            
-            var x:Int = 0;
-            while (x < w) {
-                var y:Int = 0;
-                while (y < h) {
-                    var pixel32:Int = bitmap.getPixel32(x, y);
-                    var alpha:Int = (pixel32 >> 24) & 0xFF;
-                    
-                    if (alpha > 200) {
-                        var rgb:Int = pixel32 & 0xFFFFFF;
-                        if (rgb != 0x000000 && rgb != 0xFFFFFF && rgb != 0x000001) {
-                            var count:Null<Int> = frequency.get(rgb);
-                            if (count == null) count = 0;
-                            count++;
-                            frequency.set(rgb, count);
-                            if (count > maxFreq) {
-                                maxFreq = count;
-                                bestColor = rgb;
-                            }
-                        }
-                    }
-                    y += detail;
-                }
-                x += detail;
-            }
-            
-            if (maxFreq == 0) {
-                if (isCacheable) Reflect.setField(_iconColorCache, iconId, fallbackColor);
-                return fallbackColor;
-            }
-            
-            var finalColor = 0xFF000000 | bestColor;
-            
-            if (isCacheable) {
-                Reflect.setField(_iconColorCache, iconId, finalColor);
-            }
-
-            return finalColor;
-            
-        } catch(e:Dynamic) {
+        var bitmap = null;
+        if (icon.pixels != null) bitmap = icon.pixels;
+        if (bitmap == null) {
+            if (icon.graphic != null && icon.graphic.bitmap != null) bitmap = icon.graphic.bitmap;
+        }
+        
+        if (bitmap == null) {
             if (isCacheable) Reflect.setField(_iconColorCache, iconId, fallbackColor);
             return fallbackColor;
         }
+        
+        var bWidth:Int = 150;
+        var bHeight:Int = 150;
+        if (bitmap.width != null) bWidth = Std.int(bitmap.width);
+        if (bitmap.height != null) bHeight = Std.int(bitmap.height);
+        
+        var w:Int = bWidth > 150 ? 150 : bWidth;
+        var h:Int = bHeight > 150 ? 150 : bHeight;
+        
+        var detail:Int = 4; 
+        var frequency:Map<Int, Int> = [-1 => 0];
+        frequency.remove(-1);
+        var bestColor:Int = fallbackColor;
+        var maxFreq:Int = 0;
+        
+        var x:Int = 0;
+        while (x < w) {
+            var y:Int = 0;
+            while (y < h) {
+                var pixel32:Int = bitmap.getPixel32(x, y);
+                var alpha:Int = (pixel32 >> 24) & 0xFF;
+                
+                if (alpha > 200) {
+                    var rgb:Int = pixel32 & 0xFFFFFF;
+                    if (rgb != 0x000000 && rgb != 0xFFFFFF && rgb != 0x000001) {
+                        var count:Null<Int> = frequency.get(rgb);
+                        if (count == null) count = 0;
+                        count++;
+                        frequency.set(rgb, count);
+                        if (count > maxFreq) {
+                            maxFreq = count;
+                            bestColor = rgb;
+                        }
+                    }
+                }
+                y += detail;
+            }
+            x += detail;
+        }
+        
+        if (maxFreq == 0) {
+            if (isCacheable) Reflect.setField(_iconColorCache, iconId, fallbackColor);
+            return fallbackColor;
+        }
+        
+        var finalColor = 0xFF000000 | bestColor;
+        
+        if (isCacheable) {
+            Reflect.setField(_iconColorCache, iconId, finalColor);
+        }
+
+        return finalColor;
     }
 
     public function getBreakData():Dynamic {
@@ -985,9 +969,9 @@ class KssetteApi extends Module {
         ]; 
         var blacklist = ["vcr.ttf", "pixel.otf", "ds_digii.ttf", "ds_digib.ttf", "ds_digi.ttf", "nokiafc22.ttf", "arial.ttf", "5by7_b.ttf", "consolas.ttf", "quantico_bolditalic.ttf", "quantico_bold.ttf", "quantico_regular.ttf", "inconsolata_semibold.ttf", "inconsolata_bold.ttf", "inconsolata_medium.ttf", "vcr_italic.ttf", "inconsolata_extralight.ttf", "insolata_regular.ttf", "5by7.ttf", "quantico_italic.ttf", "monsterrat.ttf", "vcr_bold.ttf", "vcr_bolditalic.ttf", "incosolata_black.ttf"];
 
-        try {
-            var files = Assets.list();
-            if (files != null) {
+        var files = Assets.list();
+        if (files != null) {
+            try {
                 for (file in files) {
                     var f = file.toLowerCase();
                     var normalizedFile = StringTools.replace(f, "\\", "/");
@@ -1000,8 +984,8 @@ class KssetteApi extends Module {
                         }
                     }
                 }
-            }
-        } catch(e:Dynamic) {}
+            } catch(e:Dynamic) {}
+        }
         
         for (folder in getModFolders()) {
             var path = "mods/" + folder + "/fonts";
@@ -1034,9 +1018,9 @@ class KssetteApi extends Module {
         if (cachedResolvedFonts.exists(fontKey)) return cachedResolvedFonts.get(fontKey);
         
         var foundPath:String = ""; 
-        try {
-            var files = Assets.list();
-            if (files != null) {
+        var files = Assets.list();
+        if (files != null) {
+            try {
                 for (file in files) {
                     var f = file.toLowerCase();
                     var normalizedFile = StringTools.replace(f, "\\", "/");
@@ -1045,8 +1029,8 @@ class KssetteApi extends Module {
                         break;
                     }
                 }
-            }
-        } catch(e:Dynamic) {}
+            } catch(e:Dynamic) {}
+        }
 
         if (foundPath == "") {
             for (folder in getModFolders()) {
@@ -1112,48 +1096,44 @@ class KssetteApi extends Module {
         var maxDepth:Int = 5;
         
         while (currentStyleId != null && depth < maxDepth) {
-            try {
-                var styleEntry = NoteStyleRegistry.instance.fetchEntry(currentStyleId);
-                if (styleEntry == null) break;
-                
-                var data = Reflect.getProperty(styleEntry, "_data");
-                if (data == null) data = Reflect.field(styleEntry, "_data");
+            var styleEntry = NoteStyleRegistry.instance.fetchEntry(currentStyleId);
+            if (styleEntry == null) break;
+            
+            var data = Reflect.getProperty(styleEntry, "_data");
+            if (data == null) data = Reflect.field(styleEntry, "_data");
 
-                if (data != null) {
-                    var assets = Reflect.getProperty(data, "assets");
-                    if (assets == null) assets = Reflect.field(data, "assets");
+            if (data != null) {
+                var assets = Reflect.getProperty(data, "assets");
+                if (assets == null) assets = Reflect.field(data, "assets");
 
-                    if (assets != null) {
-                        var note = Reflect.getProperty(assets, "note");
-                        if (note == null) note = Reflect.field(assets, "note");
+                if (assets != null) {
+                    var note = Reflect.getProperty(assets, "note");
+                    if (note == null) note = Reflect.field(assets, "note");
 
-                        if (note != null) {
-                            var isPixelVal:Dynamic = Reflect.getProperty(note, "isPixel");
-                            if (isPixelVal == null) isPixelVal = Reflect.field(note, "isPixel");
-                            
-                            if (isPixelVal == true || isPixelVal == "true") {
-                                _cachedHudStyleId = styleId;
-                                _cachedHudFont = getCustomPixelFont();
-                                return _cachedHudFont;
-                            } else if (isPixelVal == false || isPixelVal == "false") {
-                                break;
-                            }
+                    if (note != null) {
+                        var isPixelVal:Dynamic = Reflect.getProperty(note, "isPixel");
+                        if (isPixelVal == null) isPixelVal = Reflect.field(note, "isPixel");
+                        
+                        if (isPixelVal == true || isPixelVal == "true") {
+                            _cachedHudStyleId = styleId;
+                            _cachedHudFont = getCustomPixelFont();
+                            return _cachedHudFont;
+                        } else if (isPixelVal == false || isPixelVal == "false") {
+                            break;
                         }
                     }
-                    
-                    var fallbackStyle = Reflect.getProperty(data, "fallback");
-                    if (fallbackStyle == null) fallbackStyle = Reflect.field(data, "fallback");
+                }
+                
+                var fallbackStyle = Reflect.getProperty(data, "fallback");
+                if (fallbackStyle == null) fallbackStyle = Reflect.field(data, "fallback");
 
-                    if (fallbackStyle != null && Std.string(fallbackStyle) != "" && Std.string(fallbackStyle) != "null") {
-                        currentStyleId = Std.string(fallbackStyle);
-                    } else {
-                        currentStyleId = null;
-                    }
+                if (fallbackStyle != null && Std.string(fallbackStyle) != "" && Std.string(fallbackStyle) != "null") {
+                    currentStyleId = Std.string(fallbackStyle);
                 } else {
                     currentStyleId = null;
                 }
-            } catch(e:Dynamic) {
-                break;
+            } else {
+                currentStyleId = null;
             }
             depth++;
         }
@@ -1165,16 +1145,12 @@ class KssetteApi extends Module {
 
     function checkGammod(elapsed:Float) {
         if (_gammodPlay != null) {
-            try {
-                var gPlay:Dynamic = _gammodPlay;
-                if (gPlay.curMultTxt != null) gPlay.curMultTxt.visible = false;
-                if (gPlay.curNoRankTxt != null) gPlay.curNoRankTxt.visible = false;
-                if (gPlay.scoreTxtFX != null) gPlay.scoreTxtFX.visible = false;
-                if (gPlay.scoreTxtFXOut != null) gPlay.scoreTxtFXOut.visible = false;
-                gammodHighscoreActive = (gPlay.didHighscoreEvents == true);
-            } catch(e:Dynamic) {
-                gammodHighscoreActive = false;
-            }
+            var gPlay:Dynamic = _gammodPlay;
+            if (gPlay.curMultTxt != null) gPlay.curMultTxt.visible = false;
+            if (gPlay.curNoRankTxt != null) gPlay.curNoRankTxt.visible = false;
+            if (gPlay.scoreTxtFX != null) gPlay.scoreTxtFX.visible = false;
+            if (gPlay.scoreTxtFXOut != null) gPlay.scoreTxtFXOut.visible = false;
+            gammodHighscoreActive = (gPlay.didHighscoreEvents == true);
         } else {
             gammodHighscoreActive = false;
         }
@@ -1190,13 +1166,11 @@ class KssetteApi extends Module {
             modsOnRaw = Reflect.getProperty(gammodHandler, "mods_on");
             if (modsOnRaw == null) modsOnRaw = Reflect.field(gammodHandler, "mods_on");
             if (modsOnRaw == null) {
-                try { modsOnRaw = gammodHandler.scriptGet("mods_on"); } catch(e:Dynamic) {}
+                modsOnRaw = gammodHandler.scriptGet("mods_on");
             }
             if (modsOnRaw == null) {
-                try {
-                    var activeArray:Dynamic = gammodHandler.getActive();
-                    if (activeArray != null && activeArray.length > 0) modsOnRaw = true;
-                } catch(e:Dynamic) {}
+                var activeArray:Dynamic = gammodHandler.getActive();
+                if (activeArray != null && activeArray.length > 0) modsOnRaw = true;
             }
             isGammodMode = (modsOnRaw == true);
         } else {
@@ -1210,20 +1184,20 @@ class KssetteApi extends Module {
             unrankedRaw = Reflect.getProperty(gammodMult, "unranked");
             if (unrankedRaw == null) unrankedRaw = Reflect.field(gammodMult, "unranked");
             if (unrankedRaw == null) {
-                try { unrankedRaw = gammodMult.scriptGet("unranked"); } catch(e:Dynamic) {}
+                unrankedRaw = gammodMult.scriptGet("unranked");
             }
             if (unrankedRaw == null) {
-                try { unrankedRaw = Reflect.field(gammodMult, "isUnranked")(); } catch(e:Dynamic) {}
+                unrankedRaw = Reflect.field(gammodMult, "isUnranked")();
             }
             gammodUnranked = (unrankedRaw == true);
 
             multRaw = Reflect.getProperty(gammodMult, "score_multiplier");
             if (multRaw == null) multRaw = Reflect.field(gammodMult, "score_multiplier");
             if (multRaw == null) {
-                try { multRaw = gammodMult.scriptGet("score_multiplier"); } catch(e:Dynamic) {}
+                multRaw = gammodMult.scriptGet("score_multiplier");
             }
             if (multRaw == null) {
-                try { multRaw = Reflect.field(gammodMult, "curMult")(); } catch(e:Dynamic) {}
+                multRaw = Reflect.field(gammodMult, "curMult")();
             }
             if (multRaw != null) gammodMultiplier = multRaw;
             else gammodMultiplier = 1.0;
@@ -1238,7 +1212,7 @@ class KssetteApi extends Module {
             rateRaw = Reflect.getProperty(gammodRate, "value");
             if (rateRaw == null) rateRaw = Reflect.field(gammodRate, "value");
             if (rateRaw == null) {
-                try { rateRaw = gammodRate.scriptGet("value"); } catch(e:Dynamic) {}
+                rateRaw = gammodRate.scriptGet("value");
             }
             if (rateRaw != null) gammodPlaybackRate = rateRaw;
             else gammodPlaybackRate = 1.0;
@@ -1252,7 +1226,7 @@ class KssetteApi extends Module {
             autoRaw = Reflect.getProperty(gammodAutoMod, "value");
             if (autoRaw == null) autoRaw = Reflect.field(gammodAutoMod, "value");
             if (autoRaw == null) {
-                try { autoRaw = gammodAutoMod.scriptGet("value"); } catch(e:Dynamic) {}
+                autoRaw = gammodAutoMod.scriptGet("value");
             }
             gammodAutoPlay = (autoRaw != null && Std.string(autoRaw).toUpperCase() != "DISABLED");
         } else {
@@ -1265,7 +1239,7 @@ class KssetteApi extends Module {
             sideRaw = Reflect.getProperty(gammodSideMod, "value");
             if (sideRaw == null) sideRaw = Reflect.field(gammodSideMod, "value");
             if (sideRaw == null) {
-                try { sideRaw = gammodSideMod.scriptGet("value"); } catch(e:Dynamic) {}
+                sideRaw = gammodSideMod.scriptGet("value");
             }
             if (sideRaw != null) gammodPlayerSide = Std.string(sideRaw).toUpperCase();
             else gammodPlayerSide = "NORMAL";
@@ -1312,6 +1286,15 @@ class KssetteApi extends Module {
                                 if (p1.characterId != null) curP1 = Std.string(p1.characterId);
                                 else if (p1.iconId != null) curP1 = Std.string(p1.iconId);
                             } catch(e:Dynamic) {}
+                            var id1 = Reflect.getProperty(p1, "characterId");
+                            if (id1 == null) id1 = Reflect.getProperty(p1, "iconId");
+                            if (id1 != null) curP1 = Std.string(id1);
+                            else {
+                                try {
+                                    if (p1.characterId != null) curP1 = Std.string(p1.characterId);
+                                    else if (p1.iconId != null) curP1 = Std.string(p1.iconId);
+                                } catch(e:Dynamic) {}
+                            }
                         }
                         
                         var curP2:String = "none2";
@@ -1320,6 +1303,15 @@ class KssetteApi extends Module {
                                 if (p2.characterId != null) curP2 = Std.string(p2.characterId);
                                 else if (p2.iconId != null) curP2 = Std.string(p2.iconId);
                             } catch(e:Dynamic) {}
+                            var id2 = Reflect.getProperty(p2, "characterId");
+                            if (id2 == null) id2 = Reflect.getProperty(p2, "iconId");
+                            if (id2 != null) curP2 = Std.string(id2);
+                            else {
+                                try {
+                                    if (p2.characterId != null) curP2 = Std.string(p2.characterId);
+                                    else if (p2.iconId != null) curP2 = Std.string(p2.iconId);
+                                } catch(e:Dynamic) {}
+                            }
                         }
                         
                         if (curP1 != _lastP1Id || curP2 != _lastP2Id) {
@@ -1340,9 +1332,9 @@ class KssetteApi extends Module {
                 }
             } else if (!_cColoredHB && _lastP1Id != "") {
                 if (_gammodPlay != null) {
-                    _gammodPlay.scriptSet("healthBarOverride", true);
-                    Reflect.setProperty(_gammodPlay, "healthBarOverride", true);
-                    _gammodPlay.healthBarOverride = true;
+                    try { _gammodPlay.scriptSet("healthBarOverride", true); } catch(e:Dynamic) {}
+                    try { Reflect.setProperty(_gammodPlay, "healthBarOverride", true); } catch(e:Dynamic) {}
+                    try { _gammodPlay.healthBarOverride = true; } catch(e:Dynamic) {}
                 }
 
                 _lastP1Id = "";

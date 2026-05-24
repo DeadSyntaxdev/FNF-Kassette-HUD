@@ -76,7 +76,7 @@ class KssGhostTapping extends Module {
         if (state == null || state.isPlayerDying || isPaused) return;
 
         var controlsObj:Dynamic = null;
-        try { controlsObj = Reflect.getProperty(FlxG.state, "controls"); } catch(e:Dynamic) {}
+        controlsObj = Reflect.getProperty(FlxG.state, "controls");
 
         if (controlsObj == null) {
             controlsObj = state.controls;
@@ -97,10 +97,10 @@ class KssGhostTapping extends Module {
         var hitUp = false;
         var hitRight = false;
 
-        try { hitLeft = controlsObj.NOTE_LEFT_P; } catch(e:Dynamic) {}
-        try { hitDown = controlsObj.NOTE_DOWN_P; } catch(e:Dynamic) {}
-        try { hitUp = controlsObj.NOTE_UP_P; } catch(e:Dynamic) {}
-        try { hitRight = controlsObj.NOTE_RIGHT_P; } catch(e:Dynamic) {}
+        hitLeft = controlsObj.NOTE_LEFT_P;
+        hitDown = controlsObj.NOTE_DOWN_P;
+        hitUp = controlsObj.NOTE_UP_P;
+        hitRight = controlsObj.NOTE_RIGHT_P;
 
         if (hitLeft) {
             player.playAnimation("singLEFT", true, false, false);

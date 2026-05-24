@@ -33,8 +33,8 @@ class KssetteNight extends Module {
 
     public function cleanUp() {
         if (overlayGame != null) {
-            try { FlxG.state.remove(overlayGame, true); } catch(e:Dynamic) {}
-            try { overlayGame.destroy(); } catch(e:Dynamic) {}
+            FlxG.state.remove(overlayGame, true);
+            overlayGame.destroy();
         }
         overlayGame = null;
         isActive = false;
@@ -128,22 +128,20 @@ class KssetteNight extends Module {
         overlayGame.scale.set(FlxG.width * 4, FlxG.height * 4);
         overlayGame.updateHitbox();
         overlayGame.scrollFactor.set(0, 0); 
-        try { overlayGame.screenCenter(); } catch(e:Dynamic) {}
+        overlayGame.screenCenter();
         
         overlayGame.zIndex = 50; 
 
         if (isPreview) {
             if (previewCam != null) overlayGame.cameras = [previewCam];
             FlxG.state.add(overlayGame);
-            try {
-                var st:Dynamic = FlxG.state;
-                st.refresh();
-            } catch(e:Dynamic) {}
+            var st:Dynamic = FlxG.state;
+            st.refresh();
         } else {
             var state = PlayState.instance;
             var targetCam:flixel.FlxCamera = null;
             if (isPlayStateActive()) {
-                try { targetCam = Reflect.getProperty(state, "camHUD"); } catch(e:Dynamic) {}
+                targetCam = Reflect.getProperty(state, "camHUD");
             }
             if (targetCam == null) targetCam = FlxG.camera;
             
@@ -151,13 +149,11 @@ class KssetteNight extends Module {
             
             if (isPlayStateActive() && state != null) {
                 state.add(overlayGame);
-                try { state.refresh(); } catch(e:Dynamic) {}
+                state.refresh();
             } else {
                 FlxG.state.add(overlayGame);
-                try {
-                    var st:Dynamic = FlxG.state;
-                    st.refresh();
-                } catch(e:Dynamic) {}
+                var st:Dynamic = FlxG.state;
+                st.refresh();
             }
         }
         
@@ -202,7 +198,7 @@ class KssetteNight extends Module {
 
         var elapsed = FlxG.elapsed;
         if (event != null) {
-            try { elapsed = event.elapsed; } catch(e:Dynamic) {}
+            elapsed = event.elapsed;
         }
 
         updateTimer += elapsed;
@@ -234,7 +230,7 @@ class KssetteNight extends Module {
             }
         } else if (isPlayStateActive()) {
             var currentCam:flixel.FlxCamera = null;
-            try { currentCam = Reflect.getProperty(PlayState.instance, "camHUD"); } catch(e:Dynamic) {}
+            currentCam = Reflect.getProperty(PlayState.instance, "camHUD");
             if (currentCam == null) currentCam = FlxG.camera;
             
             if (overlayGame.cameras == null || overlayGame.cameras.length == 0 || overlayGame.cameras[0] != currentCam) {

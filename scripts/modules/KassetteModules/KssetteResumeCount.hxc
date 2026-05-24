@@ -63,9 +63,7 @@ class KssetteResumeCount extends Module {
         apiModule = ModuleHandler.getModule("KssetteApi");
         if (apiModule != null) {
             apiModule.registerModule("KssetteResumeCount", this);
-            try {
-                cachedActive = apiModule.getKssValue("kssette_resume_countdown") == true;
-            } catch(e:Dynamic) {}
+            cachedActive = apiModule.getKssValue("kssette_resume_countdown") == true;
         }
         isCounting = false;
         isResuming = false;
@@ -180,12 +178,12 @@ class KssetteResumeCount extends Module {
 
         for (num in 0...4) {
             var soundAsset:Dynamic = null;
-            try { soundAsset = Paths.sound('gameplay/countdown/' + fallbackStyle + '/intro' + soundNames[num]); } catch(e:Dynamic) {}
+            soundAsset = Paths.sound('gameplay/countdown/' + fallbackStyle + '/intro' + soundNames[num]);
             if (soundAsset == null) {
-                try { soundAsset = Paths.sound('gameplay/countdown/' + fallbackStyle + '/intro' + soundNamesNum[num]); } catch(e:Dynamic) {}
+                soundAsset = Paths.sound('gameplay/countdown/' + fallbackStyle + '/intro' + soundNamesNum[num]);
             }
             if (soundAsset == null && fallbackStyle != "funkin") {
-                try { soundAsset = Paths.sound('gameplay/countdown/funkin/intro' + soundNames[num]); } catch(e:Dynamic) {}
+                soundAsset = Paths.sound('gameplay/countdown/funkin/intro' + soundNames[num]);
             }
             cachedSounds[num] = soundAsset;
 
@@ -194,13 +192,13 @@ class KssetteResumeCount extends Module {
             var drawScale:Float = 1.0;
 
             if (imageNames[num] != "") {
-                try { imageAsset = Paths.image('ui/countdown/' + fallbackStyle + '/' + imageNames[num]); } catch(e:Dynamic) {}
+                imageAsset = Paths.image('ui/countdown/' + fallbackStyle + '/' + imageNames[num]);
                 if (fallbackStyle == "pixel") {
                     usePixel = true;
                     drawScale = 6.0;
                 }
                 if (imageAsset == null && fallbackStyle != "funkin") {
-                    try { imageAsset = Paths.image('ui/countdown/funkin/' + imageNames[num]); } catch(e:Dynamic) {}
+                    imageAsset = Paths.image('ui/countdown/funkin/' + imageNames[num]);
                     usePixel = false;
                     drawScale = 1.0;
                 }

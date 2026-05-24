@@ -11,6 +11,7 @@ import Reflect;
 import funkin.Preferences;
 import funkin.modding.events.SubStateScriptEvent;
 import funkin.play.PauseSubState;
+import funkin.ui.FullScreenScaleMode;
 
 class KssetteTimeBar extends Module {
     public var timeBar:FlxSprite;
@@ -58,13 +59,13 @@ class KssetteTimeBar extends Module {
         songLengthMs = 0.0;
         updateTimer = 0.0;
         if (timeBar != null) {
-            try { if (PlayState.instance != null && !isPreview) PlayState.instance.remove(timeBar, true); } catch(e:Dynamic) {}
-            try { FlxG.state.remove(timeBar, true); } catch(e:Dynamic) {}
+            if (PlayState.instance != null && !isPreview) PlayState.instance.remove(timeBar, true);
+            FlxG.state.remove(timeBar, true);
             timeBar.destroy();
         }
         if (timeBarBG != null) {
-            try { if (PlayState.instance != null && !isPreview) PlayState.instance.remove(timeBarBG, true); } catch(e:Dynamic) {}
-            try { FlxG.state.remove(timeBarBG, true); } catch(e:Dynamic) {}
+            if (PlayState.instance != null && !isPreview) PlayState.instance.remove(timeBarBG, true);
+            FlxG.state.remove(timeBarBG, true);
             timeBarBG.destroy();
         }
         if (customCam != null) {
@@ -95,7 +96,7 @@ class KssetteTimeBar extends Module {
 
         timeBarBG = makeBar(0, Std.int(barSize + 4), 0xFF000000, zIdx, targetCam);
         timeBar = makeBar(2, Std.int(barSize), 0xFFFFFFFF, zIdx + 1, targetCam);
-        try { FlxG.state.refresh(); } catch(e:Dynamic) {}
+        FlxG.state.refresh();
     }
 
     public function updatePositions() {
@@ -128,9 +129,9 @@ class KssetteTimeBar extends Module {
         if (apiModule != null && apiModule.isMobileMode == true) isMob = true;
 
         if (isMob) {
-            try { cutoutSize = funkin.ui.FullScreenScaleMode.gameNotchSize.x; } catch(e:Dynamic) {}
+            cutoutSize = FullScreenScaleMode.gameNotchSize.x;
             if (cutoutSize <= 0) {
-                try { cutoutSize = funkin.ui.FullScreenScaleMode.gameCutoutSize.x; } catch(e:Dynamic) {}
+                cutoutSize = FullScreenScaleMode.gameCutoutSize.x;
             }
             if (cutoutSize < 60.0) cutoutSize = 60.0; // Anti-Notch
         }
@@ -217,11 +218,9 @@ class KssetteTimeBar extends Module {
 
         apiModule = ModuleHandler.getModule("KssetteApi");
         if (apiModule != null) {
-            try {
-                apiModule.registerModule("KssetteTimeBar", this);
-                cachedActive = isOn(apiModule.getKssValue("kssette_show_timebar"));
-                timeBarPos = Std.string(apiModule.getKssValue("kssette_timebar_pos"));
-            } catch(e:Dynamic) {}
+            apiModule.registerModule("KssetteTimeBar", this);
+            cachedActive = isOn(apiModule.getKssValue("kssette_show_timebar"));
+            timeBarPos = Std.string(apiModule.getKssValue("kssette_timebar_pos"));
         }
 
         var state = PlayState.instance;
@@ -282,7 +281,7 @@ class KssetteTimeBar extends Module {
 
         if (!cachedActive || timeBar == null || !timeBar.exists || playState == null || playState.conductorInUse == null) return;
         if (songLengthMs <= 0) {
-            try { songLengthMs = playState.currentSongLengthMs; } catch(e:Dynamic) {}
+            songLengthMs = playState.currentSongLengthMs;
             if (songLengthMs <= 0) return;
         }
 
