@@ -330,27 +330,12 @@ class KssetteMenuState extends ScriptedMusicBeatState {
     }
 
     public function fixZIndex() {
-        var accMod:Dynamic = ModuleHandler.getModule("KssetteAccuracy");
-        if (accMod != null) {
+        var titleMod:Dynamic = ModuleHandler.getModule("KssetteShowTitle");
+        if (titleMod != null) {
             try {
-                if (accMod.uiText != null) { FlxG.state.remove(accMod.uiText, true); FlxG.state.add(accMod.uiText); }
-                if (accMod.infoText != null) { FlxG.state.remove(accMod.infoText, true); FlxG.state.add(accMod.infoText); }
-                if (accMod.timeText != null) { FlxG.state.remove(accMod.timeText, true); FlxG.state.add(accMod.timeText); }
-                if (accMod.modeText != null) { FlxG.state.remove(accMod.modeText, true); FlxG.state.add(accMod.modeText); }
-                if (accMod.judgeLabels != null) {
-                    var labels:Array<Dynamic> = accMod.judgeLabels;
-                    for (i in 0...labels.length) {
-                        var l = labels[i];
-                        if (l != null) { FlxG.state.remove(l, true); FlxG.state.add(l); }
-                    }
-                }
-                if (accMod.judgeValues != null) {
-                    var vals:Array<Dynamic> = accMod.judgeValues;
-                    for (i in 0...vals.length) {
-                        var v = vals[i];
-                        if (v != null) { FlxG.state.remove(v, true); FlxG.state.add(v); }
-                    }
-                }
+                if (titleMod.albumSprite != null) { FlxG.state.remove(titleMod.albumSprite, true); FlxG.state.add(titleMod.albumSprite); }
+                if (titleMod.titleTxt != null) { FlxG.state.remove(titleMod.titleTxt, true); FlxG.state.add(titleMod.titleTxt); }
+                if (titleMod.artistTxt != null) { FlxG.state.remove(titleMod.artistTxt, true); FlxG.state.add(titleMod.artistTxt); }
             } catch(e:Dynamic) {}
         }
         
@@ -377,12 +362,43 @@ class KssetteMenuState extends ScriptedMusicBeatState {
             } catch(e:Dynamic) {}
         }
 
-        var titleMod:Dynamic = ModuleHandler.getModule("KssetteShowTitle");
-        if (titleMod != null) {
+
+        var previewMod:Dynamic = ModuleHandler.getModule("KssetteHUDPreview");
+        if (previewMod != null) {
             try {
-                if (titleMod.albumSprite != null) { FlxG.state.remove(titleMod.albumSprite, true); FlxG.state.add(titleMod.albumSprite); }
-                if (titleMod.titleTxt != null) { FlxG.state.remove(titleMod.titleTxt, true); FlxG.state.add(titleMod.titleTxt); }
-                if (titleMod.artistTxt != null) { FlxG.state.remove(titleMod.artistTxt, true); FlxG.state.add(titleMod.artistTxt); }
+                if (previewMod.opponentStrumPreview != null) { FlxG.state.remove(previewMod.opponentStrumPreview, true); FlxG.state.add(previewMod.opponentStrumPreview); }
+                if (previewMod.playerStrumPreview != null) { FlxG.state.remove(previewMod.playerStrumPreview, true); FlxG.state.add(previewMod.playerStrumPreview); }
+            } catch(e:Dynamic) {}
+            try {
+                if (previewMod.healthBarBG != null) { FlxG.state.remove(previewMod.healthBarBG, true); FlxG.state.add(previewMod.healthBarBG); }
+                if (previewMod.healthBarFillP2 != null) { FlxG.state.remove(previewMod.healthBarFillP2, true); FlxG.state.add(previewMod.healthBarFillP2); }
+                if (previewMod.healthBarFillP1 != null) { FlxG.state.remove(previewMod.healthBarFillP1, true); FlxG.state.add(previewMod.healthBarFillP1); }
+                if (previewMod.iconP1 != null) { FlxG.state.remove(previewMod.iconP1, true); FlxG.state.add(previewMod.iconP1); }
+                if (previewMod.iconP2 != null) { FlxG.state.remove(previewMod.iconP2, true); FlxG.state.add(previewMod.iconP2); }
+            } catch(e:Dynamic) {}
+        }
+
+                var accMod:Dynamic = ModuleHandler.getModule("KssetteAccuracy");
+        if (accMod != null) {
+            try {
+                if (accMod.uiText != null) { FlxG.state.remove(accMod.uiText, true); FlxG.state.add(accMod.uiText); }
+                if (accMod.infoText != null) { FlxG.state.remove(accMod.infoText, true); FlxG.state.add(accMod.infoText); }
+                if (accMod.timeText != null) { FlxG.state.remove(accMod.timeText, true); FlxG.state.add(accMod.timeText); }
+                if (accMod.modeText != null) { FlxG.state.remove(accMod.modeText, true); FlxG.state.add(accMod.modeText); }
+                if (accMod.judgeLabels != null) {
+                    var labels:Array<Dynamic> = accMod.judgeLabels;
+                    for (i in 0...labels.length) {
+                        var l = labels[i];
+                        if (l != null) { FlxG.state.remove(l, true); FlxG.state.add(l); }
+                    }
+                }
+                if (accMod.judgeValues != null) {
+                    var vals:Array<Dynamic> = accMod.judgeValues;
+                    for (i in 0...vals.length) {
+                        var v = vals[i];
+                        if (v != null) { FlxG.state.remove(v, true); FlxG.state.add(v); }
+                    }
+                }
             } catch(e:Dynamic) {}
         }
     }
@@ -1816,7 +1832,8 @@ class KssetteMenuState extends ScriptedMusicBeatState {
 
         var targetMarqueeY:Float = panelHidden ? -50 : 0;
         if (marqueeBg != null) {
-            if (marqueeBg.y != targetMarqueeY) marqueeBg.y = FlxMath.lerp(marqueeBg.y, targetMarqueeY, elapsed * 12);
+            if (Math.abs(marqueeBg.y - targetMarqueeY) > 0.1) marqueeBg.y = FlxMath.lerp(marqueeBg.y, targetMarqueeY, elapsed * 12);
+            else marqueeBg.y = targetMarqueeY;
         }
 
         if (marqueeText1 != null && marqueeText2 != null) {
@@ -1835,8 +1852,10 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         }
 
         if (!isDragging) {
-            curSelectedFloat = FlxMath.lerp(curSelectedFloat, selectedIndex, elapsed * 10);
-            dragOffsetY = FlxMath.lerp(dragOffsetY, 0, elapsed * 15);
+            if (Math.abs(curSelectedFloat - selectedIndex) > 0.001) curSelectedFloat = FlxMath.lerp(curSelectedFloat, selectedIndex, elapsed * 10);
+            else curSelectedFloat = selectedIndex;
+            if (Math.abs(dragOffsetY) > 0.001) dragOffsetY = FlxMath.lerp(dragOffsetY, 0, elapsed * 15);
+            else dragOffsetY = 0;
         }
         
         var targetXBase:Float = 0;
@@ -1889,7 +1908,8 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         }
 
         if (capsuleFadeBg != null) {
-            if (capsuleFadeBg.x != targetFadeX) capsuleFadeBg.x = FlxMath.lerp(capsuleFadeBg.x, targetFadeX, elapsed * 12);
+            if (Math.abs(capsuleFadeBg.x - targetFadeX) > 0.1) capsuleFadeBg.x = FlxMath.lerp(capsuleFadeBg.x, targetFadeX, elapsed * 12);
+            else capsuleFadeBg.x = targetFadeX;
             if (capsuleFadeBg.flipX != panelOnLeft) capsuleFadeBg.flipX = panelOnLeft;
         }
 
@@ -1947,8 +1967,8 @@ class KssetteMenuState extends ScriptedMusicBeatState {
                     bg.x = targetX;
                     bg.y = targetY;
                 } else {
-                    bg.x = FlxMath.lerp(bg.x, targetX, elapsed * 12);
-                    bg.y = FlxMath.lerp(bg.y, targetY, elapsed * 12);
+                    if (Math.abs(bg.x - targetX) > 0.1) bg.x = FlxMath.lerp(bg.x, targetX, elapsed * 12); else bg.x = targetX;
+                    if (Math.abs(bg.y - targetY) > 0.1) bg.y = FlxMath.lerp(bg.y, targetY, elapsed * 12); else bg.y = targetY;
                 }
 
                 if (item.isHeader) {
@@ -2050,8 +2070,8 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         var targetDescY:Float = sh - (descBg != null ? descBg.height : 90) - 20;
         
         if (descBg != null) {
-            descBg.x = FlxMath.lerp(descBg.x, targetDescX, elapsed * 12);
-            descBg.y = FlxMath.lerp(descBg.y, targetDescY, elapsed * 12);
+            if (Math.abs(descBg.x - targetDescX) > 0.1) descBg.x = FlxMath.lerp(descBg.x, targetDescX, elapsed * 12); else descBg.x = targetDescX;
+            if (Math.abs(descBg.y - targetDescY) > 0.1) descBg.y = FlxMath.lerp(descBg.y, targetDescY, elapsed * 12); else descBg.y = targetDescY;
             if (descTextDisplay != null) {
                 descTextDisplay.x = descBg.x + descOffsetX;
                 descTextDisplay.y = descBg.y + descOffsetY;
@@ -2144,13 +2164,11 @@ class KssetteMenuState extends ScriptedMusicBeatState {
 
         var isOverPreviewZone = false;
         if (previewHitbox != null && previewHitbox.exists) {
-            try {
-                if (FlxG.onMobile) {
-                    isOverPreviewZone = TouchUtil.overlaps(previewHitbox, optionCam);
-                } else {
-                    isOverPreviewZone = FlxG.mouse.overlaps(previewHitbox, optionCam);
-                }
-            } catch(e:Dynamic) {}
+            if (FlxG.onMobile) {
+                isOverPreviewZone = TouchUtil.overlaps(previewHitbox, optionCam);
+            } else {
+                isOverPreviewZone = FlxG.mouse.overlaps(previewHitbox, optionCam);
+            }
         }
 
         if (tJustPressed) {
@@ -2267,24 +2285,20 @@ class KssetteMenuState extends ScriptedMusicBeatState {
 
         var isOverBackButton = false;
         if (kssBackButton != null && kssBackButton.visible && kssBackButton.exists) {
-            try {
-                if (FlxG.onMobile) {
-                    isOverBackButton = TouchUtil.overlaps(kssBackButton, optionCam);
-                } else {
-                    isOverBackButton = FlxG.mouse.overlaps(kssBackButton, optionCam);
-                }
-            } catch(e:Dynamic) {}
+            if (FlxG.onMobile) {
+                isOverBackButton = TouchUtil.overlaps(kssBackButton, optionCam);
+            } else {
+                isOverBackButton = FlxG.mouse.overlaps(kssBackButton, optionCam);
+            }
         }
 
         var isOverPreviewZone = false;
         if (previewHitbox != null && previewHitbox.exists) {
-            try {
-                if (FlxG.onMobile) {
-                    isOverPreviewZone = TouchUtil.overlaps(previewHitbox, optionCam);
-                } else {
-                    isOverPreviewZone = FlxG.mouse.overlaps(previewHitbox, optionCam);
-                }
-            } catch(e:Dynamic) {}
+            if (FlxG.onMobile) {
+                isOverPreviewZone = TouchUtil.overlaps(previewHitbox, optionCam);
+            } else {
+                isOverPreviewZone = FlxG.mouse.overlaps(previewHitbox, optionCam);
+            }
         }
 
         if (tJustPressed) {
