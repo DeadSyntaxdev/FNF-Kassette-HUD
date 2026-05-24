@@ -109,6 +109,7 @@ class KssetteHUDPreview extends Module {
         healthBarBG.screenCenter(0x01);
         healthBarBG.scrollFactor.set(0, 0);
         healthBarBG.cameras = [cam];
+        healthBarBG.zIndex = 110;
         FlxG.state.add(healthBarBG);
 
         var fw = Std.int((healthBarBG.width - 8) / 2);
@@ -118,12 +119,14 @@ class KssetteHUDPreview extends Module {
         healthBarFillP2.color = 0xFFFF0000;
         healthBarFillP2.scrollFactor.set(0, 0);
         healthBarFillP2.cameras = [cam];
+        healthBarFillP2.zIndex = 111;
         FlxG.state.add(healthBarFillP2);
 
         healthBarFillP1 = new FlxSprite(healthBarBG.x + 4 + fw, healthBarBG.y + 4).makeGraphic(fw, fh, 0xFFFFFFFF);
         healthBarFillP1.color = 0xFF66FF33;
         healthBarFillP1.scrollFactor.set(0, 0);
         healthBarFillP1.cameras = [cam];
+        healthBarFillP1.zIndex = 111;
         FlxG.state.add(healthBarFillP1);
 
         iconP1 = new HealthIcon('bf', true);
@@ -135,6 +138,7 @@ class KssetteHUDPreview extends Module {
         } catch(e:Dynamic) {}
         iconP1.cameras = [cam];
         iconP1.scrollFactor.set(0, 0);
+        iconP1.zIndex = 112;
         FlxG.state.add(iconP1);
 
         iconP2 = new HealthIcon('dad', false);
@@ -146,6 +150,7 @@ class KssetteHUDPreview extends Module {
         } catch(e:Dynamic) {}
         iconP2.cameras = [cam];
         iconP2.scrollFactor.set(0, 0);
+        iconP2.zIndex = 112;
         FlxG.state.add(iconP2);
     }
 
@@ -206,22 +211,22 @@ class KssetteHUDPreview extends Module {
 
         var noteStyle = NoteStyleRegistry.instance.fetchDefault();
 
-        playerStrumPreview = new Strumline(noteStyle, true);
-        playerStrumPreview.cameras = [previewCam];
-        playerStrumPreview.scrollFactor.set(0, 0);
-        playerStrumPreview.zIndex = 1100;
-        try { var pbg = Reflect.getProperty(playerStrumPreview, "background"); if (pbg != null) pbg.visible = false; } catch(e:Dynamic) {}
-        FlxG.state.add(playerStrumPreview);
-
         var showOpp = (ms != "Hidden Notes");
         if (showOpp) {
             opponentStrumPreview = new Strumline(noteStyle, false);
             opponentStrumPreview.cameras = [previewCam];
             opponentStrumPreview.scrollFactor.set(0, 0);
-            opponentStrumPreview.zIndex = 1099;
+            opponentStrumPreview.zIndex = 10;
             try { var obg = Reflect.getProperty(opponentStrumPreview, "background"); if (obg != null) obg.visible = false; } catch(e:Dynamic) {}
             FlxG.state.add(opponentStrumPreview);
         }
+
+        playerStrumPreview = new Strumline(noteStyle, true);
+        playerStrumPreview.cameras = [previewCam];
+        playerStrumPreview.scrollFactor.set(0, 0);
+        playerStrumPreview.zIndex = 10;
+        try { var pbg = Reflect.getProperty(playerStrumPreview, "background"); if (pbg != null) pbg.visible = false; } catch(e:Dynamic) {}
+        FlxG.state.add(playerStrumPreview);
 
         var halfW = FlxG.width / 2.0;
         var cutoutSize = 0.0;
@@ -231,6 +236,7 @@ class KssetteHUDPreview extends Module {
 
         var msOn = (ms != "Off" && ms != "null" && ms != "");
         var pStyle = (ms == "P Style");
+        var isGlass = (ms == "Glass");
         var sxOff = 50.0;
         try { sxOff = Constants.STRUMLINE_X_OFFSET; } catch(e:Dynamic) {}
 
@@ -305,6 +311,19 @@ class KssetteHUDPreview extends Module {
                             if (oppReceptors[3] != null && oppReceptors[3].exists) oppReceptors[3].x = FlxG.width - sxOff - nw;
                             if (oppReceptors[2] != null && oppReceptors[2].exists) oppReceptors[2].x = FlxG.width - sxOff - nw - noteSpace;
                             
+                        } else if (isGlass) {
+                            var compactStartX:Float = playerStrumPreview.x;
+                            
+                            for (i in 0...4) {
+                                var rec = oppReceptors[i];
+                                if (rec != null && rec.exists) {
+                                    rec.scale.set(defScale, defScale);
+                                    rec.updateHitbox();
+                                    rec.alpha = 0.25;
+                                    rec.color = 0xFF666666;
+                                    rec.x = compactStartX + (112.0 * i);
+                                }
+                            }
                         } else if (ms == "On") {
                             var sizeRatio = 0.65;
                             var targetSpacing = noteSpace * sizeRatio;

@@ -14,6 +14,7 @@ import Math;
 import Std;
 import Reflect;
 import StringTools;
+import flixel.util.FlxColor;
 
 class KssetteSubtitles extends Module {
     
@@ -210,27 +211,23 @@ var triviaArray:Array<String> = [
 
     function getFieldSafe(obj:Dynamic, fieldName:String):Dynamic {
         if (obj == null) return null;
-        try {
-            var v = Reflect.getProperty(obj, fieldName);
-            if (v != null) return v;
-        } catch(e:Dynamic) {}
-        try {
-            return Reflect.field(obj, fieldName);
-        } catch(e:Dynamic) {}
+        var v = Reflect.getProperty(obj, fieldName);
+        if (v != null) return v;
+        return Reflect.field(obj, fieldName);
         return null;
     }
 
     function cancelAnimTweens() {
         if (currentTween != null) {
-            try { currentTween.cancel(); } catch(e:Dynamic) {}
+            currentTween.cancel();
             currentTween = null;
         }
         if (karaokeTween != null) {
-            try { karaokeTween.cancel(); } catch(e:Dynamic) {}
+            karaokeTween.cancel();
             karaokeTween = null;
         }
         if (scaleTween != null) {
-            try { scaleTween.cancel(); } catch(e:Dynamic) {}
+            scaleTween.cancel();
             scaleTween = null;
         }
     }
@@ -247,9 +244,9 @@ var triviaArray:Array<String> = [
         var oldText = subText;
         cleanUp();
         if (oldText != null) {
-            try { if (PlayState.instance != null && !isPreview) PlayState.instance.remove(oldText, true); } catch(e:Dynamic) {}
-            try { FlxG.state.remove(oldText, true); } catch(e:Dynamic) {}
-            try { oldText.destroy(); } catch(e:Dynamic) {}
+            if (PlayState.instance != null && !isPreview) PlayState.instance.remove(oldText, true);
+            FlxG.state.remove(oldText, true);
+            oldText.destroy();
         }
         subText = null;
     }
@@ -264,10 +261,8 @@ var triviaArray:Array<String> = [
         subText.visible = false;
         subText.cameras = [cam];
         subText.zIndex = 1010;
-        try { 
-            if (PlayState.instance != null && !isPreview) PlayState.instance.add(subText);
-            else FlxG.state.add(subText);
-        } catch(e:Dynamic) {}
+        if (PlayState.instance != null && !isPreview) PlayState.instance.add(subText);
+        else FlxG.state.add(subText);
     }
 
     function compileHTML(htmlStr:String, defaultColor:Int) {
@@ -302,7 +297,7 @@ var triviaArray:Array<String> = [
                             if (valEnd != -1) {
                                 var colStr = htmlStr.substring(i + colIdx + 7, i + valEnd);
                                 var parsedCol:Null<Int> = null;
-                                try { parsedCol = flixel.util.FlxColor.fromString(colStr); } catch(e:Dynamic) {}
+                                parsedCol = FlxColor.fromString(colStr);
                                 if (parsedCol == null) {
                                     if (StringTools.startsWith(colStr, "#")) colStr = "0xFF" + colStr.substring(1);
                                     parsedCol = Std.parseInt(colStr);
@@ -332,10 +327,8 @@ var triviaArray:Array<String> = [
                     if (tagChanged) {
                         if (cachedPlainText.length > curStart) {
                             if (curColor != defaultColor || curItalic || curBold) {
-                                try {
-                                    var fmt = new FlxTextFormat(curColor, curBold, curItalic, 0xFF000000);
-                                    cachedFormats.push({start: curStart, end: cachedPlainText.length, format: fmt});
-                                } catch(e:Dynamic) {}
+                                var fmt = new FlxTextFormat(curColor, curBold, curItalic, 0xFF000000);
+                                cachedFormats.push({start: curStart, end: cachedPlainText.length, format: fmt});
                             }
                         }
                         curStart = cachedPlainText.length;
@@ -354,10 +347,8 @@ var triviaArray:Array<String> = [
         
         if (cachedPlainText.length > curStart) {
             if (curColor != defaultColor || curItalic || curBold) {
-                try {
-                    var fmt = new FlxTextFormat(curColor, curBold, curItalic, 0xFF000000);
-                    cachedFormats.push({start: curStart, end: cachedPlainText.length, format: fmt});
-                } catch(e:Dynamic) {}
+                var fmt = new FlxTextFormat(curColor, curBold, curItalic, 0xFF000000);
+                cachedFormats.push({start: curStart, end: cachedPlainText.length, format: fmt});
             }
         }
     }
@@ -366,13 +357,13 @@ var triviaArray:Array<String> = [
         if (subText == null || !subText.exists) return;
         
         subText.text = cachedPlainText.substring(0, visibleLen);
-        try { subText.clearFormats(); } catch(e:Dynamic) {}
+        subText.clearFormats();
         
         for (fData in cachedFormats) {
             if (fData.start < visibleLen) {
                 var endP = Math.min(fData.end, visibleLen);
                 if (fData.start < endP) {
-                    try { subText.addFormat(fData.format, fData.start, Std.int(endP)); } catch(e:Dynamic) {}
+                    subText.addFormat(fData.format, fData.start, Std.int(endP));
                 }
             }
         }
@@ -503,7 +494,7 @@ var triviaArray:Array<String> = [
             isCutscene = false;
 
             if (previewCam != null && (subText.cameras == null || subText.cameras[0] != previewCam)) {
-                try { subText.cameras = [previewCam]; } catch(e:Dynamic) {}
+                subText.cameras = [previewCam];
             }
         } else {
             var state = PlayState.instance;
@@ -541,15 +532,15 @@ var triviaArray:Array<String> = [
 
                 if (targetCam != null && lastTargetCam != targetCam) {
                     lastTargetCam = targetCam;
-                    try { subText.cameras = [targetCam]; } catch(e:Dynamic) {}
+                    subText.cameras = [targetCam];
                 }
 
-                try { _nativeSubs.visible = false; _nativeSubs.alpha = 0; } catch(e:Dynamic) {}
+                _nativeSubs.visible = false; _nativeSubs.alpha = 0;
                 if (_nativeBg != null) {
-                    try { _nativeBg.visible = false; _nativeBg.alpha = 0; } catch(e:Dynamic) {}
+                    _nativeBg.visible = false; _nativeBg.alpha = 0;
                 }
                 if (_nativeTextObj != null) {
-                    try { _nativeTextObj.visible = false; _nativeTextObj.alpha = 0; } catch(e:Dynamic) {}
+                    _nativeTextObj.visible = false; _nativeTextObj.alpha = 0;
                 }
 
                 var newData = getFieldSafe(_nativeSubs, "subtitlesData");
@@ -589,7 +580,7 @@ var triviaArray:Array<String> = [
 
             if (_cachedEntries != null) {
                 var len:Int = 0;
-                try { len = _cachedEntries.length; } catch(e:Dynamic) {}
+                if (_cachedEntries != null && Reflect.hasField(_cachedEntries, "length")) len = _cachedEntries.length;
                 
                 if (len > 0) {
                     if (currentSubsTime >= 0 && currentSubsTime <= cachedRawUntil) {
@@ -597,47 +588,41 @@ var triviaArray:Array<String> = [
                         activeEntry = cachedActiveEntry;
                     } else {
                         if (localSubIndex > 0) {
-                            try {
-                                if (currentSubsTime < getFieldSafe(_cachedEntries[localSubIndex - 1], "end")) {
-                                    localSubIndex = 0;
-                                }
-                            } catch(e:Dynamic) { localSubIndex = 0; }
+                            if (currentSubsTime < getFieldSafe(_cachedEntries[localSubIndex - 1], "end")) {
+                                localSubIndex = 0;
+                            }
                         }
 
-                        try {
-                            while (localSubIndex < len && getFieldSafe(_cachedEntries[localSubIndex], "end") < currentSubsTime) {
-                                localSubIndex++;
-                            }
-                        } catch(e:Dynamic) {}
+                        while (localSubIndex < len && getFieldSafe(_cachedEntries[localSubIndex], "end") < currentSubsTime) {
+                            localSubIndex++;
+                        }
 
                         var tempIdx = localSubIndex;
                         var joinedText:String = "";
                         var nextChange:Float = 1000000000.0;
 
-                        try {
-                            while (tempIdx < len) {
-                                var eStart:Dynamic = getFieldSafe(_cachedEntries[tempIdx], "start");
-                                var startTime:Float = (eStart != null) ? Std.parseFloat(Std.string(eStart)) : 0.0;
-                                var entry = startTime > currentSubsTime ? null : _cachedEntries[tempIdx];
-                                if (entry == null) {
-                                    if (startTime < nextChange) nextChange = startTime;
-                                    break;
-                                }
-
-                                var eEnd = getFieldSafe(entry, "end");
-                                var endTime:Float = (eEnd != null) ? Std.parseFloat(Std.string(eEnd)) : currentSubsTime;
-                                if (currentSubsTime <= endTime) {
-                                    var eText = getFieldSafe(entry, "text");
-                                    if (eText != null) {
-                                        if (joinedText != "") joinedText += " ";
-                                        joinedText += Std.string(eText);
-                                    }
-                                    if (activeEntry == null) activeEntry = entry;
-                                    if (endTime < nextChange) nextChange = endTime;
-                                }
-                                tempIdx++;
+                        while (tempIdx < len) {
+                            var eStart:Dynamic = getFieldSafe(_cachedEntries[tempIdx], "start");
+                            var startTime:Float = (eStart != null) ? Std.parseFloat(Std.string(eStart)) : 0.0;
+                            var entry = startTime > currentSubsTime ? null : _cachedEntries[tempIdx];
+                            if (entry == null) {
+                                if (startTime < nextChange) nextChange = startTime;
+                                break;
                             }
-                        } catch(e:Dynamic) {}
+
+                            var eEnd = getFieldSafe(entry, "end");
+                            var endTime:Float = (eEnd != null) ? Std.parseFloat(Std.string(eEnd)) : currentSubsTime;
+                            if (currentSubsTime <= endTime) {
+                                var eText = getFieldSafe(entry, "text");
+                                if (eText != null) {
+                                    if (joinedText != "") joinedText += " ";
+                                    joinedText += Std.string(eText);
+                                }
+                                if (activeEntry == null) activeEntry = entry;
+                                if (endTime < nextChange) nextChange = endTime;
+                            }
+                            tempIdx++;
+                        }
 
                         if (joinedText != "") {
                             rawTargetText = joinedText;
@@ -698,7 +683,7 @@ var triviaArray:Array<String> = [
         var shouldShow = (htmlTextToProcess != "" && htmlTextToProcess != "null");
 
         if (shouldShow) {
-            try { subText.setFormat(displayFont, displaySize, displayColor, "center", FlxTextBorderStyle.OUTLINE, 0xFF000000); } catch(e:Dynamic) {}
+            subText.setFormat(displayFont, displaySize, displayColor, "center", FlxTextBorderStyle.OUTLINE, 0xFF000000);
             subText.borderSize = 1.5;
             
             compileHTML(htmlTextToProcess, displayColor);
@@ -749,39 +734,36 @@ var triviaArray:Array<String> = [
                 updateTextDisplay(startIdx);
                 
                 if (karaokeTween != null) {
-                    try { karaokeTween.cancel(); } catch(e:Dynamic) {}
+                    karaokeTween.cancel();
                     karaokeTween = null;
                 }
                 
-                try {
-                    lastKaraokeLen = -1;
-                    karaokeTween = FlxTween.num(startIdx, endIdx, durK, {
-                        ease: FlxEase.sineOut, 
-                        onComplete: function(t:FlxTween) {
-                            try { if (subText != null && subText.exists) updateTextDisplay(cachedPlainText.length); } catch(e:Dynamic) {}
-                        }
-                    }, function(v:Float) {
-                        var currentLen = Math.round(v);
-                        if (currentLen != lastKaraokeLen) {
-                            lastKaraokeLen = currentLen;
-                            try { if (subText != null && subText.exists) updateTextDisplay(currentLen); } catch(e:Dynamic) {}
-                        }
-                    });
-                } catch(e:Dynamic) {}
+                lastKaraokeLen = -1;
+                karaokeTween = FlxTween.num(startIdx, endIdx, durK, {
+                    ease: FlxEase.sineOut, 
+                    onComplete: function(t:FlxTween) {
+                        if (subText != null && subText.exists) updateTextDisplay(cachedPlainText.length);
+                    }
+                }, function(v:Float) {
+                    var currentLen = Math.round(v);
+                    if (currentLen != lastKaraokeLen) {
+                        lastKaraokeLen = currentLen;
+                        if (subText != null && subText.exists) updateTextDisplay(currentLen);
+                    }
+                });
             } else {
                 if (karaokeTween != null) {
-                    try { karaokeTween.cancel(); } catch(e:Dynamic) {}
+                    karaokeTween.cancel();
                     karaokeTween = null;
                 }
                 updateTextDisplay(cachedPlainText.length);
             }
             
-            if (currentTween != null) { try { currentTween.cancel(); } catch(e:Dynamic) {} currentTween = null; }
-            if (scaleTween != null) { try { scaleTween.cancel(); } catch(e:Dynamic) {} scaleTween = null; }
+            if (currentTween != null) { currentTween.cancel(); currentTween = null; }
+            if (scaleTween != null) { scaleTween.cancel(); scaleTween = null; }
             subText.scale.set(1, 1);
             
-            try {
-                if (animType == "Slide") {
+            if (animType == "Slide") {
                     var dur:Float = 0.35;
                     if (!isShowing) {
                         subText.x = -80; 
@@ -869,7 +851,7 @@ var triviaArray:Array<String> = [
                     subText.y = targetY;
                     subText.visible = true;
                     isShowing = true;
-                    try { scaleTween = FlxTween.tween(subText.scale, {x: 1, y: 1}, dur, {ease: FlxEase.backOut}); } catch(e:Dynamic) {}
+                    scaleTween = FlxTween.tween(subText.scale, {x: 1, y: 1}, dur, {ease: FlxEase.backOut});
                     currentTween = FlxTween.tween(subText, {x: targetX, alpha: 1}, dur, {ease: FlxEase.expoOut});
                     
                 } else {
@@ -879,45 +861,40 @@ var triviaArray:Array<String> = [
                     subText.visible = true;
                     isShowing = true;
                 }
-            } catch(e:Dynamic) {}
         } else if (isShowing) {
             lastRawText = ""; 
             cancelAnimTweens();
             
-            try {
-                if (animType == "Slide") {
+            if (animType == "Slide") {
                     currentTween = FlxTween.tween(subText, {x: 80, alpha: 0}, 0.3, {ease: FlxEase.expoIn, onComplete: function(t:FlxTween) {
-                        try { if (subText != null) subText.visible = false; isShowing = false; } catch(e:Dynamic) {}
+                        if (subText != null) subText.visible = false; isShowing = false;
                     }});
                 } else if (animType == "Fade") {
                     currentTween = FlxTween.tween(subText, {alpha: 0}, 0.3, {ease: FlxEase.quadIn, onComplete: function(t:FlxTween) {
-                        try { if (subText != null) subText.visible = false; isShowing = false; } catch(e:Dynamic) {}
+                        if (subText != null) subText.visible = false; isShowing = false;
                     }});
                 } else if (animType == "Vertical") {
                     var edgeY:Float = (posType == "Top") ? -subText.height - 20 : FlxG.height + 20;
                     currentTween = FlxTween.tween(subText, {y: edgeY, alpha: 0}, 0.3, {ease: FlxEase.expoIn, onComplete: function(t:FlxTween) {
-                        try { if (subText != null) subText.visible = false; isShowing = false; } catch(e:Dynamic) {}
+                        if (subText != null) subText.visible = false; isShowing = false;
                     }});
                 } else if (animType == "Zoom") {
-                    try { scaleTween = FlxTween.tween(subText.scale, {x: 0.1, y: 0.1}, 0.3, {ease: FlxEase.backIn}); } catch(e:Dynamic) {}
+                    scaleTween = FlxTween.tween(subText.scale, {x: 0.1, y: 0.1}, 0.3, {ease: FlxEase.backIn});
                     currentTween = FlxTween.tween(subText, {alpha: 0}, 0.3, {ease: FlxEase.expoIn, onComplete: function(t:FlxTween) {
-                        try { 
-                            if (subText != null) {
-                                subText.visible = false;
-                                subText.scale.set(1, 1); 
-                            }
-                            isShowing = false;
-                        } catch(e:Dynamic) {}
+                        if (subText != null) {
+                            subText.visible = false;
+                            subText.scale.set(1, 1); 
+                        }
+                        isShowing = false;
                     }});
                 } else {
                     var baseTargetY:Float = (posType == "Top") ? topY_Normal : (FlxG.height - subText.height - bottomY_Offset);
                     var endY:Float = (posType == "Top") ? baseTargetY - 20 : baseTargetY + 20;
                     
                     currentTween = FlxTween.tween(subText, {y: endY, alpha: 0}, 0.25, {onComplete: function(t:FlxTween) {
-                        try { if (subText != null) subText.visible = false; isShowing = false; } catch(e:Dynamic) {}
+                        if (subText != null) subText.visible = false; isShowing = false;
                     }});
                 }
-            } catch(e:Dynamic) {}
         }
     }
 }
