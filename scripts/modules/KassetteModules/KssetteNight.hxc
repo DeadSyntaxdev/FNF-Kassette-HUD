@@ -167,6 +167,9 @@ class KssetteNight extends Module {
         
         if (isPlayStateActive()) isPreview = false;
         if (isPreview) return;
+
+        apiModule = ModuleHandler.getModule("KssetteApi");
+        if (apiModule == null) return;
         
         cleanUp();
         timeCheckTimer = 0.0;
@@ -187,6 +190,7 @@ class KssetteNight extends Module {
     }
 
     override public function onUpdate(event:Dynamic):Void {
+        if (apiModule == null) return;
         
         if (isPlayStateActive() && isPreview) {
             isPreview = false;

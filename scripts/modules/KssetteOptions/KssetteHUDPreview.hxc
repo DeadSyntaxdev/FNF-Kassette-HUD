@@ -324,8 +324,9 @@ class KssetteHUDPreview extends Module {
                                     rec.x = compactStartX + (112.0 * i);
                                 }
                             }
-                        } else if (ms == "On") {
+                        } else if (ms == "On" || ms == "Like Mobile") {
                             var sizeRatio = 0.65;
+                            if (ms == "Like Mobile") sizeRatio = 0.55;
                             var targetSpacing = noteSpace * sizeRatio;
                             var actualNw = 0.0;
 
@@ -341,8 +342,9 @@ class KssetteHUDPreview extends Module {
 
                             var exactTotalWidth = (targetSpacing * 3) + actualNw;
                             var compactStartX:Float = sxOff;
+                            if (ms == "Like Mobile") compactStartX = 10.0;
                             
-                            if (oppPos == "Right") {
+                            if (ms != "Like Mobile" && oppPos == "Right") {
                                 compactStartX = FlxG.width - sxOff - exactTotalWidth;
                             }
 
@@ -359,11 +361,16 @@ class KssetteHUDPreview extends Module {
         }
 
         playerStrumPreview.y = currentY;
-        if (opponentStrumPreview != null && opponentStrumPreview.exists) opponentStrumPreview.y = currentY;
+        if (opponentStrumPreview != null && opponentStrumPreview.exists) {
+            if (ms == "Like Mobile") opponentStrumPreview.y = 50;
+            else opponentStrumPreview.y = currentY;
+        }
 
         previewInTween = FlxTween.tween(playerStrumPreview, {y: targetY}, 0.3, {ease: FlxEase.cubeOut});
         if (opponentStrumPreview != null && opponentStrumPreview.exists && opponentStrumPreview.visible) {
-            previewOutTween = FlxTween.tween(opponentStrumPreview, {y: targetY}, 0.3, {ease: FlxEase.cubeOut});
+            var oppTargetY = targetY;
+            if (ms == "Like Mobile") oppTargetY = 50;
+            previewOutTween = FlxTween.tween(opponentStrumPreview, {y: oppTargetY}, 0.3, {ease: FlxEase.cubeOut});
         }
 
         cachedActive = apiModule.getKssValue("kssette_show_hud") == true;
@@ -429,8 +436,17 @@ class KssetteHUDPreview extends Module {
             iconP2.y = healthBarBG.y - (iconP2.height / 2) + 10;
             
             var hw = Std.int((healthBarBG.width - 8) / 2);
-            iconP1.x = healthBarBG.x + hw - 26;
-            iconP2.x = healthBarBG.x + hw - (iconP2.width - 26);
+            var iconPos = Std.string(apiModule.getKssValue("kssette_icon_pos"));
+            if (iconPos == "Corners") {
+                var centerY = healthBarBG.y + (healthBarBG.height / 2);
+                iconP1.x = healthBarBG.x + healthBarBG.width + 75 - iconP1.width;
+                iconP2.x = healthBarBG.x + 75 - iconP2.width;
+                iconP1.y = centerY + 75 - iconP1.height;
+                iconP2.y = centerY + 75 - iconP2.height;
+            } else {
+                iconP1.x = healthBarBG.x + hw - 26;
+                iconP2.x = healthBarBG.x + hw - (iconP2.width - 26);
+            }
         }
     }
 }

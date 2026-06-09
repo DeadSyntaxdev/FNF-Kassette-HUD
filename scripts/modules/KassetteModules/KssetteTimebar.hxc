@@ -217,11 +217,11 @@ class KssetteTimeBar extends Module {
         isPreview = false;
 
         apiModule = ModuleHandler.getModule("KssetteApi");
-        if (apiModule != null) {
-            apiModule.registerModule("KssetteTimeBar", this);
-            cachedActive = isOn(apiModule.getKssValue("kssette_show_timebar"));
-            timeBarPos = Std.string(apiModule.getKssValue("kssette_timebar_pos"));
-        }
+        if (apiModule == null) return;
+        
+        apiModule.registerModule("KssetteTimeBar", this);
+        cachedActive = isOn(apiModule.getKssValue("kssette_show_timebar"));
+        timeBarPos = Std.string(apiModule.getKssValue("kssette_timebar_pos"));
 
         var state = PlayState.instance;
         playState = null;

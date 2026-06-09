@@ -307,6 +307,52 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         if (apiRef != null) {
             apiRef.refreshOptionCache();
         }
+
+        var scorePos = Save.instance.modOptions.get("kssette_score_pos");
+        if (scorePos == null) scorePos = "Vanilla";
+        var forceDownscrollLook = false;
+        if (apiRef != null) forceDownscrollLook = (apiRef.isMobileMode == true && apiRef.isMobileLikePC() != true);
+        var isDownscroll = Preferences.downscroll || forceDownscrollLook;
+        
+        var newInfoLabel = "";
+        if (isDownscroll) {
+            if (scorePos == "Inverted") newInfoLabel = "Above Health Bar";
+            else newInfoLabel = "Below Score";
+        } else {
+            if (scorePos == "Inverted") newInfoLabel = "Below Health Bar";
+            else newInfoLabel = "Above Arrows";
+        }
+
+        for (item in optionItems) {
+            if (item != null && item.key == "kssette_info_pos") {
+                if (item.options != null && item.options.length > 0) {
+                    var oldLabel = item.options[0];
+                    if (oldLabel != newInfoLabel) {
+                        item.options[0] = newInfoLabel;
+                        if (item.currentIndex == 0) {
+                            Save.instance.modOptions.set("kssette_info_pos", newInfoLabel);
+                            if (item.textDisplay != null) {
+                                item.textDisplay.text = formatShortValue(newInfoLabel);
+                                var tColor = getValueColor(item.textDisplay.text);
+                                if (item.textDisplay.color != tColor) item.textDisplay.color = tColor;
+                                if (item.textDisplay.width > valueMaxWidth) {
+                                    item.textDisplay.x = item.bg.x + item.bg.width - item.valOffX - valueMaxWidth;
+                                } else {
+                                    item.textDisplay.x = item.bg.x + item.bg.width - item.valOffX - item.textDisplay.width;
+                                }
+                            }
+                            if (descValueText != null && selectedIndex >= 0 && selectedIndex < optionItems.length && optionItems[selectedIndex] == item) {
+                                descValueText.text = formatLongValue(newInfoLabel);
+                                var vColor = getValueColor(descValueText.text);
+                                if (descValueText.color != vColor) descValueText.color = vColor;
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+        }
+
         if (previewModules.length == 0) cachePreviewModules();
         for (mod in previewModules) {
             if (mod != null) {
@@ -446,6 +492,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         if (upper == "GLASS") return "GLA";
         if (upper == "HIDDEN NOTES") return "HID";
         if (upper == "CLASSIC") return "CLA";
+        if (upper == "CLAP") return "CLP";
         if (upper == "ASCENDING") return "ASC";
         if (upper == "LEFT") return "LEF";
         if (upper == "RIGHT") return "RIG";
@@ -535,8 +582,8 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         }
         
         if (showPCOptions) {
-            createToggle("MIDDLE SCROLL", "kssette_middlescroll", ["Off", "On", "P Style", "Glass", "Hidden Notes"], "Moves your notes to the center of the screen for better focus.");
-            createToggle("GHOST TAPPING", "kssette_ghost_tapping", ["On", "Off"], "Press keys anytime without penalty. You won't miss if there's no note.");
+            createToggle("MIDDLE SCROLL", "kssette_middlescroll", ["Off", "On", "P Style", "Glass", "Hidden Notes", "Like Mobile"], "Moves your notes to the center of the screen for better focus.");
+            createToggle("GHOST TAPPING", "kssette_ghost_tapping", ["On", "Off", "In Breaks"], "Press keys anytime without penalty. You won't miss if there's no note.");
             
         }
         createToggle("GHOST SINGING", "kssette_ghost_sing", ["On", "Off"], "Your character will play singing animations when you press empty keys.");
@@ -571,14 +618,24 @@ class KssetteMenuState extends ScriptedMusicBeatState {
             createToggle("OPPONENT POS", "kssette_opponent_pos", ["Left", "Right"], "Where to put the opponent's notes when Middle Scroll is ON.");
         }
         createToggle("TIME BAR POS", "kssette_timebar_pos", ["Bottom", "Top", "Bottom Left", "Bottom Right", "Top Left", "Top Right", "Vertical Left", "Vertical Right", "In Health"], "Choose where the Song Progress Bar is placed on screen.");
-
+        createToggle("ICON POSITIONS", "kssette_icon_pos", ["Default", "Corners"], "Choose where the character icons are placed on the health bar.");
+        createToggle("SCORE BAR POS", "kssette_score_pos", ["Vanilla", "Inverted"], "Choose where the score text is placed relative to the health bar.");
         var forceDownscrollLook = false;
             if (apiRef != null) {
                 var isMob = apiRef.isMobileMode == true;
                 var isMobPC = apiRef.isMobileLikePC() == true;
                 forceDownscrollLook = (isMob && !isMobPC);
             }
-        var infoLabel = (!Preferences.downscroll && !forceDownscrollLook) ? "Above Arrows" : "Below Score";
+        var scorePosInit = Save.instance.modOptions.get("kssette_score_pos");
+        if (scorePosInit == null) scorePosInit = "Vanilla";
+        var infoLabel = "";
+        if (Preferences.downscroll || forceDownscrollLook) {
+            if (scorePosInit == "Inverted") infoLabel = "Above Health Bar";
+            else infoLabel = "Below Score";
+        } else {
+            if (scorePosInit == "Inverted") infoLabel = "Below Health Bar";
+            else infoLabel = "Above Arrows";
+        }
         
         createToggle("INFO TEXT POS", "kssette_info_pos", [infoLabel, "Bottom Left"], "Where to show the Song Name and Difficulty.");
         createToggle("JUDGE POS", "kssette_judge_pos", ["Off", "Left", "Right", "Top Left", "Top Right"], "Shows a counter for Sicks, Goods, Bads, etc. Choose where to place it.");
@@ -587,7 +644,9 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         createToggle("SMOOTH DISPLAY", "kssette_smooth_display", ["On", "Off"], "Makes the score and accuracy numbers scroll smoothly.");
 
         addHeader("Intro Text");
-        createToggle("SHOW SONG INTRO", "kssette_intro_text", ["On", "Off"], "Displays the song title and artist when the song starts.");
+        createToggle("SHOW SONG INTRO", "kssette_intro_text", ["Classic", "Racer", "Clap", "Off"], "Displays the song title and artist when the song starts.");
+        createToggle("SHOW ALBUM COVER", "kssette_intro_album", ["On", "Off"], "Displays the song's album cover art alongside the intro text.");
+        createToggle("INTRO POSITION", "kssette_intro_pos", ["Center", "Left", "Right"], "Where the intro text appears on screen.");
         
         addHeader("Fonts");
         createFontOption("HUD FONT", "kssette_custom_font", "Choose the font for the HUD."); 
@@ -1905,6 +1964,22 @@ class KssetteMenuState extends ScriptedMusicBeatState {
                 } else {
                     var targetAlpha = isSel ? 1.0 : 0.6;
                     var targetColor = isSel ? FlxColor.YELLOW : FlxColor.WHITE;
+                    
+                    if (apiRef != null && apiRef.isOptionLocked(item.key)) {
+                        targetAlpha *= 0.4;
+                        targetColor = FlxColor.GRAY;
+                        if (value != null && value.text != "LCK") {
+                            value.text = "LCK";
+                            value.color = FlxColor.RED;
+                        }
+                    } else {
+                        if (value != null && value.text == "LCK") {
+                            var rawVal = Save.instance.modOptions.get(item.key);
+                            if (rawVal == null) rawVal = "Off";
+                            value.text = formatShortValue(Std.string(rawVal));
+                            value.color = getValueColor(value.text);
+                        }
+                    }
 
                     if (isSel) item.slideTimer += elapsed; else item.slideTimer = 0.0;
 
@@ -1915,7 +1990,19 @@ class KssetteMenuState extends ScriptedMusicBeatState {
                         if (label.alpha != targetAlpha) label.alpha = targetAlpha;
                     }
                     
-                    if (item.flashTimer != null && item.flashTimer > 0) {
+                    if (item.errorTimer != null && item.errorTimer > 0) {
+                        item.errorTimer -= elapsed * 8;
+                        if (item.errorTimer < 0) item.errorTimer = 0;
+
+                        var flashOn = (Math.floor(item.errorTimer * 10) % 2 == 0);
+                        var targetBgColor = flashOn ? FlxColor.WHITE : FlxColor.RED;
+                        var targetLblColor = flashOn ? FlxColor.RED : FlxColor.WHITE;
+
+                        if (bg.color != targetBgColor) bg.color = targetBgColor;
+                        if (label != null && label.color != targetLblColor) label.color = targetLblColor;
+                        
+                        bg.x += FlxG.random.float(-8, 8);
+                    } else if (item.flashTimer != null && item.flashTimer > 0) {
                         item.flashTimer -= elapsed * 8;
                         if (item.flashTimer < 0) item.flashTimer = 0;
                         
@@ -2053,9 +2140,15 @@ class KssetteMenuState extends ScriptedMusicBeatState {
                 
                 descTextDisplay.text = selItem.desc;
                 if (descValueText != null) {
-                    descValueText.text = formatLongValue(curVal);
-                    var targetColor = getValueColor(descValueText.text);
-                    if (descValueText.color != targetColor) descValueText.color = targetColor;
+                    if (apiRef != null && apiRef.isOptionLocked(selItem.key)) {
+                        descValueText.text = "LOCKED";
+                        var targetColor = FlxColor.RED;
+                        if (descValueText.color != targetColor) descValueText.color = targetColor;
+                    } else {
+                        descValueText.text = formatLongValue(curVal);
+                        var targetColor = getValueColor(descValueText.text);
+                        if (descValueText.color != targetColor) descValueText.color = targetColor;
+                    }
                 }
                 descSlideVerticalTimer = 0.0;
                 descValueSlideTimer = 0.0;
@@ -2300,8 +2393,14 @@ class KssetteMenuState extends ScriptedMusicBeatState {
             if (controls.ACCEPT_P) {
                 var item = optionItems[selectedIndex];
                 if (!item.isHeader && item.fire != null) {
-                    item.fire(item);
-                    holdTimer = 0.2;
+                    if (apiRef != null && apiRef.isOptionLocked(item.key)) {
+                        FlxG.sound.play(Paths.sound("ui/khud_lock"), 0.3);
+                        item.errorTimer = 1.0;
+                        holdTimer = 0.2;
+                    } else {
+                        item.fire(item);
+                        holdTimer = 0.2;
+                    }
                 }
             }
         }
@@ -2325,8 +2424,14 @@ class KssetteMenuState extends ScriptedMusicBeatState {
                 if (isOver) {
                     if (!item.isHeader) {
                         if (selectedIndex == i) {
-                            if (item.fire != null) item.fire(item);
-                            holdTimer = 0.2;
+                            if (apiRef != null && apiRef.isOptionLocked(item.key)) {
+                                FlxG.sound.play(Paths.sound("ui/khud_lock"), 0.3);
+                                item.errorTimer = 1.0;
+                                holdTimer = 0.2;
+                            } else {
+                                if (item.fire != null) item.fire(item);
+                                holdTimer = 0.2;
+                            }
                         } else {
                             selectedIndex = i;
                             changeSelection(0);

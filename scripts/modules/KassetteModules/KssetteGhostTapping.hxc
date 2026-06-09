@@ -8,7 +8,7 @@ import Std;
 import Reflect;
 
 class KssGhostTapping extends Module {
-    var _cGhostTapping:Bool = false;
+    var _cGhostTappingMode:String = "Off";
     var _cGhostSing:Bool = false;
     var isPaused:Bool = false;
 
@@ -21,14 +21,19 @@ class KssGhostTapping extends Module {
         isPaused = false;
 
         var api = ModuleHandler.getModule("KssetteApi");
-        if (api != null) {
-            try {
-                _cGhostTapping = api.getKssValue("kssette_ghost_tapping") == true;
-                _cGhostSing = api.getKssValue("kssette_ghost_sing") == true;
-            } catch(e:Dynamic) {
-                _cGhostTapping = false;
-                _cGhostSing = false;
-            }
+        if (api == null) return;
+
+        try {
+            var gtVal = api.getKssValue("kssette_ghost_tapping");
+            _cGhostTappingMode = Std.string(gtVal);
+            if (gtVal == true) _cGhostTappingMode = "On";
+            if (gtVal == false) _cGhostTappingMode = "Off";
+            
+            var gsVal = api.getKssValue("kssette_ghost_sing");
+            _cGhostSing = (gsVal == true || gsVal == "On");
+        } catch(e:Dynamic) {
+            _cGhostTappingMode = "Off";
+            _cGhostSing = false;
         }
     }
 
@@ -57,13 +62,31 @@ class KssGhostTapping extends Module {
         return isActive;
     }
 
+    function canGhostTap():Bool {
+        if (isGammodActive()) return false;
+        if (_cGhostTappingMode == "On") return true;
+        
+        if (_cGhostTappingMode == "In Breaks") {
+            var api:Dynamic = ModuleHandler.getModule("KssetteApi");
+            if (api != null) {
+                try {
+                    var breakData = api.getBreakData();
+                    if (breakData != null && breakData.active == true) {
+                        return true;
+                    }
+                } catch(e:Dynamic) {}
+            }
+        }
+        return false;
+    }
+
     override function onGhostMissNote(event:Dynamic) {
-        if (!_cGhostTapping || isGammodActive()) return;
+        if (!canGhostTap()) return;
         event.cancel();
     }
 
     override function onNoteGhostMiss(event:Dynamic) {
-        if (!_cGhostTapping || isGammodActive()) return;
+        if (!canGhostTap()) return;
         event.cancel();
     }
 

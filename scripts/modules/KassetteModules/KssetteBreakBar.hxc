@@ -179,11 +179,11 @@ class KssetteBreakBar extends Module {
         if (state == null) return;
         
         apiModule = ModuleHandler.getModule("KssetteApi");
-        if (apiModule != null) {
-            apiModule.registerModule("KssetteBreakBar", this);
-            cachedActive = apiModule.getKssValue("kssette_show_breakbar") == true;
-            cachedNoteTimes = apiModule.playerNoteTimes;
-        }
+        if (apiModule == null) return;
+
+        apiModule.registerModule("KssetteBreakBar", this);
+        cachedActive = apiModule.getKssValue("kssette_show_breakbar") == true;
+        cachedNoteTimes = apiModule.playerNoteTimes;
         
         localNoteIndex = 0;
         updateTimer = 0.0;
@@ -199,6 +199,7 @@ class KssetteBreakBar extends Module {
         previewCam = cam;
         
         apiModule = ModuleHandler.getModule("KssetteApi");
+        if (apiModule == null) return;
 
         setupUI(cam);
         previewBreakTimer = 6.0;
@@ -209,9 +210,9 @@ class KssetteBreakBar extends Module {
         if (!isPreview || breakIcon == null || !breakIcon.exists) return;
 
         apiModule = ModuleHandler.getModule("KssetteApi");
-        if (apiModule != null) {
-            cachedActive = apiModule.getKssValue("kssette_show_breakbar") == true;
-        }
+        if (apiModule == null) return;
+        
+        cachedActive = apiModule.getKssValue("kssette_show_breakbar") == true;
     }
     
     override public function onUpdate(event) {

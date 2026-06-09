@@ -23,6 +23,8 @@ class KssetteResumeCount extends Module {
     var resumeTimer:FlxTimer;
     var storedVolume:Float = 1.0;
     var storedVocalsVolume:Float = 1.0;
+    var storedPlayerVol:Float = 1.0;
+    var storedOpponentVol:Float = 1.0;
     var storedScore:Int = 0;
     var apiModule:Dynamic = null;
 
@@ -51,7 +53,15 @@ class KssetteResumeCount extends Module {
 
     function restoreAudio(state:PlayState) {
         if (FlxG.sound.music != null) FlxG.sound.music.volume = storedVolume;
-        if (state != null && state.vocals != null) state.vocals.volume = storedVocalsVolume;
+        if (state != null && state.vocals != null) {
+            var pVol = Reflect.getProperty(state.vocals, "playerVolume");
+            if (pVol != null) {
+                Reflect.setProperty(state.vocals, "playerVolume", storedPlayerVol);
+                Reflect.setProperty(state.vocals, "opponentVolume", storedOpponentVol);
+            } else {
+                state.vocals.volume = storedVocalsVolume;
+            }
+        }
         isResuming = false;
     }
 
@@ -61,10 +71,10 @@ class KssetteResumeCount extends Module {
         super.onCountdownStart(event);
         cachedActive = false;
         apiModule = ModuleHandler.getModule("KssetteApi");
-        if (apiModule != null) {
-            apiModule.registerModule("KssetteResumeCount", this);
-            cachedActive = apiModule.getKssValue("kssette_resume_countdown") == true;
-        }
+        if (apiModule == null) return;
+        
+        apiModule.registerModule("KssetteResumeCount", this);
+        cachedActive = apiModule.getKssValue("kssette_resume_countdown") == true;
         isCounting = false;
         isResuming = false;
 
@@ -109,8 +119,16 @@ class KssetteResumeCount extends Module {
             FlxG.sound.music.volume = 0;
         }
         if (state.vocals != null) {
-            storedVocalsVolume = state.vocals.volume;
-            state.vocals.volume = 0;
+            var pVol = Reflect.getProperty(state.vocals, "playerVolume");
+            if (pVol != null) {
+                storedPlayerVol = pVol;
+                storedOpponentVol = Reflect.getProperty(state.vocals, "opponentVolume");
+                Reflect.setProperty(state.vocals, "playerVolume", 0);
+                Reflect.setProperty(state.vocals, "opponentVolume", 0);
+            } else {
+                storedVocalsVolume = state.vocals.volume;
+                state.vocals.volume = 0;
+            }
         }
 
         var originalState = state;
@@ -146,7 +164,13 @@ class KssetteResumeCount extends Module {
         }
         if (state.vocals != null) {
             state.vocals.pause();
-            state.vocals.volume = storedVocalsVolume;
+            var pVol = Reflect.getProperty(state.vocals, "playerVolume");
+            if (pVol != null) {
+                Reflect.setProperty(state.vocals, "playerVolume", storedPlayerVol);
+                Reflect.setProperty(state.vocals, "opponentVolume", storedOpponentVol);
+            } else {
+                state.vocals.volume = storedVocalsVolume;
+            }
         }
 
         cacheStyle(state);

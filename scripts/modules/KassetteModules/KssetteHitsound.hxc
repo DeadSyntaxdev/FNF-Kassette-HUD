@@ -25,13 +25,10 @@ class KssetteHitsound extends Module {
 
     function getMode():String {
         if (apiModule == null) apiModule = ModuleHandler.getModule("KssetteApi");
+        if (apiModule == null) return "Off";
         var val:Dynamic = null;
         
-        if (apiModule != null) {
-            val = apiModule.getKssValue("kssette_hitsound");
-        } else if (Save.instance != null && Save.instance.modOptions != null && Save.instance.modOptions.exists("kssette_hitsound")) {
-            val = Save.instance.modOptions.get("kssette_hitsound");
-        }
+        val = apiModule.getKssValue("kssette_hitsound");
 
         if (val == null) return "Off";
 
