@@ -202,10 +202,15 @@ class KssetteHUDPreview extends Module {
         isArrowsScheme = false;
         if (isMob && !isMobPC) {
             try {
-                if (Reflect.hasField(Save.instance, "mobileOptions") && Reflect.hasField(Save.instance.mobileOptions, "controlsScheme")) {
-                    if (Std.string(Save.instance.mobileOptions.controlsScheme) == "Arrows") isArrowsScheme = true;
-                }
+                if (Std.string(Preferences.controlsScheme) == "Arrows") isArrowsScheme = true;
             } catch(e:Dynamic) {}
+            if (!isArrowsScheme) {
+                try {
+                    if (Reflect.hasField(Save.instance, "mobileOptions") && Reflect.hasField(Save.instance.mobileOptions, "controlsScheme")) {
+                        if (Std.string(Save.instance.mobileOptions.controlsScheme) == "Arrows") isArrowsScheme = true;
+                    }
+                } catch(e:Dynamic) {}
+            }
         }
 
         var downscroll = false;
