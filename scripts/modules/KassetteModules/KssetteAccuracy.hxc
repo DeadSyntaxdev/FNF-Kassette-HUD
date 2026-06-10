@@ -794,13 +794,8 @@ class KssetteAccuracy extends Module {
                 var lerpFactor = 1.0 - (elapsed * 15.0);
                 if (lerpFactor < 0) lerpFactor = 0;
                 
-                var p1Scale:Float = 1.0;
-                var p2Scale:Float = 1.0;
-                try { if (Reflect.getProperty(state.iconP1, "isPixelIcon") == true) p1Scale = 5.0; } catch(e:Dynamic) {}
-                if (p1Scale == 1.0 && state.iconP1.antialiasing == false) p1Scale = 5.0;
-                
-                try { if (Reflect.getProperty(state.iconP2, "isPixelIcon") == true) p2Scale = 5.0; } catch(e:Dynamic) {}
-                if (p2Scale == 1.0 && state.iconP2.antialiasing == false) p2Scale = 5.0;
+                var p1Scale:Float = api.cachedP1Scale;
+                var p2Scale:Float = api.cachedP2Scale;
 
                 state.iconP1.scale.x = p1Scale + ((state.iconP1.scale.x - p1Scale) * lerpFactor);
                 state.iconP1.scale.y = p1Scale + ((state.iconP1.scale.y - p1Scale) * lerpFactor);
@@ -811,7 +806,7 @@ class KssetteAccuracy extends Module {
                 var hp2 = 2.0 - state.health;
                 
                 var gSide = "NORMAL";
-                try { if (api.gammodPlayerSide != null) gSide = api.gammodPlayerSide; } catch(e:Dynamic) {}
+                if (api.gammodPlayerSide != null) gSide = api.gammodPlayerSide;
                 
                 if (gSide == "OPPOSITE") {
                     hp1 = 2.0 - state.health;
@@ -1046,21 +1041,15 @@ class KssetteAccuracy extends Module {
         if (state == null || api == null) return;
         
         if (api.getKssValue("kssette_icon_pos") == "Corners" && state.iconP1 != null && state.iconP2 != null) {
-            var bop1 = 4;
-            var bop2 = 4;
-            try { var prop1 = Reflect.getProperty(state.iconP1, "bopEvery"); if (prop1 != null) bop1 = prop1; } catch(e:Dynamic) {}
-            try { var prop2 = Reflect.getProperty(state.iconP2, "bopEvery"); if (prop2 != null) bop2 = prop2; } catch(e:Dynamic) {}
+            var bop1 = api.cachedP1Bop;
+            var bop2 = api.cachedP2Bop;
             
             if (bop1 > 0 && event.step % bop1 == 0) {
-                var p1Scale:Float = 1.0;
-                try { if (Reflect.getProperty(state.iconP1, "isPixelIcon") == true) p1Scale = 5.0; } catch(e:Dynamic) {}
-                if (p1Scale == 1.0 && state.iconP1.antialiasing == false) p1Scale = 5.0;
+                var p1Scale:Float = api.cachedP1Scale;
                 state.iconP1.scale.set(p1Scale * 1.2, p1Scale * 1.2);
             }
             if (bop2 > 0 && event.step % bop2 == 0) {
-                var p2Scale:Float = 1.0;
-                try { if (Reflect.getProperty(state.iconP2, "isPixelIcon") == true) p2Scale = 5.0; } catch(e:Dynamic) {}
-                if (p2Scale == 1.0 && state.iconP2.antialiasing == false) p2Scale = 5.0;
+                var p2Scale:Float = api.cachedP2Scale;
                 state.iconP2.scale.set(p2Scale * 1.2, p2Scale * 1.2);
             }
         }

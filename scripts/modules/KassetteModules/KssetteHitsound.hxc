@@ -13,7 +13,7 @@ import Std;
 import Math;
 import StringTools;
 import Reflect;
-
+import funkin.util.ReflectUtil;
 class KssetteHitsound extends Module {
     var isPaused:Bool = false;
     var hitSound:Dynamic = null;
@@ -109,10 +109,12 @@ class KssetteHitsound extends Module {
         var state = PlayState.instance;
         if (state == null || state.isPlayerDying) return;
 
-        try {
-            var note = event.note;
-            if (note != null && note.noteData != null && !note.noteData.getMustHitNote()) return;
-        } catch(e:Dynamic) {
+        var note = event.note;
+        if (note != null && note.noteData != null) {
+            var mustHit = Reflect.hasField(note.noteData, "getMustHitNote") ? Reflect.callMethod(note.noteData, Reflect.field(note.noteData, "getMustHitNote"), []) : null;
+            if (mustHit == null) mustHit = Reflect.hasField(note.noteData, "mustHitNote") ? Reflect.field(note.noteData, "mustHitNote") : null;
+            if (mustHit != true) return;
+        } else {
             return;
         }
 

@@ -526,6 +526,49 @@ class KssetteBreakBar extends Module {
             barFill.scale.x = prog;
         }
 
+        if (currentPos == "Strumline" && alphaTarget > 0) {
+            var targetCenterX:Float = -1;
+            if (isPreview) {
+                var previewMod = ModuleHandler.getModule("KssetteHUDPreview");
+                if (previewMod != null && previewMod.playerStrumPreview != null) {
+                    var sW = previewMod.playerStrumPreview.width;
+                    if (sW == 0) sW = 448;
+                    targetCenterX = previewMod.playerStrumPreview.x + (sW / 2);
+                }
+            } else {
+                var state = PlayState.instance;
+                if (state != null && state.playerStrumline != null) {
+                    var sW = state.playerStrumline.width;
+                    if (sW == 0) sW = 448;
+                    targetCenterX = state.playerStrumline.x + (sW / 2);
+                }
+            }
+            if (targetCenterX != -1) {
+                if (currentStyle == "Default" || currentStyle == "Pie") targetCenterX += offsetX;
+                if (currentStyle == "Classic") {
+                    var newStartX = targetCenterX - (barWidth / 2);
+                    var thick = 4;
+                    if (borders != null && borders.length == 4) {
+                        borders[0].x = newStartX; borders[1].x = newStartX;
+                        borders[2].x = newStartX; borders[3].x = newStartX + barWidth - thick;
+                    }
+                    if (barFill != null) barFill.x = newStartX + thick;
+                    if (breakText != null) breakText.x = newStartX;
+                } else if (currentStyle == "Pie") {
+                    var radius = 45;
+                    var cX = targetCenterX - radius;
+                    if (border != null) border.x = cX;
+                    if (barFill != null) barFill.x = cX + 3;
+                    if (breakIcon != null) breakIcon.x = targetCenterX - (breakIcon.width / 2);
+                } else {
+                    var newStartX = targetCenterX - (barWidth / 2);
+                    if (border != null) border.x = newStartX;
+                    if (barFill != null) barFill.x = newStartX + 5;
+                    if (breakIcon != null) breakIcon.x = newStartX - breakIcon.width - 15 + iconOffsetX;
+                }
+            }
+        }
+
         if (currentAlpha == 0 && alphaTarget == 0) return;
 
         currentAlpha += (alphaTarget - currentAlpha) * (elapsed * 10);

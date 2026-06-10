@@ -21,6 +21,7 @@ import Std;
 import Math;
 import StringTools;
 import Reflect;
+import funkin.util.ReflectUtil;
 import funkin.util.FileUtil;
 import funkin.modding.PolymodHandler;
 import funkin.data.notestyle.NoteStyleRegistry;
@@ -114,6 +115,11 @@ class KssetteApi extends Module {
     
     var _cColoredHB:Bool = false;
     var _lastParsedChartId:String = "";
+    
+    public var cachedP1Scale:Float = 1.0;
+    public var cachedP2Scale:Float = 1.0;
+    public var cachedP1Bop:Int = 4;
+    public var cachedP2Bop:Int = 4;
 
     public var isGammodMode:Bool = false;
     public var gammodUnranked:Bool = false;
@@ -333,7 +339,9 @@ class KssetteApi extends Module {
         if (FlxG.onMobile) {
             var mobileVal:Dynamic = Save.instance.modOptions.get("kssette_mobile_keyboard");
             var isForcedOn = false;
-            try { isForcedOn = (Save.instance.mobileOptions.controlsScheme != "Arrows"); } catch(e:Dynamic) {}
+            if (Reflect.hasField(Save.instance, "mobileOptions") && Reflect.hasField(Save.instance.mobileOptions, "controlsScheme")) {
+                isForcedOn = (Save.instance.mobileOptions.controlsScheme != "Arrows");
+            }
             _mobileLikePc = isForcedOn || (mobileVal == "On" || mobileVal == true);
         }
 
@@ -341,7 +349,9 @@ class KssetteApi extends Module {
             var kssVal = normalizeKssValue(key, Save.instance.modOptions.get(key));
             if (key == "kssette_mobile_keyboard") {
                 var isForcedOn = false;
-                try { isForcedOn = (Save.instance.mobileOptions.controlsScheme != "Arrows"); } catch(e:Dynamic) {}
+                if (Reflect.hasField(Save.instance, "mobileOptions") && Reflect.hasField(Save.instance.mobileOptions, "controlsScheme")) {
+                    isForcedOn = (Save.instance.mobileOptions.controlsScheme != "Arrows");
+                }
                 if (isForcedOn) kssVal = true;
             }
             _kssCache.set(key, kssVal);
@@ -407,6 +417,39 @@ class KssetteApi extends Module {
         }
     }
 
+    public function updateIconCache():Void {
+        var state = PlayState.instance;
+        if (state == null) return;
+
+        if (state.iconP1 != null) {
+            var prop1 = ReflectUtil.hasField(state.iconP1, "bopEvery") ? Reflect.getProperty(state.iconP1, "bopEvery") : null;
+            if (prop1 == null) prop1 = ReflectUtil.hasField(state.iconP1, "bopEvery") ? Reflect.field(state.iconP1, "bopEvery") : null;
+            if (prop1 != null) cachedP1Bop = prop1;
+            else cachedP1Bop = 4;
+
+            var scale1:Float = 1.0;
+            var isPixel1 = ReflectUtil.hasField(state.iconP1, "isPixelIcon") ? Reflect.getProperty(state.iconP1, "isPixelIcon") : null;
+            if (isPixel1 == null) isPixel1 = ReflectUtil.hasField(state.iconP1, "isPixelIcon") ? Reflect.field(state.iconP1, "isPixelIcon") : null;
+            if (isPixel1 == true) scale1 = 5.0;
+            else if (state.iconP1.antialiasing == false) scale1 = 5.0;
+            cachedP1Scale = scale1;
+        }
+
+        if (state.iconP2 != null) {
+            var prop2 = ReflectUtil.hasField(state.iconP2, "bopEvery") ? Reflect.getProperty(state.iconP2, "bopEvery") : null;
+            if (prop2 == null) prop2 = ReflectUtil.hasField(state.iconP2, "bopEvery") ? Reflect.field(state.iconP2, "bopEvery") : null;
+            if (prop2 != null) cachedP2Bop = prop2;
+            else cachedP2Bop = 4;
+
+            var scale2:Float = 1.0;
+            var isPixel2 = ReflectUtil.hasField(state.iconP2, "isPixelIcon") ? Reflect.getProperty(state.iconP2, "isPixelIcon") : null;
+            if (isPixel2 == null) isPixel2 = ReflectUtil.hasField(state.iconP2, "isPixelIcon") ? Reflect.field(state.iconP2, "isPixelIcon") : null;
+            if (isPixel2 == true) scale2 = 5.0;
+            else if (state.iconP2.antialiasing == false) scale2 = 5.0;
+            cachedP2Scale = scale2;
+        }
+    }
+
     override public function onSongRetry(event:ScriptEvent) {
         invalidateCache();
         super.onSongRetry(event);
@@ -425,6 +468,7 @@ class KssetteApi extends Module {
         }
 
         super.onCountdownStart(event);
+        updateIconCache();
         
         _gammodHandler = ModuleHandler.getModule("GammodModifierHandler");
         _gammodMult = ModuleHandler.getModule("GammodMult");
