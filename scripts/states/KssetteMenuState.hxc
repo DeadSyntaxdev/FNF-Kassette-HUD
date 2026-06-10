@@ -871,17 +871,19 @@ class KssetteMenuState extends ScriptedMusicBeatState {
                 self.currentIndex = Std.int(self.currentIndex + 1) % self.options.length;
                 var newVal = self.options[self.currentIndex];
                 Save.instance.modOptions.set(self.key, newVal);
+                for (it in menuInst.optionItems) it.lockedState = null;
                 
                 if (self.textDisplay != null) {
                     self.textDisplay.text = menuInst.formatShortValue(newVal);
+                    self.valueWidth = self.textDisplay.width;
                     
                     var tColor = menuInst.getValueColor(self.textDisplay.text);
                     if (self.textDisplay.color != tColor) self.textDisplay.color = tColor;
                     
-                    if (self.textDisplay.width > menuInst.valueMaxWidth) {
+                    if (self.valueWidth > menuInst.valueMaxWidth) {
                         self.textDisplay.x = self.bg.x + self.bg.width - self.valOffX - menuInst.valueMaxWidth;
                     } else {
-                        self.textDisplay.x = self.bg.x + self.bg.width - self.valOffX - self.textDisplay.width;
+                        self.textDisplay.x = self.bg.x + self.bg.width - self.valOffX - self.valueWidth;
                     }
                 }
                 
@@ -986,6 +988,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
     function saveOpacitySelection() {
         var finalStr = Std.string(opSel_Value) + "%";
         Save.instance.modOptions.set(opSel_SaveKey, finalStr);
+        for (it in optionItems) it.lockedState = null;
         Save.instance.flush();
         
         if (descTextDisplay != null && optionItems.length > 0 && selectedIndex >= 0) {
@@ -1107,6 +1110,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
     function saveVolumeSelection() {
         var finalStr = Std.string(volSel_Value) + "%";
         Save.instance.modOptions.set(volSel_SaveKey, finalStr);
+        for (it in optionItems) it.lockedState = null;
         Save.instance.flush();
         
         if (descTextDisplay != null && optionItems.length > 0 && selectedIndex >= 0) {
@@ -1270,6 +1274,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         var finalStr = hrStr + ":" + minStr;
         
         Save.instance.modOptions.set(tSel_SaveKey, finalStr);
+        for (it in optionItems) it.lockedState = null;
         Save.instance.flush();
         
         if (descTextDisplay != null && optionItems.length > 0 && selectedIndex >= 0) {
@@ -1528,6 +1533,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         if (fontItems.length > 0 && fontSelectedIndex >= 0 && fontSelectedIndex < fontItems.length) {
             var selFile = fontItems[fontSelectedIndex].fileName;
             Save.instance.modOptions.set(currentFontSaveKey, selFile);
+            for (it in optionItems) it.lockedState = null;
             Save.instance.flush();
             fontActiveFile = selFile;
             
@@ -1951,15 +1957,17 @@ class KssetteMenuState extends ScriptedMusicBeatState {
             if (visibleStart < 0) visibleStart = 0;
             if (visibleEnd >= itemCount) visibleEnd = itemCount - 1;
 
-            if (lastVisibleStart < 0) {
-                for (i in 0...itemCount) {
-                    if (i < visibleStart || i > visibleEnd) setOptionItemVisible(optionItems[i], false);
+            if (lastVisibleStart != visibleStart || lastVisibleEnd != visibleEnd) {
+                if (lastVisibleStart < 0) {
+                    for (i in 0...itemCount) {
+                        if (i < visibleStart || i > visibleEnd) setOptionItemVisible(optionItems[i], false);
+                    }
+                } else {
+                    hideVisibleRangeOutside(visibleStart, visibleEnd);
                 }
-            } else {
-                hideVisibleRangeOutside(visibleStart, visibleEnd);
+                lastVisibleStart = visibleStart;
+                lastVisibleEnd = visibleEnd;
             }
-            lastVisibleStart = visibleStart;
-            lastVisibleEnd = visibleEnd;
 
             var rangeEnd = visibleEnd + 1;
             for (i in visibleStart...rangeEnd) {
@@ -1995,14 +2003,17 @@ class KssetteMenuState extends ScriptedMusicBeatState {
 
                 if (item.isHeader) {
                     if (label != null) {
-                        label.x = bg.x + (bg.width - label.width) / 2;
-                        label.y = bg.y + (bg.height - label.height) / 2;
+                        if (item.labelWidth == null) item.labelWidth = label.width;
+                        if (item.labelHeight == null) item.labelHeight = label.height;
+                        label.x = bg.x + (bg.width - item.labelWidth) / 2;
+                        label.y = bg.y + (bg.height - item.labelHeight) / 2;
                     }
                 } else {
                     var targetAlpha = isSel ? 1.0 : 0.6;
                     var targetColor = isSel ? FlxColor.YELLOW : FlxColor.WHITE;
                     
-                    if (apiRef != null && apiRef.isOptionLocked(item.key)) {
+                    if (item.lockedState == null && apiRef != null) item.lockedState = apiRef.isOptionLocked(item.key);
+                    if (item.lockedState == true) {
                         targetAlpha *= 0.4;
                         targetColor = FlxColor.GRAY;
                         if (value != null && value.text != "LCK") {
@@ -2015,6 +2026,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
                             if (rawVal == null) rawVal = "Off";
                             value.text = formatShortValue(Std.string(rawVal));
                             value.color = getValueColor(value.text);
+                            item.valueWidth = value.width;
                         }
                     }
 
@@ -2060,8 +2072,10 @@ class KssetteMenuState extends ScriptedMusicBeatState {
                     }
 
                     if (value != null) {
-                        var vX = bg.x + bg.width - valueOffsetX - value.width;
-                        if (value.width > valueMaxWidth) {
+                        if (item.valueWidth == null) item.valueWidth = value.width;
+                        var cachedValW = item.valueWidth;
+                        var vX = bg.x + bg.width - valueOffsetX - cachedValW;
+                        if (cachedValW > valueMaxWidth) {
                             vX = bg.x + bg.width - valueOffsetX - valueMaxWidth;
                         }
                         value.x = vX;
@@ -2177,7 +2191,8 @@ class KssetteMenuState extends ScriptedMusicBeatState {
                 
                 descTextDisplay.text = selItem.desc;
                 if (descValueText != null) {
-                    if (apiRef != null && apiRef.isOptionLocked(selItem.key)) {
+                    if (selItem.lockedState == null && apiRef != null) selItem.lockedState = apiRef.isOptionLocked(selItem.key);
+                    if (selItem.lockedState == true) {
                         descValueText.text = "LOCKED";
                         var targetColor = FlxColor.RED;
                         if (descValueText.color != targetColor) descValueText.color = targetColor;
