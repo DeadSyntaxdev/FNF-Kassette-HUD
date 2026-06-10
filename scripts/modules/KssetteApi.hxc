@@ -345,25 +345,6 @@ class KssetteApi extends Module {
         _mobileLikePc = true;
         if (FlxG.onMobile) {
             var mobileVal:Dynamic = Save.instance.modOptions.get("kssette_mobile_keyboard");
-            var lastScheme:Dynamic = Save.instance.modOptions.get("kssette_last_control_scheme");
-            var currentScheme = "Arrows";
-            
-            if (Reflect.hasField(Save.instance, "mobileOptions") && Reflect.hasField(Save.instance.mobileOptions, "controlsScheme")) {
-                currentScheme = Save.instance.mobileOptions.controlsScheme;
-            }
-            
-            if (lastScheme != currentScheme) {
-                Save.instance.modOptions.set("kssette_last_control_scheme", currentScheme);
-                if (currentScheme != "Arrows") {
-                    Save.instance.modOptions.set("kssette_mobile_keyboard", "On");
-                    mobileVal = "On";
-                } else {
-                    Save.instance.modOptions.set("kssette_mobile_keyboard", "Off");
-                    mobileVal = "Off";
-                }
-                Save.instance.flush();
-            }
-            
             _mobileLikePc = (mobileVal == "On" || mobileVal == true);
         }
 

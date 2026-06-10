@@ -199,6 +199,13 @@ class KssetteHUDPreview extends Module {
             }
         } catch(e:Dynamic) {}
 
+        isArrowsScheme = false;
+        if (isMob && !isMobPC) {
+            try {
+                if (Std.string(Preferences.controlsScheme) == "Arrows") isArrowsScheme = true;
+            } catch(e:Dynamic) {}
+        }
+
         var downscroll = false;
         if (apiModule != null && apiModule.getDownscroll != null) downscroll = apiModule.getDownscroll();
         else downscroll = Preferences.downscroll;
@@ -470,13 +477,6 @@ class KssetteHUDPreview extends Module {
             }
         } catch(e:Dynamic) {}
 
-        isArrowsScheme = false;
-        if (isMob && !isMobPC) {
-            try {
-                if (Std.string(Preferences.controlsScheme) == "Arrows") isArrowsScheme = true;
-            } catch(e:Dynamic) {}
-        }
-        
         var isPlayer = true;
         canSpawnOpp = true;
         if (opponentStrumPreview != null && opponentStrumPreview.exists) {
