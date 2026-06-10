@@ -273,7 +273,7 @@ class KssMiddlescroll extends Module {
         var state = PlayState.instance;
         if (state == null) return;
 
-        var applyArrowLogic = cachedIsArrows && cachedMobileOppNotes;
+        var applyArrowLogic = cachedIsArrows;
         var isModActive = (cachedMode == "On" || cachedMode == "P Style" || cachedMode == "Hidden Notes" || cachedMode == "Glass" || cachedMode == "Like Mobile");
 
         if (!isModActive && !applyArrowLogic) return;
@@ -379,7 +379,7 @@ class KssMiddlescroll extends Module {
 
     override function onUpdate(event:UpdateScriptEvent) {
         
-        var applyArrowLogic = cachedIsArrows && cachedMobileOppNotes;
+        var applyArrowLogic = cachedIsArrows;
         var isModActive = (cachedMode == "On" || cachedMode == "P Style" || cachedMode == "Glass" || cachedMode == "Hidden Notes" || cachedMode == "Like Mobile");
 
         

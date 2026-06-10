@@ -274,6 +274,8 @@ class KssetteHUDPreview extends Module {
         var isGlass = (ms == "Glass");
         var sxOff = 50.0;
         try { sxOff = Constants.STRUMLINE_X_OFFSET; } catch(e:Dynamic) {}
+        
+        var oppNotesActive = apiModule.getKssValue("kssette_mobile_opp_notes") == true;
 
         if (isArrowsScheme) {
             playerStrumPreview.x = 0;
@@ -294,46 +296,33 @@ class KssetteHUDPreview extends Module {
                 }
             }
             
+            
             if (opponentStrumPreview != null && opponentStrumPreview.exists) {
-                var oppNotesActive = apiModule.getKssValue("kssette_mobile_opp_notes") == true;
-                if (!oppNotesActive) {
-                    opponentStrumPreview.visible = false;
-                    opponentStrumPreview.alpha = 0.00001;
-                    try {
-                        for (rec in opponentStrumPreview.strumlineNotes.members) {
-                            if (rec != null) {
-                                rec.visible = false;
-                                rec.alpha = 0.00001;
-                            }
-                        }
-                    } catch(e:Dynamic) {}
-                } else {
-                    opponentStrumPreview.x = 0; 
-                    var oppReceptors:Array<Dynamic> = null;
-                    try { oppReceptors = opponentStrumPreview.strumlineNotes.members; } catch(e:Dynamic) {}
+                opponentStrumPreview.x = 0; 
+                var oppReceptors:Array<Dynamic> = null;
+                try { oppReceptors = opponentStrumPreview.strumlineNotes.members; } catch(e:Dynamic) {}
+                
+                if (oppReceptors != null && oppReceptors.length >= 4) {
+                    var defScale:Float = 0.7;
+                    try { defScale = noteStyle.getStrumlineScale(); } catch(e:Dynamic) {}
+                    var noteSpace = 112.0;
+                    var sizeRatio = 0.55; 
+                    var targetSpacing = noteSpace * sizeRatio;
                     
-                    if (oppReceptors != null && oppReceptors.length >= 4) {
-                        var defScale:Float = 0.7;
-                        try { defScale = noteStyle.getStrumlineScale(); } catch(e:Dynamic) {}
-                        var noteSpace = 112.0;
-                        var sizeRatio = 0.55; 
-                        var targetSpacing = noteSpace * sizeRatio;
-                        
-                        for (i in 0...4) {
-                            var rec = oppReceptors[i];
-                            if (rec != null && rec.exists) {
-                                rec.scale.set(defScale * sizeRatio, defScale * sizeRatio);
-                                rec.updateHitbox();
-                                rec.alpha = 1.0;
-                            }
+                    for (i in 0...4) {
+                        var rec = oppReceptors[i];
+                        if (rec != null && rec.exists) {
+                            rec.scale.set(defScale * sizeRatio, defScale * sizeRatio);
+                            rec.updateHitbox();
+                            rec.alpha = 1.0;
                         }
-                        
-                        var compactStartX:Float = 10.0 + cutoutSize;
-                        for (i in 0...4) {
-                            var rec = oppReceptors[i];
-                            if (rec != null && rec.exists) {
-                                rec.x = compactStartX + (targetSpacing * i);
-                            }
+                    }
+                    
+                    var compactStartX:Float = 10.0 + cutoutSize;
+                    for (i in 0...4) {
+                        var rec = oppReceptors[i];
+                        if (rec != null && rec.exists) {
+                            rec.x = compactStartX + (targetSpacing * i);
                         }
                     }
                 }
