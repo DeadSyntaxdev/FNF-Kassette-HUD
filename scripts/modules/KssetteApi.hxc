@@ -563,31 +563,70 @@ class KssetteApi extends Module {
                     var notesArray:Array<Dynamic> = state.currentChart.notes;
                     var len:Int = notesArray.length;
                     
-                    for (i in 0...len) {
-                        var note = notesArray[i];
-                        var isPlayer = false;
-                        var noteTime:Float = -1;
-
-                        try {
-                            if (note.getMustHitNote() == true) isPlayer = true;
-                        } catch(e:Dynamic) {
-                            var d = Reflect.getProperty(note, "data");
-                            if (d == null) d = Reflect.getProperty(note, "d");
-                            if (d != null && Std.parseInt(Std.string(d)) >= 4) isPlayer = true;
-                            if (Reflect.getProperty(note, "mustHitNote") == true) isPlayer = true;
+                    if (len > 0) {
+                        var firstNote = notesArray[0];
+                        var hasMustHitMethod = false;
+                        var hasMustHitProp = false;
+                        var hasDataProp = false;
+                        var hasDProp = false;
+                        
+                        try { var dummy = firstNote.getMustHitNote(); hasMustHitMethod = true; } catch(e:Dynamic) {}
+                        if (!hasMustHitMethod) {
+                            try { var dummy = firstNote.mustHitNote; hasMustHitProp = true; } catch(e:Dynamic) {}
+                        }
+                        if (!hasMustHitMethod && !hasMustHitProp) {
+                            try { var dummy = firstNote.data; hasDataProp = true; } catch(e:Dynamic) {}
+                            if (!hasDataProp) try { var dummy = firstNote.d; hasDProp = true; } catch(e:Dynamic) {}
                         }
                         
-                        if (isPlayer) {
-                            var t:Dynamic = Reflect.getProperty(note, "time");
-                            if (t == null) t = Reflect.getProperty(note, "t");
-                            var l:Dynamic = Reflect.getProperty(note, "length");
-                            if (l == null) l = Reflect.getProperty(note, "l");
-                            if (l == null) l = Reflect.getProperty(note, "sustainLength");
-
-                            if (t != null) noteTime = Std.parseFloat(Std.string(t));
-                            var noteLen:Float = (l != null) ? Std.parseFloat(Std.string(l)) : 0;
-
-                            if (noteTime != -1) playerNoteTimes.push({start: noteTime, end: noteTime + noteLen});
+                        var hasTimeProp = false;
+                        var hasTProp = false;
+                        try { var dummy = firstNote.time; hasTimeProp = true; } catch(e:Dynamic) {}
+                        if (!hasTimeProp) try { var dummy = firstNote.t; hasTProp = true; } catch(e:Dynamic) {}
+                        
+                        var hasLengthProp = false;
+                        var hasLProp = false;
+                        var hasSustainProp = false;
+                        try { var dummy = firstNote.length; hasLengthProp = true; } catch(e:Dynamic) {}
+                        if (!hasLengthProp) try { var dummy = firstNote.l; hasLProp = true; } catch(e:Dynamic) {}
+                        if (!hasLengthProp && !hasLProp) try { var dummy = firstNote.sustainLength; hasSustainProp = true; } catch(e:Dynamic) {}
+                        
+                        for (i in 0...len) {
+                            var note = notesArray[i];
+                            var isPlayer = false;
+                            
+                            if (hasMustHitMethod) {
+                                if (note.getMustHitNote() == true) isPlayer = true;
+                            } else if (hasMustHitProp) {
+                                if (note.mustHitNote == true) isPlayer = true;
+                            } else if (hasDataProp) {
+                                var d = note.data;
+                                if (d != null && Std.parseInt(Std.string(d)) >= 4) isPlayer = true;
+                            } else if (hasDProp) {
+                                var d = note.d;
+                                if (d != null && Std.parseInt(Std.string(d)) >= 4) isPlayer = true;
+                            }
+                            
+                            if (isPlayer) {
+                                var noteTime:Float = -1;
+                                var noteLen:Float = 0;
+                                
+                                if (hasTimeProp) {
+                                    if (note.time != null) noteTime = Std.parseFloat(Std.string(note.time));
+                                } else if (hasTProp) {
+                                    if (note.t != null) noteTime = Std.parseFloat(Std.string(note.t));
+                                }
+                                
+                                if (hasLengthProp) {
+                                    if (note.length != null) noteLen = Std.parseFloat(Std.string(note.length));
+                                } else if (hasLProp) {
+                                    if (note.l != null) noteLen = Std.parseFloat(Std.string(note.l));
+                                } else if (hasSustainProp) {
+                                    if (note.sustainLength != null) noteLen = Std.parseFloat(Std.string(note.sustainLength));
+                                }
+                                
+                                if (noteTime != -1) playerNoteTimes.push({start: noteTime, end: noteTime + noteLen});
+                            }
                         }
                     }
                     playerNoteTimes.sort(function(a, b) {
