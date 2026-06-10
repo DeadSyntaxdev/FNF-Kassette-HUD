@@ -31,7 +31,11 @@ import funkin.Preferences;
 
 class KssetteApi extends Module {
     final optionsID:String = "kassette-hud";
-    public var hudVersion:String = "0.2.2.b1";
+    public var hudVersion:String = "0.2.2";
+    public var preview_bf:Dynamic = null;
+    public var preview_dad:Dynamic = null;
+    public var preview_scoreBopTrigger:Bool = false;
+    public var preview_simulatedAcc:Float = 0.0;
     var optionKeys:Array<String> = [
         "kssette_show_score", "kssette_show_misses",
         "kssette_acc_mode", "kssette_show_rank", "kssette_show_tier",

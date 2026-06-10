@@ -754,28 +754,41 @@ class KssetteAccuracy extends Module {
         
         if (isPreview) {
             if (uiText != null && uiText.exists) {
+                if (api != null) {
+                    var newMode = Std.string(api.getKssValue("kssette_acc_mode"));
+                    if (newMode != _cAccMode) {
+                        _cAccMode = newMode;
+                        lastVisualAcc = -1.0; 
+                    }
+                    _cSmooth = (api.getKssValue("kssette_smooth_display") == true);
+                }
+                
                 if (_cScoreBop) {
-                    _bopTimer += elapsed;
-                    if (_bopTimer >= 0.5) {
-                        _bopTimer = 0.0;
+                    if (api != null && api.preview_scoreBopTrigger) {
+                        api.preview_scoreBopTrigger = false;
                         uiText.scale.set(1.1, 1.1);
                     }
                 }
                 
+                var targetVisualAcc:Float = 100.0;
                 if (_cAccMode == "Ascending") {
-                    previewAccTimer += event.elapsed;
-                    uiUpdateTimer += event.elapsed;
-                    
-                    if (uiUpdateTimer >= 0.05) {
-                        uiUpdateTimer = 0.0;
-                        var progress = (previewAccTimer % 5.0) / 5.0;
-                        var previewVisualAcc:Float = Math.round(100.0 * progress);
-                        
-                        if (previewVisualAcc != lastVisualAcc) {
-                            lastVisualAcc = previewVisualAcc;
-                            updateAccuracyText(123456, 0, previewVisualAcc, "PERFECT_GOLD", "SFC");
-                        }
-                    }
+                    targetVisualAcc = api != null ? api.preview_simulatedAcc : 0.0;
+                } else if (_cAccMode == "Classic") {
+                    targetVisualAcc = 100.0;
+                }
+                
+                if (!_cSmooth) {
+                    displayedAcc = targetVisualAcc;
+                } else {
+                    displayedAcc += (targetVisualAcc - displayedAcc) * (event.elapsed * 8);
+                    if (Math.abs(targetVisualAcc - displayedAcc) < 0.001) displayedAcc = targetVisualAcc;
+                }
+                
+                var visualAcc:Float = Math.floor(displayedAcc * 100) / 100;
+                
+                if (visualAcc != lastVisualAcc) {
+                    lastVisualAcc = visualAcc;
+                    updateAccuracyText(123456, 0, visualAcc, "PERFECT_GOLD", "SFC");
                 }
             }
             return;

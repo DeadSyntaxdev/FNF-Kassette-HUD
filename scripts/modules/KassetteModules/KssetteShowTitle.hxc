@@ -587,6 +587,7 @@ class KssetteShowTitle extends Module {
                 previewTimer -= event.elapsed;
                 if (previewTimer <= 0) {
                     startAnim();
+                    previewTimer = 12.0;
                 }
             }
         } else if (!isPreview && isActive && !isFadingOut) {

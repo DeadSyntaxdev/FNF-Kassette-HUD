@@ -254,6 +254,11 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         if (dad != null) { add(dad); dad.cameras = [stageCam]; }
         if (bf != null) { add(bf); bf.cameras = [stageCam]; }
 
+        if (apiRef != null) {
+            apiRef.preview_bf = bf;
+            apiRef.preview_dad = dad;
+        }
+
         if (gf != null && gf.cameraFocusPoint != null) {
             stageCam.focusOn(gf.cameraFocusPoint);
         } else {
@@ -265,6 +270,9 @@ class KssetteMenuState extends ScriptedMusicBeatState {
 
             if (FlxG.sound.music != null) FlxG.sound.music.stop();
             FlxG.sound.playMusic(Paths.music('dakassette'), 1.0, true);
+            if (Conductor.instance != null) {
+                Conductor.instance.forceBPM(93.0);
+            }
 
 
         FlxG.camera.fade(FlxColor.BLACK, 0.4, true);
@@ -1664,14 +1672,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         lastFontVisibleEnd = fontVisibleEnd;
     }
 
-    function loopCharacterAnimation(char:BaseCharacter):Void {
-        if (char == null) return;
-        var isFin:Bool = true;
-        if (char.animation != null) {
-            isFin = char.animation.finished;
-        }
-        if (isFin) char.dance();
-    }
+    
 
     
     function updateTextSlide(txt:FlxText, maxWidth:Float, timer:Float) {
