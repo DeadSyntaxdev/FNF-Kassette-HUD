@@ -26,6 +26,7 @@ import funkin.modding.PolymodHandler;
 import funkin.data.notestyle.NoteStyleRegistry;
 import funkin.modding.base.ScriptedMusicBeatState;
 import openfl.utils.Assets;
+import funkin.Preferences;
 
 class KssetteApi extends Module {
     final optionsID:String = "kassette-hud";
@@ -43,7 +44,7 @@ class KssetteApi extends Module {
         "kssette_intro_text", "kssette_intro_font_title", "kssette_intro_font_artist",
         "kssette_subtitles_anim", "kssette_subtitles_pos", "kssette_smart_karaoke",
         "kssette_colored_healthbar", "kssette_night_mode", "kssette_night_start", "kssette_night_end", "kssette_night_opacity",
-        "kssette_hitsound", "kssette_hitsound_volume", "kssette_icon_pos", "kssette_score_pos"
+        "kssette_hitsound", "kssette_hitsound_volume", "kssette_icon_pos", "kssette_score_pos", "kssette_score_bop", "kssette_breakbar_style", "kssette_breakbar_pos"
     ];
     public var missesCount:Int = 0;
     public var isMobileMode:Bool = false;
@@ -252,7 +253,7 @@ class KssetteApi extends Module {
             if (!Save.instance.modOptions.exists(opt)) {
                 var defaultVal:Dynamic = "On";
                 switch (opt) {
-                    case "kssette_middlescroll", "kssette_opponent_bg", "kssette_ghost_sing", "kssette_judge_pos", "kssette_smart_karaoke", "kssette_night_mode", "kssette_hitsound", "kssette_mobile_keyboard":
+                    case "kssette_middlescroll", "kssette_opponent_bg", "kssette_ghost_sing", "kssette_judge_pos", "kssette_smart_karaoke", "kssette_night_mode", "kssette_hitsound", "kssette_mobile_keyboard", "kssette_score_bop":
                         defaultVal = "Off";
                     case "kssette_mobile_opp_notes":
                         defaultVal = "On";
@@ -280,6 +281,10 @@ class KssetteApi extends Module {
                         defaultVal = "Default";
                     case "kssette_ghost_tapping":
                         defaultVal = isMobileMode ? "Off" : "On";
+                    case "kssette_breakbar_style":
+                        defaultVal = "Default";
+                    case "kssette_breakbar_pos":
+                        defaultVal = "Center";
                 }
 
                 Save.instance.modOptions.set(opt, defaultVal);
@@ -327,11 +332,19 @@ class KssetteApi extends Module {
         _mobileLikePc = true;
         if (FlxG.onMobile) {
             var mobileVal:Dynamic = Save.instance.modOptions.get("kssette_mobile_keyboard");
-            _mobileLikePc = (mobileVal == "On" || mobileVal == true);
+            var isForcedOn = false;
+            try { isForcedOn = (Save.instance.mobileOptions.controlsScheme != "Arrows"); } catch(e:Dynamic) {}
+            _mobileLikePc = isForcedOn || (mobileVal == "On" || mobileVal == true);
         }
 
         for (key in optionKeys) {
-            _kssCache.set(key, normalizeKssValue(key, Save.instance.modOptions.get(key)));
+            var kssVal = normalizeKssValue(key, Save.instance.modOptions.get(key));
+            if (key == "kssette_mobile_keyboard") {
+                var isForcedOn = false;
+                try { isForcedOn = (Save.instance.mobileOptions.controlsScheme != "Arrows"); } catch(e:Dynamic) {}
+                if (isForcedOn) kssVal = true;
+            }
+            _kssCache.set(key, kssVal);
         }
 
         _kssCacheReady = true;
@@ -678,6 +691,14 @@ class KssetteApi extends Module {
         return _mobileLikePc;
     }
 
+        public function isForcedDownscroll():Bool {
+        return isMobileMode && !_mobileLikePc;
+    }
+
+    public function getDownscroll():Bool {
+        return Preferences.downscroll || isForcedDownscroll();
+    }
+
     public function getSongTitle():String {
         if (_checkedSongName) return _cachedSongName;
         
@@ -909,7 +930,19 @@ class KssetteApi extends Module {
     public function getModeMessage():String {
         var state = PlayState.instance;
         if (state == null) return "";
-        var botplay:Bool = state.isBotPlayMode || (Save.instance.modOptions.get("BotMode") == true) || gammodAutoPlay;
+        
+        var gammodAutoMod = ModuleHandler.getModule("GammodAutoPlay");
+        var gAutoPlay = gammodAutoPlay;
+        if (gammodAutoMod != null) {
+            var autoRaw:Dynamic = null;
+            autoRaw = Reflect.getProperty(gammodAutoMod, "value");
+            if (autoRaw == null) autoRaw = Reflect.field(gammodAutoMod, "value");
+            if (autoRaw == null) autoRaw = gammodAutoMod.scriptGet("value");
+            gAutoPlay = (autoRaw != null && Std.string(autoRaw).toUpperCase() != "DISABLED");
+            gammodAutoPlay = gAutoPlay;
+        }
+
+        var botplay:Bool = state.isBotPlayMode || (Save.instance.modOptions.get("BotMode") == true) || gAutoPlay;
         
         if (!botplay) {
             if (!_checkedSongId) {
@@ -925,10 +958,10 @@ class KssetteApi extends Module {
             }
         }
         
-        if (_cachedModeMsg != null && botplay == _cachedBotplay && gammodAutoPlay == _cachedGammodAuto) return _cachedModeMsg;
+        if (_cachedModeMsg != null && botplay == _cachedBotplay && gAutoPlay == _cachedGammodAuto) return _cachedModeMsg;
         
         _cachedBotplay = botplay;
-        _cachedGammodAuto = gammodAutoPlay;
+        _cachedGammodAuto = gAutoPlay;
         var songName:String = getSongTitle();
 
         if (botplay) {
@@ -947,6 +980,7 @@ class KssetteApi extends Module {
 
         if (key == "kssette_opponent_bg" && ms != "Off") return true;
         if (key == "kssette_opponent_pos" && ms == "Off") return true;
+        if (key == "kssette_breakbar_pos" && ms != "Off") return true;
 
         var gt = Save.instance.modOptions.get("kssette_ghost_tapping");
         if (gt == null) gt = isMobileMode ? "Off" : "On";
@@ -961,6 +995,12 @@ class KssetteApi extends Module {
         if (key == "kssette_intro_pos" && (intro == "Off" || intro == false || intro == "Clap")) return true;
         if (key == "kssette_intro_album" && (intro == "Off" || intro == false)) return true;
 
+        if (key == "kssette_mobile_keyboard" && isMobileMode) {
+            var mScheme = "Arrows";
+            try { mScheme = Save.instance.mobileOptions.controlsScheme; } catch(e:Dynamic) {}
+            if (mScheme != "Arrows") return true;
+        }
+
         return false;
     }
 
@@ -974,6 +1014,8 @@ class KssetteApi extends Module {
         
         if (isOptionLocked(key)) {
             if (key == "kssette_opponent_bg" || key == "kssette_ghost_sing" || key == "kssette_show_misses") return false;
+            if (key == "kssette_mobile_keyboard") return true;
+            if (key == "kssette_breakbar_pos") return "Center";
         }
 
         return val;

@@ -102,6 +102,8 @@ class KssetteAccuracy extends Module {
     var _cSmooth:Bool = false;
     var _cIsBotplay:Bool = false;
     var _cJudgesVisible:Bool = false;
+    var _cScoreBop:Bool = false;
+    var _bopTimer:Float = 0.0;
 
     var cachedRankStr:String = "?";
     var cachedTierStr:String = "N/A";
@@ -364,6 +366,7 @@ class KssetteAccuracy extends Module {
         _cShowTime = api.getKssValue("kssette_show_song_time") == true;
         _cShowTitle = api.getKssValue("kssette_show_song_title") == true;
         _cShowDiff = api.getKssValue("kssette_show_song_diff") == true;
+        _cScoreBop = api.getKssValue("kssette_score_bop") == true;
         
         cachedModeMsg = Std.string(api.getModeMessage());
         
@@ -432,12 +435,9 @@ class KssetteAccuracy extends Module {
     public function updatePositions() {
         if (uiText == null || api == null) return;
         
-        var forceDownscrollLook:Bool = false;
-        var isMob:Bool = api.isMobileMode == true;
-        var isMobPC:Bool = api.isMobileLikePC() == true;
-        forceDownscrollLook = (isMob && !isMobPC);
-
-        var downscroll = Preferences.downscroll || forceDownscrollLook;
+        var downscroll = false;
+        if (api != null && api.getDownscroll != null) downscroll = api.getDownscroll();
+        else downscroll = Preferences.downscroll;
         var timeBarPos:String = Std.string(api.getKssValue("kssette_timebar_pos"));
         var showTimeBar:Bool = api.getKssValue("kssette_show_timebar") == true;
         var hasBottomTimebar = showTimeBar && (timeBarPos.indexOf("Bottom") != -1);
@@ -731,12 +731,37 @@ class KssetteAccuracy extends Module {
             event.cancel();
             if (PlayState.instance != null) PlayState.instance.noteMiss(event.note);
         }
+        
+        try {
+            var note = event.note;
+            if (note != null && note.noteData != null && !note.noteData.getMustHitNote()) return;
+        } catch(e:Dynamic) {}
+
+        if (_cScoreBop && uiText != null) {
+            uiText.scale.set(1.1, 1.1);
+        }
     }
 
     override public function onUpdate(event) {
+        var elapsed = event.elapsed;
+        
+        if (uiText != null && uiText.exists && _cScoreBop) {
+            var lerpFactor = 1.0 - (elapsed * 15.0);
+            if (lerpFactor < 0) lerpFactor = 0;
+            uiText.scale.x = 1.0 + ((uiText.scale.x - 1.0) * lerpFactor);
+            uiText.scale.y = 1.0 + ((uiText.scale.y - 1.0) * lerpFactor);
+        }
         
         if (isPreview) {
             if (uiText != null && uiText.exists) {
+                if (_cScoreBop) {
+                    _bopTimer += elapsed;
+                    if (_bopTimer >= 0.5) {
+                        _bopTimer = 0.0;
+                        uiText.scale.set(1.1, 1.1);
+                    }
+                }
+                
                 if (_cAccMode == "Ascending") {
                     previewAccTimer += event.elapsed;
                     uiUpdateTimer += event.elapsed;

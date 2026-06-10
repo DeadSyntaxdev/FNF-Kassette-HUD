@@ -179,8 +179,9 @@ class KssetteHUDPreview extends Module {
             }
         } catch(e:Dynamic) {}
 
-        var forceDownscrollLook = (isMob && !isMobPC);
-        var downscroll = Preferences.downscroll || forceDownscrollLook;
+        var downscroll = false;
+        if (apiModule != null && apiModule.getDownscroll != null) downscroll = apiModule.getDownscroll();
+        else downscroll = Preferences.downscroll;
         
         var rawMs:Dynamic = apiModule.getKssValue("kssette_middlescroll");
         var ms:String = "";

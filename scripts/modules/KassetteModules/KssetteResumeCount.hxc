@@ -54,11 +54,10 @@ class KssetteResumeCount extends Module {
     function restoreAudio(state:PlayState) {
         if (FlxG.sound.music != null) FlxG.sound.music.volume = storedVolume;
         if (state != null && state.vocals != null) {
-            var pVol = Reflect.getProperty(state.vocals, "playerVolume");
-            if (pVol != null) {
-                Reflect.setProperty(state.vocals, "playerVolume", storedPlayerVol);
-                Reflect.setProperty(state.vocals, "opponentVolume", storedOpponentVol);
-            } else {
+            try {
+                state.vocals.playerVolume = storedPlayerVol;
+                state.vocals.opponentVolume = storedOpponentVol;
+            } catch(e:Dynamic) {
                 state.vocals.volume = storedVocalsVolume;
             }
         }
@@ -119,13 +118,12 @@ class KssetteResumeCount extends Module {
             FlxG.sound.music.volume = 0;
         }
         if (state.vocals != null) {
-            var pVol = Reflect.getProperty(state.vocals, "playerVolume");
-            if (pVol != null) {
-                storedPlayerVol = pVol;
-                storedOpponentVol = Reflect.getProperty(state.vocals, "opponentVolume");
-                Reflect.setProperty(state.vocals, "playerVolume", 0);
-                Reflect.setProperty(state.vocals, "opponentVolume", 0);
-            } else {
+            try {
+                storedPlayerVol = state.vocals.playerVolume;
+                storedOpponentVol = state.vocals.opponentVolume;
+                state.vocals.playerVolume = 0;
+                state.vocals.opponentVolume = 0;
+            } catch(e:Dynamic) {
                 storedVocalsVolume = state.vocals.volume;
                 state.vocals.volume = 0;
             }
@@ -164,11 +162,10 @@ class KssetteResumeCount extends Module {
         }
         if (state.vocals != null) {
             state.vocals.pause();
-            var pVol = Reflect.getProperty(state.vocals, "playerVolume");
-            if (pVol != null) {
-                Reflect.setProperty(state.vocals, "playerVolume", storedPlayerVol);
-                Reflect.setProperty(state.vocals, "opponentVolume", storedOpponentVol);
-            } else {
+            try {
+                state.vocals.playerVolume = storedPlayerVol;
+                state.vocals.opponentVolume = storedOpponentVol;
+            } catch(e:Dynamic) {
                 state.vocals.volume = storedVocalsVolume;
             }
         }

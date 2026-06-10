@@ -249,10 +249,11 @@ class KssetteSkyCompat extends Module {
                     var isMobile = api.isMobileMode == true;
                     
                     var forceDownscrollLook = false;
-                    if (isMobile) {
-                        try { if (api.isMobileLikePC() == false) forceDownscrollLook = true; } catch(e:Dynamic) {}
-                    }
-                    var isDownscroll = Preferences.downscroll || forceDownscrollLook;
+                    if (api != null && api.isForcedDownscroll != null) forceDownscrollLook = api.isForcedDownscroll();
+                    
+                    var isDownscroll = false;
+                    if (api != null && api.getDownscroll != null) isDownscroll = api.getDownscroll();
+                    else isDownscroll = Preferences.downscroll;
 
                     var tX:Float = originalTimerX != -1 ? originalTimerX : (FlxG.width - skyHUDModule.timerBackdrop.width) / 2;
                     var tY:Float = originalTimerY != -1 ? originalTimerY : 20;

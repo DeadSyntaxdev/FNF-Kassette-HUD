@@ -8,6 +8,11 @@ import flixel.FlxSprite;
 import funkin.Paths;
 import Math;
 import Std;
+import flixel.text.FlxText;
+import flixel.text.FlxTextBorderStyle;
+import flixel.math.FlxPoint;
+import flixel.math.FlxRect;
+import flixel.util.FlxSpriteUtil;
 
 class KssetteBreakBar extends Module {
     var offsetX:Float = 12;
@@ -16,9 +21,16 @@ class KssetteBreakBar extends Module {
     var iconOffsetX:Float = 10;
     var iconOffsetY:Float = -7;
 
+    // Default style
     var border:FlxSprite;
-    var barFill:FlxSprite;
     var breakIcon:FlxSprite;
+    
+    // Classic style
+    var borders:Array<FlxSprite> = [];
+    var breakText:FlxText;
+
+    // Shared
+    var barFill:FlxSprite;
     var barWidth:Float = 260;
     var barHeight:Float = 20;
     var alphaTarget:Float = 0;
@@ -28,6 +40,9 @@ class KssetteBreakBar extends Module {
     var fillClip:flixel.math.FlxRect = null;
     var lastFillW:Int = -1;
     var updateTimer:Float = 0.0;
+    var cachedFont:String = "VCR OSD Mono";
+    var currentStyle:String = "Default";
+    var currentPos:String = "Center";
     
     var cachedNoteTimes:Array<Dynamic> = [];
     var localNoteIndex:Int = 0;
@@ -44,9 +59,17 @@ class KssetteBreakBar extends Module {
         if (border != null) border.destroy();
         if (barFill != null) barFill.destroy();
         if (breakIcon != null) breakIcon.destroy();
+        if (breakText != null) breakText.destroy();
+        if (borders != null) {
+            for (b in borders) {
+                if (b != null) b.destroy();
+            }
+        }
         border = null;
         barFill = null;
         breakIcon = null;
+        breakText = null;
+        borders = [];
         fillClip = null;
         lastFillW = -1;
     }
@@ -101,59 +124,182 @@ class KssetteBreakBar extends Module {
     public function setupUI(cam:flixel.FlxCamera) {
         cleanupUI();
 
-        var centerY = (FlxG.height / 2) - 60 + offsetY;
-        var centerX = (FlxG.width / 2) + offsetX;
-        var startX = centerX - (barWidth / 2);
-        
-        border = new FlxSprite(startX, centerY);
-        drawRoundedRect(border, Std.int(barWidth), Std.int(barHeight), 5, 0xFFFFFFFF, true, 3);
-        border.scrollFactor.set(0, 0);
-        border.zIndex = 1010;
-        border.alpha = 0;
-        border.cameras = [cam];
-        if (PlayState.instance != null && !isPreview) PlayState.instance.add(border);
-        else FlxG.state.add(border);
-        
-        barFill = new FlxSprite(startX + 5, centerY + 5);
-        drawRoundedRect(barFill, Std.int(barWidth - 10), Std.int(barHeight - 10), 2, 0xFF999999, false, 0);
-        barFill.scrollFactor.set(0, 0);
-        barFill.zIndex = 1011;
-        barFill.origin.set(0, 0);
-        barFill.alpha = 0;
-        barFill.cameras = [cam];
-        fillClip = new flixel.math.FlxRect(0, 0, barWidth - 10, barHeight - 10);
-        barFill.clipRect = fillClip;
-        lastFillW = -1;
-        if (PlayState.instance != null && !isPreview) PlayState.instance.add(barFill);
-        else FlxG.state.add(barFill);
+        if (apiModule != null) {
+            cachedFont = apiModule.getHudFont();
+            if (cachedFont == null || cachedFont == "null" || cachedFont == "") cachedFont = "VCR OSD Mono";
+            var rawStyle = apiModule.getKssValue("kssette_breakbar_style");
+            if (rawStyle == "Classic") currentStyle = "Classic";
+            else if (rawStyle == "Pie") currentStyle = "Pie";
+            else currentStyle = "Default";
+            var rawPos = apiModule.getKssValue("kssette_breakbar_pos");
+            currentPos = (rawPos == "Strumline") ? "Strumline" : "Center";
+        }
 
-        breakIcon = new FlxSprite(0, 0);
-        try {
-            var iconImg = Paths.image("ui/hud/break");
-            if (iconImg != null) {
-                breakIcon.loadGraphic(iconImg);
-            } else {
+        var state = PlayState.instance;
+
+        var centerY = (FlxG.height / 2) - 60;
+        var centerX = (FlxG.width / 2);
+        if (currentStyle == "Default" || currentStyle == "Pie") {
+            centerY += offsetY;
+            centerX += offsetX;
+        }
+
+        if (currentPos == "Strumline") {
+            if (isPreview) {
+                var previewMod = ModuleHandler.getModule("KssetteHUDPreview");
+                if (previewMod != null && previewMod.playerStrumPreview != null) {
+                    var sX = previewMod.playerStrumPreview.x;
+                    var sW = previewMod.playerStrumPreview.width;
+                    if (sW == 0) sW = 448;
+                    centerX = sX + (sW / 2);
+                }
+            } else if (state != null && state.playerStrumline != null) {
+                var sW = state.playerStrumline.width;
+                if (sW == 0) sW = 448;
+                centerX = state.playerStrumline.x + (sW / 2);
+            }
+        }
+
+        var startX = centerX - (barWidth / 2);
+
+        if (currentStyle == "Classic") {
+            var thick = 4;
+            
+            var bTop = new FlxSprite(startX, centerY).makeGraphic(Std.int(barWidth), thick, 0xFFFFFFFF);
+            var bBot = new FlxSprite(startX, centerY + barHeight - thick).makeGraphic(Std.int(barWidth), thick, 0xFFFFFFFF);
+            var bLeft = new FlxSprite(startX, centerY + thick).makeGraphic(thick, Std.int(barHeight - thick * 2), 0xFFFFFFFF);
+            var bRight = new FlxSprite(startX + barWidth - thick, centerY + thick).makeGraphic(thick, Std.int(barHeight - thick * 2), 0xFFFFFFFF);
+            
+            borders = [bTop, bBot, bLeft, bRight];
+            for (b in borders) {
+                b.scrollFactor.set(0, 0);
+                b.zIndex = 1010;
+                b.alpha = 0;
+                b.cameras = [cam];
+                if (state != null && !isPreview) state.add(b);
+                else FlxG.state.add(b);
+            }
+            
+            barFill = new FlxSprite(startX + thick, centerY + thick).makeGraphic(Std.int(barWidth - thick * 2), Std.int(barHeight - thick * 2), 0xFFFFFFFF);
+            barFill.scrollFactor.set(0, 0);
+            barFill.zIndex = 1011;
+            barFill.origin.set(0, 0);
+            barFill.alpha = 0;
+            barFill.cameras = [cam];
+            if (state != null && !isPreview) state.add(barFill);
+            else FlxG.state.add(barFill);
+
+            breakText = new FlxText(startX, centerY - 28, barWidth, "BREAK", 20);
+            breakText.setFormat(cachedFont, 20, 0xFFFFFFFF, "center", FlxTextBorderStyle.OUTLINE, 0xFF000000);
+            breakText.scrollFactor.set(0, 0);
+            breakText.zIndex = 1012;
+            breakText.alpha = 0;
+            breakText.cameras = [cam];
+            if (state != null && !isPreview) state.add(breakText);
+            else FlxG.state.add(breakText);
+
+        } else if (currentStyle == "Pie") {
+            var radius = 45;
+            var cX = centerX - radius;
+            var cY = centerY - radius;
+            
+            border = new FlxSprite(cX, cY);
+            drawRoundedRect(border, radius*2, radius*2, radius, 0xFFFFFFFF, true, 3);
+            border.scrollFactor.set(0, 0);
+            border.zIndex = 1010;
+            border.alpha = 0;
+            border.cameras = [cam];
+            if (state != null && !isPreview) state.add(border);
+            else FlxG.state.add(border);
+            
+            barFill = new FlxSprite(cX + 3, cY + 3);
+            barFill.makeGraphic(radius*2 - 6, radius*2 - 6, 0x00000000);
+            barFill.scrollFactor.set(0, 0);
+            barFill.zIndex = 1011;
+            barFill.origin.set(0, 0);
+            barFill.alpha = 0;
+            barFill.cameras = [cam];
+            lastFillW = -1;
+            lastPieDegree = -1;
+            if (state != null && !isPreview) state.add(barFill);
+            else FlxG.state.add(barFill);
+            
+            breakIcon = new FlxSprite(0, 0);
+            try {
+                var iconImg = Paths.image("ui/hud/break");
+                if (iconImg != null) {
+                    breakIcon.loadGraphic(iconImg);
+                } else {
+                    breakIcon.makeGraphic(30, 30, 0xFFFFFFFF);
+                }
+            } catch(e:Dynamic) {
                 breakIcon.makeGraphic(30, 30, 0xFFFFFFFF);
             }
-        } catch(e:Dynamic) {
-            breakIcon.makeGraphic(30, 30, 0xFFFFFFFF);
-        }
-        
-        if (breakIcon.graphic != null) {
-            var sRatio = 35 / breakIcon.graphic.width;
-            breakIcon.scale.set(sRatio, sRatio);
-            breakIcon.updateHitbox();
-        }
+            if (breakIcon.graphic != null) {
+                var sRatio = 40 / breakIcon.graphic.width;
+                breakIcon.scale.set(sRatio, sRatio);
+                breakIcon.updateHitbox();
+            }
+            breakIcon.x = centerX - (breakIcon.width / 2);
+            breakIcon.y = centerY - (breakIcon.height / 2);
+            breakIcon.scrollFactor.set(0, 0);
+            breakIcon.zIndex = 1012;
+            breakIcon.alpha = 0;
+            breakIcon.cameras = [cam];
+            if (state != null && !isPreview) state.add(breakIcon);
+            else FlxG.state.add(breakIcon);
 
-        breakIcon.x = startX - breakIcon.width - 15 + iconOffsetX; 
-        breakIcon.y = centerY + (barHeight - breakIcon.height) / 2 + iconOffsetY;
-        
-        breakIcon.scrollFactor.set(0, 0);
-        breakIcon.zIndex = 1012;
-        breakIcon.alpha = 0;
-        breakIcon.cameras = [cam];
-        if (PlayState.instance != null && !isPreview) PlayState.instance.add(breakIcon);
-        else FlxG.state.add(breakIcon);
+        } else {
+            border = new FlxSprite(startX, centerY);
+            drawRoundedRect(border, Std.int(barWidth), Std.int(barHeight), 5, 0xFFFFFFFF, true, 3);
+            border.scrollFactor.set(0, 0);
+            border.zIndex = 1010;
+            border.alpha = 0;
+            border.cameras = [cam];
+            if (state != null && !isPreview) state.add(border);
+            else FlxG.state.add(border);
+            
+            barFill = new FlxSprite(startX + 5, centerY + 5);
+            drawRoundedRect(barFill, Std.int(barWidth - 10), Std.int(barHeight - 10), 2, 0xFF999999, false, 0);
+            barFill.scrollFactor.set(0, 0);
+            barFill.zIndex = 1011;
+            barFill.origin.set(0, 0);
+            barFill.alpha = 0;
+            barFill.cameras = [cam];
+            fillClip = new flixel.math.FlxRect(0, 0, barWidth - 10, barHeight - 10);
+            barFill.clipRect = fillClip;
+            lastFillW = -1;
+            if (state != null && !isPreview) state.add(barFill);
+            else FlxG.state.add(barFill);
+
+            breakIcon = new FlxSprite(0, 0);
+            try {
+                var iconImg = Paths.image("ui/hud/break");
+                if (iconImg != null) {
+                    breakIcon.loadGraphic(iconImg);
+                } else {
+                    breakIcon.makeGraphic(30, 30, 0xFFFFFFFF);
+                }
+            } catch(e:Dynamic) {
+                breakIcon.makeGraphic(30, 30, 0xFFFFFFFF);
+            }
+            
+            if (breakIcon.graphic != null) {
+                var sRatio = 35 / breakIcon.graphic.width;
+                breakIcon.scale.set(sRatio, sRatio);
+                breakIcon.updateHitbox();
+            }
+
+            breakIcon.x = startX - breakIcon.width - 15 + iconOffsetX; 
+            breakIcon.y = centerY + (barHeight - breakIcon.height) / 2 + iconOffsetY;
+            
+            breakIcon.scrollFactor.set(0, 0);
+            breakIcon.zIndex = 1012;
+            breakIcon.alpha = 0;
+            breakIcon.cameras = [cam];
+            if (state != null && !isPreview) state.add(breakIcon);
+            else FlxG.state.add(breakIcon);
+        }
 
         currentAlpha = 0;
         alphaTarget = 0;
@@ -161,15 +307,64 @@ class KssetteBreakBar extends Module {
 
     function setFillWidth(fillW:Int):Void {
         if (barFill == null || !barFill.exists) return;
+        if (currentStyle == "Classic" || currentStyle == "Pie") return; 
         if (fillW < 1) fillW = 1;
         if (fillW == lastFillW) return;
         lastFillW = fillW;
         if (fillClip == null) {
-            fillClip = new flixel.math.FlxRect(0, 0, fillW, barHeight - 10);
+            fillClip = new FlxRect(0, 0, fillW, barHeight - 10);
         } else {
             fillClip.width = fillW;
         }
         barFill.clipRect = fillClip;
+    }
+
+    var lastPieDegree:Int = -1;
+
+    function setPieFill(prog:Float):Void {
+        if (barFill == null || !barFill.exists) return;
+        if (currentStyle != "Pie") return;
+        
+        var degree = Std.int(prog * 360);
+        if (degree == lastPieDegree) return;
+        lastPieDegree = degree;
+        
+        FlxSpriteUtil.fill(barFill, 0x00000000);
+        if (prog <= 0) return;
+        
+        var radius = 42; 
+        var thickness = 10;
+        var innerRadius = radius - thickness;
+        var cX = radius;
+        var cY = radius;
+
+        var vertices:Array<Dynamic> = [];
+        
+        var startAngle = -90; 
+        var endAngle = -90 + degree;
+        
+        var step = 10;
+        var angle = startAngle;
+        while (angle < endAngle) {
+            var rad = angle * Math.PI / 180;
+            vertices.push(FlxPoint.get(cX + Math.cos(rad) * radius, cY + Math.sin(rad) * radius));
+            angle += step;
+        }
+        var radEnd = endAngle * Math.PI / 180;
+        vertices.push(FlxPoint.get(cX + Math.cos(radEnd) * radius, cY + Math.sin(radEnd) * radius));
+        
+        angle = endAngle;
+        while (angle > startAngle) {
+            var rad = angle * Math.PI / 180;
+            vertices.push(FlxPoint.get(cX + Math.cos(rad) * innerRadius, cY + Math.sin(rad) * innerRadius));
+            angle -= step;
+        }
+        var radStart = startAngle * Math.PI / 180;
+        vertices.push(FlxPoint.get(cX + Math.cos(radStart) * innerRadius, cY + Math.sin(radStart) * innerRadius));
+        
+        if (vertices.length >= 3) {
+            FlxSpriteUtil.drawPolygon(barFill, vertices, 0xFF999999);
+        }
     }
     
     override public function onCountdownStart(event) {
@@ -207,17 +402,43 @@ class KssetteBreakBar extends Module {
     }
 
     public function updatePreview() {
-        if (!isPreview || breakIcon == null || !breakIcon.exists) return;
+        if (!isPreview) return;
+        if (currentStyle == "Classic") {
+            if (breakText == null || !breakText.exists) return;
+        } else {
+            if (breakIcon == null || !breakIcon.exists) return;
+        }
 
         apiModule = ModuleHandler.getModule("KssetteApi");
         if (apiModule == null) return;
         
         cachedActive = apiModule.getKssValue("kssette_show_breakbar") == true;
+        var rawStyle = apiModule.getKssValue("kssette_breakbar_style");
+        var newStyle = "Default";
+        if (rawStyle == "Classic") newStyle = "Classic";
+        else if (rawStyle == "Pie") newStyle = "Pie";
+        var rawPos = apiModule.getKssValue("kssette_breakbar_pos");
+        var newPos = (rawPos == "Strumline") ? "Strumline" : "Center";
+        
+        if (currentStyle != newStyle || currentPos != newPos) {
+            setupUI(previewCam);
+        }
     }
     
     override public function onUpdate(event) {
-        
-        if (barFill == null || !barFill.exists || breakIcon == null || !breakIcon.exists) {
+        if (barFill == null || !barFill.exists) {
+            alphaTarget = 0;
+            return;
+        }
+        if (currentStyle == "Default" && (breakIcon == null || !breakIcon.exists)) {
+            alphaTarget = 0;
+            return;
+        }
+        if (currentStyle == "Classic" && (breakText == null || !breakText.exists)) {
+            alphaTarget = 0;
+            return;
+        }
+        if (currentStyle == "Pie" && (breakIcon == null || !breakIcon.exists)) {
             alphaTarget = 0;
             return;
         }
@@ -227,6 +448,8 @@ class KssetteBreakBar extends Module {
         if (updateTimer < 0.008) return;
         elapsed = updateTimer;
         updateTimer = 0.0;
+
+        var breakProgress:Float = 0.0;
 
         if (isPreview) {
             alphaTarget = 0;
@@ -239,7 +462,9 @@ class KssetteBreakBar extends Module {
                     var prog = previewBreakTimer / 5.0;
                     if (prog < 0) prog = 0;
                     if (prog > 1) prog = 1;
-                    setFillWidth(Std.int((barWidth - 10) * prog));
+                    breakProgress = 1.0 - prog;
+                    if (currentStyle == "Default") setFillWidth(Std.int((barWidth - 10) * prog));
+                    if (currentStyle == "Pie") setPieFill(prog);
                 }
             }
         } else if (cachedActive) {
@@ -272,7 +497,9 @@ class KssetteBreakBar extends Module {
                                 if (prog < 0) prog = 0;
                                 if (prog > 1) prog = 1;
                                 alphaTarget = 1;
-                                setFillWidth(Std.int((barWidth - 10) * prog));
+                                breakProgress = 1.0 - prog;
+                                if (currentStyle == "Default") setFillWidth(Std.int((barWidth - 10) * prog));
+                                if (currentStyle == "Pie") setPieFill(prog);
                             } else {
                                 alphaTarget = 0;
                             }
@@ -292,13 +519,36 @@ class KssetteBreakBar extends Module {
             alphaTarget = 0;
         }
         
+        if (currentStyle == "Classic" && alphaTarget > 0) {
+            var prog = 1.0 - breakProgress;
+            if (prog < 0) prog = 0;
+            if (prog > 1) prog = 1;
+            barFill.scale.x = prog;
+        }
+
         if (currentAlpha == 0 && alphaTarget == 0) return;
 
         currentAlpha += (alphaTarget - currentAlpha) * (elapsed * 10);
         if (Math.abs(alphaTarget - currentAlpha) < 0.01) currentAlpha = alphaTarget;
         
-        if (border != null && border.exists) border.alpha = currentAlpha * 0.5;
-        barFill.alpha = currentAlpha * 0.5;
-        breakIcon.alpha = currentAlpha * 0.5;
+        if (currentStyle == "Classic") {
+            var borderAlpha = currentAlpha * 0.6;
+            if (borders != null && borders.length == 4) {
+                borders[0].alpha = borderAlpha;
+                borders[1].alpha = borderAlpha;
+                borders[2].alpha = borderAlpha;
+                borders[3].alpha = borderAlpha;
+            }
+            if (barFill != null && barFill.exists) barFill.alpha = currentAlpha * 0.4;
+            if (breakText != null && breakText.exists) breakText.alpha = currentAlpha * 0.8;
+        } else if (currentStyle == "Pie") {
+            if (border != null && border.exists) border.alpha = currentAlpha * 0.5;
+            if (barFill != null && barFill.exists) barFill.alpha = currentAlpha * 0.5;
+            if (breakIcon != null && breakIcon.exists) breakIcon.alpha = currentAlpha * 0.5;
+        } else {
+            if (border != null && border.exists) border.alpha = currentAlpha * 0.5;
+            if (barFill != null && barFill.exists) barFill.alpha = currentAlpha * 0.5;
+            if (breakIcon != null && breakIcon.exists) breakIcon.alpha = currentAlpha * 0.5;
+        }
     }
 }

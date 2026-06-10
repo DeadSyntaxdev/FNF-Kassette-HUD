@@ -310,9 +310,9 @@ class KssetteMenuState extends ScriptedMusicBeatState {
 
         var scorePos = Save.instance.modOptions.get("kssette_score_pos");
         if (scorePos == null) scorePos = "Vanilla";
-        var forceDownscrollLook = false;
-        if (apiRef != null) forceDownscrollLook = (apiRef.isMobileMode == true && apiRef.isMobileLikePC() != true);
-        var isDownscroll = Preferences.downscroll || forceDownscrollLook;
+        var isDownscroll = false;
+        if (apiRef != null && apiRef.getDownscroll != null) isDownscroll = apiRef.getDownscroll();
+        else isDownscroll = Preferences.downscroll;
         
         var newInfoLabel = "";
         if (isDownscroll) {
@@ -349,7 +349,42 @@ class KssetteMenuState extends ScriptedMusicBeatState {
                         }
                     }
                 }
-                break;
+            }
+            
+            if (item != null && item.key == "kssette_mobile_keyboard") {
+                var isForcedOn = false;
+                try { isForcedOn = (Save.instance.mobileOptions.controlsScheme != "Arrows"); } catch(e:Dynamic) {}
+                
+                var displayVal = "Off";
+                if (isForcedOn) {
+                    displayVal = "On";
+                } else {
+                    var curVal = Save.instance.modOptions.get("kssette_mobile_keyboard");
+                    displayVal = Std.string(curVal);
+                    if (curVal == true) displayVal = "On";
+                    else if (curVal == false) displayVal = "Off";
+                }
+                
+                if (item.options != null) {
+                    var idx = item.options.indexOf(displayVal);
+                    if (idx != -1) item.currentIndex = idx;
+                }
+                
+                if (item.textDisplay != null) {
+                    item.textDisplay.text = formatShortValue(displayVal);
+                    var tColor = getValueColor(item.textDisplay.text);
+                    if (item.textDisplay.color != tColor) item.textDisplay.color = tColor;
+                    if (item.textDisplay.width > valueMaxWidth) {
+                        item.textDisplay.x = item.bg.x + item.bg.width - item.valOffX - valueMaxWidth;
+                    } else {
+                        item.textDisplay.x = item.bg.x + item.bg.width - item.valOffX - item.textDisplay.width;
+                    }
+                }
+                if (descValueText != null && selectedIndex >= 0 && selectedIndex < optionItems.length && optionItems[selectedIndex] == item) {
+                    descValueText.text = formatLongValue(displayVal);
+                    var vColor = getValueColor(descValueText.text);
+                    if (descValueText.color != vColor) descValueText.color = vColor;
+                }
             }
         }
 
@@ -572,6 +607,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         add(itemsGroup);
 
         var isMobilePC = (Save.instance.modOptions.get("kssette_mobile_keyboard") == "On");
+        try { if (Save.instance.mobileOptions.controlsScheme != "Arrows") isMobilePC = true; } catch(e:Dynamic) {}
         var showPCOptions = !FlxG.onMobile || isMobilePC;
 
         addHeader("Gameplay Settings");
@@ -588,6 +624,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         }
         createToggle("GHOST SINGING", "kssette_ghost_sing", ["On", "Off"], "Your character will play singing animations when you press empty keys.");
         createToggle("RESUME COUNTDOWN", "kssette_resume_countdown", ["On", "Off"], "Adds a 'Ready, Set, Go!' countdown when you unpause the game.");
+        createToggle("JUDGE COUNTER", "kssette_judge_pos", ["Off", "Left", "Right", "Top Left", "Top Right"], "Shows a counter for Sicks, Goods, Bads, etc. Choose where to place it.");
         createToggle("HITSOUND", "kssette_hitsound", ["Off", "On Note Hit", "Anytime"], "Plays a sound. On Note Hit triggers only when hitting notes, Anytime triggers on any tap.");
         createVolumeOption("HITSOUND VOL", "kssette_hitsound_volume", "Adjust the volume of the hitsound.");
         
@@ -597,11 +634,13 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         createToggle("ACCURACY MODE", "kssette_acc_mode", ["Classic", "Ascending", "Off"], "How accuracy is calculated. 'Ascending' starts at 0% and climbs up.");
         createToggle("SHOW RANK", "kssette_show_rank", ["On", "Off"], "Show your current Rank (P, E, G) based on performance.");
         createToggle("SHOW FC TIER", "kssette_show_tier", ["On", "Off"], "Show your Combo Status (SFC, GFC, FC, Clear).");
+        createToggle("SCORE BOP", "kssette_score_bop", ["Off", "On"], "Makes the score text bop when hitting notes.");
         createToggle("SHOW TIME BAR", "kssette_show_timebar", ["On", "Off"], "Show a bar indicating progress.");
+        createToggle("SHOW TIME LEFT", "kssette_show_song_time", ["On", "Off"], "Show a digital timer counting down the song.");
         createToggle("SHOW BREAK BAR", "kssette_show_breakbar", ["On", "Off"], "Show a specific timer during long breaks in the song.");
+        createToggle("BREAK BAR STYLE", "kssette_breakbar_style", ["Default", "Classic", "Pie"], "The visual style of the break bar.");
         createToggle("SHOW SONG TITLE", "kssette_show_song_title", ["On", "Off"], "Show the name of the song on the HUD.");
         createToggle("SHOW DIFFICULTY", "kssette_show_song_diff", ["On", "Off"], "Show the difficulty level on the HUD.");
-        createToggle("SHOW TIME LEFT", "kssette_show_song_time", ["On", "Off"], "Show a digital timer counting down the song.");
         createToggle("COLORED HEALTHBAR", "kssette_colored_healthbar", ["On", "Off"], "Changes the health bar colors to match the character icons.");
         if (showPCOptions) {
             createToggle("OPPONENT STRUM BG", "kssette_opponent_bg", ["On", "Off"], "Show the dark background behind the opponent's notes. (Disabled on Middle Scroll)");
@@ -618,18 +657,17 @@ class KssetteMenuState extends ScriptedMusicBeatState {
             createToggle("OPPONENT POS", "kssette_opponent_pos", ["Left", "Right"], "Where to put the opponent's notes when Middle Scroll is ON.");
         }
         createToggle("TIME BAR POS", "kssette_timebar_pos", ["Bottom", "Top", "Bottom Left", "Bottom Right", "Top Left", "Top Right", "Vertical Left", "Vertical Right", "In Health"], "Choose where the Song Progress Bar is placed on screen.");
+        createToggle("BREAK BAR POS", "kssette_breakbar_pos", ["Center", "Strumline"], "Where to place the break bar.");
         createToggle("ICON POSITIONS", "kssette_icon_pos", ["Default", "Corners"], "Choose where the character icons are placed on the health bar.");
         createToggle("SCORE BAR POS", "kssette_score_pos", ["Vanilla", "Inverted"], "Choose where the score text is placed relative to the health bar.");
-        var forceDownscrollLook = false;
-            if (apiRef != null) {
-                var isMob = apiRef.isMobileMode == true;
-                var isMobPC = apiRef.isMobileLikePC() == true;
-                forceDownscrollLook = (isMob && !isMobPC);
-            }
+        var isDownscroll = false;
+        if (apiRef != null && apiRef.getDownscroll != null) isDownscroll = apiRef.getDownscroll();
+        else isDownscroll = Preferences.downscroll;
+
         var scorePosInit = Save.instance.modOptions.get("kssette_score_pos");
         if (scorePosInit == null) scorePosInit = "Vanilla";
         var infoLabel = "";
-        if (Preferences.downscroll || forceDownscrollLook) {
+        if (isDownscroll) {
             if (scorePosInit == "Inverted") infoLabel = "Above Health Bar";
             else infoLabel = "Below Score";
         } else {
@@ -638,7 +676,6 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         }
         
         createToggle("INFO TEXT POS", "kssette_info_pos", [infoLabel, "Bottom Left"], "Where to show the Song Name and Difficulty.");
-        createToggle("JUDGE POS", "kssette_judge_pos", ["Off", "Left", "Right", "Top Left", "Top Right"], "Shows a counter for Sicks, Goods, Bads, etc. Choose where to place it.");
         
         addHeader("Performance");
         createToggle("SMOOTH DISPLAY", "kssette_smooth_display", ["On", "Off"], "Makes the score and accuracy numbers scroll smoothly.");

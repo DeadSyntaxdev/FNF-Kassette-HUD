@@ -153,7 +153,9 @@ class KssetteTimeBar extends Module {
                 cachedX = FlxG.width - currentBgW - paddingX - cutoutSize; cachedY = 0;
             case "In Health":
                 var hbX:Float = (FlxG.width - currentBgW) / 2;
-                var hbY:Float = Preferences.downscroll ? FlxG.height * 0.11 : FlxG.height * 0.89;
+                var downscrollValue:Bool = Preferences.downscroll;
+                if (apiModule != null && apiModule.getDownscroll != null) downscrollValue = apiModule.getDownscroll();
+                var hbY:Float = downscrollValue ? FlxG.height * 0.11 : FlxG.height * 0.89;
                 var hbH:Float = 19;
                 if (playState != null && playState.healthBarBG != null) {
                     hbX = playState.healthBarBG.x + (playState.healthBarBG.width - currentBgW) / 2;
@@ -161,7 +163,7 @@ class KssetteTimeBar extends Module {
                     hbH = playState.healthBarBG.height;
                 }
                 cachedX = hbX;
-                cachedY = Preferences.downscroll ? hbY + hbH : hbY - currentBgH;
+                cachedY = downscrollValue ? hbY + hbH : hbY - currentBgH;
             default:
                 cachedX = (FlxG.width - currentBgW) / 2;
                 cachedY = FlxG.height - currentBgH;
