@@ -453,15 +453,16 @@ class KssetteBreakBar extends Module {
 
         if (isPreview) {
             alphaTarget = 0;
-            if (cachedActive) {
-                previewBreakTimer -= elapsed;
-                if (previewBreakTimer <= 0) previewBreakTimer = 6.0;
+            if (cachedActive && apiModule != null) {
+                var isP:Bool = true;
+                var prog:Float = 0.0;
+                try {
+                    isP = apiModule.preview_playerTurn;
+                    prog = apiModule.preview_turnProgress;
+                } catch(e:Dynamic) {}
 
-                if (previewBreakTimer <= 5.0) {
+                if (!isP) {
                     alphaTarget = 1;
-                    var prog = previewBreakTimer / 5.0;
-                    if (prog < 0) prog = 0;
-                    if (prog > 1) prog = 1;
                     breakProgress = 1.0 - prog;
                     if (currentStyle == "Default") setFillWidth(Std.int((barWidth - 10) * prog));
                     if (currentStyle == "Pie") setPieFill(prog);

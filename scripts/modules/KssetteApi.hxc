@@ -51,6 +51,9 @@ class KssetteApi extends Module {
         "kssette_colored_healthbar", "kssette_night_mode", "kssette_night_start", "kssette_night_end", "kssette_night_opacity",
         "kssette_hitsound", "kssette_hitsound_volume", "kssette_icon_pos", "kssette_score_pos", "kssette_score_bop", "kssette_breakbar_style", "kssette_breakbar_pos"
     ];
+    public var preview_missesCount:Int = 0;
+    public var preview_playerTurn:Bool = true;
+    public var preview_turnProgress:Float = 0.0;
     public var missesCount:Int = 0;
     public var isMobileMode:Bool = false;
     public var isCompromised:Bool = false;

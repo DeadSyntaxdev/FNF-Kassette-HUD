@@ -674,6 +674,14 @@ class KssetteHUDPreview extends Module {
             spawnFakeNote();
         }
         
+        if (apiModule != null) {
+            apiModule.preview_playerTurn = playerTurn;
+            var prog = ((noteCount - 1) + (noteTimer / targetNoteDelay)) / 4.0;
+            if (prog < 0) prog = 0;
+            if (prog > 1) prog = 1;
+            apiModule.preview_turnProgress = prog;
+        }
+        
         ghostTimer += event.elapsed;
         if (ghostTimer > targetGhostDelay) {
             ghostTimer = 0;

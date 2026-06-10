@@ -7,6 +7,7 @@ import flixel.group.FlxSpriteGroup;
 import funkin.save.Save;
 import funkin.modding.module.ModuleHandler;
 import funkin.ui.options.OptionsState;
+import funkin.audio.FunkinSound;
 import funkin.Paths;
 import flixel.util.FlxColor;
 import funkin.modding.base.ScriptedMusicBeatState;
@@ -290,7 +291,13 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         FlxG.camera.fade(FlxColor.BLACK, 0.4, false, function() {
             FlxG.cameras.reset(new FlxCamera());
             FlxG.switchState(new OptionsState());
-            FlxG.sound.playMusic(Paths.music('freakyMenu'), 1.0, true);
+            
+            FunkinSound.playMusic('freakyMenu', {
+                startingVolume: 1.0,
+                overrideExisting: true,
+                restartTrack: true,
+                persist: true
+            });
         });
     }
 
