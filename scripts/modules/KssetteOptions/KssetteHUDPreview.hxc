@@ -202,7 +202,9 @@ class KssetteHUDPreview extends Module {
         isArrowsScheme = false;
         if (isMob && !isMobPC) {
             try {
-                if (Std.string(Preferences.controlsScheme) == "Arrows") isArrowsScheme = true;
+                if (Reflect.hasField(Save.instance, "mobileOptions") && Reflect.hasField(Save.instance.mobileOptions, "controlsScheme")) {
+                    if (Std.string(Save.instance.mobileOptions.controlsScheme) == "Arrows") isArrowsScheme = true;
+                }
             } catch(e:Dynamic) {}
         }
 
@@ -291,9 +293,13 @@ class KssetteHUDPreview extends Module {
                 var oppNotesActive = apiModule.getKssValue("kssette_mobile_opp_notes") == true;
                 if (!oppNotesActive) {
                     opponentStrumPreview.visible = false;
+                    opponentStrumPreview.alpha = 0.00001;
                     try {
-                        for (n in opponentStrumPreview.strumlineNotes.members) {
-                            if (n != null) n.visible = false;
+                        for (rec in opponentStrumPreview.strumlineNotes.members) {
+                            if (rec != null) {
+                                rec.visible = false;
+                                rec.alpha = 0.00001;
+                            }
                         }
                     } catch(e:Dynamic) {}
                 } else {

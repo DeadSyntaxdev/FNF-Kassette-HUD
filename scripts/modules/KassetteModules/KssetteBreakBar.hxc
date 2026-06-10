@@ -464,8 +464,8 @@ class KssetteBreakBar extends Module {
                 if (!isP) {
                     alphaTarget = 1;
                     breakProgress = 1.0 - prog;
-                    if (currentStyle == "Default") setFillWidth(Std.int((barWidth - 10) * prog));
-                    if (currentStyle == "Pie") setPieFill(prog);
+                    if (currentStyle == "Default") setFillWidth(Std.int((barWidth - 10) * breakProgress));
+                    if (currentStyle == "Pie") setPieFill(breakProgress);
                 }
             }
         } else if (cachedActive) {
