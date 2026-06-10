@@ -367,18 +367,10 @@ class KssetteMenuState extends ScriptedMusicBeatState {
             }
             
             if (item != null && item.key == "kssette_mobile_keyboard") {
-                var isForcedOn = false;
-                try { isForcedOn = (Save.instance.mobileOptions.controlsScheme != "Arrows"); } catch(e:Dynamic) {}
-                
-                var displayVal = "Off";
-                if (isForcedOn) {
-                    displayVal = "On";
-                } else {
-                    var curVal = Save.instance.modOptions.get("kssette_mobile_keyboard");
-                    displayVal = Std.string(curVal);
-                    if (curVal == true) displayVal = "On";
-                    else if (curVal == false) displayVal = "Off";
-                }
+                var curVal = Save.instance.modOptions.get("kssette_mobile_keyboard");
+                var displayVal = Std.string(curVal);
+                if (curVal == true) displayVal = "On";
+                else if (curVal == false) displayVal = "Off";
                 
                 if (item.options != null) {
                     var idx = item.options.indexOf(displayVal);

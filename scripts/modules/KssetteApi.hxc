@@ -345,22 +345,30 @@ class KssetteApi extends Module {
         _mobileLikePc = true;
         if (FlxG.onMobile) {
             var mobileVal:Dynamic = Save.instance.modOptions.get("kssette_mobile_keyboard");
-            var isForcedOn = false;
+            var lastScheme:Dynamic = Save.instance.modOptions.get("kssette_last_control_scheme");
+            var currentScheme = "Arrows";
+            
             if (Reflect.hasField(Save.instance, "mobileOptions") && Reflect.hasField(Save.instance.mobileOptions, "controlsScheme")) {
-                isForcedOn = (Save.instance.mobileOptions.controlsScheme != "Arrows");
+                currentScheme = Save.instance.mobileOptions.controlsScheme;
             }
-            _mobileLikePc = isForcedOn || (mobileVal == "On" || mobileVal == true);
+            
+            if (lastScheme != currentScheme) {
+                Save.instance.modOptions.set("kssette_last_control_scheme", currentScheme);
+                if (currentScheme != "Arrows") {
+                    Save.instance.modOptions.set("kssette_mobile_keyboard", "On");
+                    mobileVal = "On";
+                } else {
+                    Save.instance.modOptions.set("kssette_mobile_keyboard", "Off");
+                    mobileVal = "Off";
+                }
+                Save.instance.flush();
+            }
+            
+            _mobileLikePc = (mobileVal == "On" || mobileVal == true);
         }
 
         for (key in optionKeys) {
             var kssVal = normalizeKssValue(key, Save.instance.modOptions.get(key));
-            if (key == "kssette_mobile_keyboard") {
-                var isForcedOn = false;
-                if (Reflect.hasField(Save.instance, "mobileOptions") && Reflect.hasField(Save.instance.mobileOptions, "controlsScheme")) {
-                    isForcedOn = (Save.instance.mobileOptions.controlsScheme != "Arrows");
-                }
-                if (isForcedOn) kssVal = true;
-            }
             _kssCache.set(key, kssVal);
         }
 

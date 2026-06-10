@@ -50,6 +50,8 @@ class KssetteHUDPreview extends Module {
     
     var bfIdleTimer:Float = 0.0;
     var dadIdleTimer:Float = 0.0;
+    var isArrowsScheme:Bool = false;
+    var canSpawnOpp:Bool = true;
 
     public function new() {
         super("KssetteHUDPreview");
@@ -375,9 +377,9 @@ class KssetteHUDPreview extends Module {
                                     rec.x = compactStartX + (112.0 * i);
                                 }
                             }
-                        } else if (ms == "On" || ms == "Like Mobile") {
+                        } else if (ms == "On" || ms == "Like Mobile" || (isArrowsScheme && ms == "Off")) {
                             var sizeRatio = 0.65;
-                            if (ms == "Like Mobile") sizeRatio = 0.55;
+                            if (ms == "Like Mobile" || (isArrowsScheme && ms == "Off")) sizeRatio = 0.55;
                             var targetSpacing = noteSpace * sizeRatio;
                             var actualNw = 0.0;
 
@@ -395,7 +397,7 @@ class KssetteHUDPreview extends Module {
                             var compactStartX:Float = sxOff;
                             if (ms == "Like Mobile") compactStartX = 10.0;
                             
-                            if (ms != "Like Mobile" && oppPos == "Right") {
+                            if (ms != "Like Mobile" && oppPos == "Right" && !(isArrowsScheme && ms == "Off")) {
                                 compactStartX = FlxG.width - sxOff - exactTotalWidth;
                             }
 
@@ -462,13 +464,13 @@ class KssetteHUDPreview extends Module {
                 else if (rawMs == false) ms = "Off";
                 else ms = Std.string(rawMs);
                 
-                oppNotesActive = apiModule.getKssValue("kssette_ms_oppnotes") == true;
+                oppNotesActive = apiModule.getKssValue("kssette_mobile_opp_notes") == true;
                 isMob = apiModule.isMobileMode == true;
                 isMobPC = apiModule.isMobileLikePC() == true;
             }
         } catch(e:Dynamic) {}
 
-        var isArrowsScheme = false;
+        isArrowsScheme = false;
         if (isMob && !isMobPC) {
             try {
                 if (Std.string(Preferences.controlsScheme) == "Arrows") isArrowsScheme = true;
@@ -476,7 +478,7 @@ class KssetteHUDPreview extends Module {
         }
         
         var isPlayer = true;
-        var canSpawnOpp = true;
+        canSpawnOpp = true;
         if (opponentStrumPreview != null && opponentStrumPreview.exists) {
             if (ms == "Like Mobile" || (isArrowsScheme && !oppNotesActive)) {
                 canSpawnOpp = false;
