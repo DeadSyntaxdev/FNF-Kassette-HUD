@@ -1074,12 +1074,6 @@ class KssetteApi extends Module {
         if (key == "kssette_intro_pos" && (intro == "Off" || intro == false || intro == "Clap")) return true;
         if (key == "kssette_intro_album" && (intro == "Off" || intro == false)) return true;
 
-        if (key == "kssette_mobile_keyboard" && isMobileMode) {
-            var mScheme = "Arrows";
-            try { mScheme = Save.instance.mobileOptions.controlsScheme; } catch(e:Dynamic) {}
-            if (mScheme != "Arrows") return true;
-        }
-
         return false;
     }
 
@@ -1093,7 +1087,6 @@ class KssetteApi extends Module {
         
         if (isOptionLocked(key)) {
             if (key == "kssette_opponent_bg" || key == "kssette_ghost_sing" || key == "kssette_show_misses") return false;
-            if (key == "kssette_mobile_keyboard") return true;
             if (key == "kssette_breakbar_pos") return "Center";
         }
 
