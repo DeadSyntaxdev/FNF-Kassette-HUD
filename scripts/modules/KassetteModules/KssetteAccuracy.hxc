@@ -102,6 +102,8 @@ class KssetteAccuracy extends Module {
     var _cSmooth:Bool = false;
     var _cIsBotplay:Bool = false;
     var _cJudgesVisible:Bool = false;
+    var _cScoreBop:Bool = false;
+    var _bopTimer:Float = 0.0;
 
     var cachedRankStr:String = "?";
     var cachedTierStr:String = "N/A";
@@ -233,6 +235,10 @@ class KssetteAccuracy extends Module {
         previewAccTimer = 0.0;
         frameUpdateTimer = 0.0;
         pendingTextUpdate = false;
+        
+        _lastP1Id = "";
+        _lastP2Id = "";
+        _hbUpdateTimer = 0.0;
 
         _lastBuiltScoreInt = -1;
         _lastBuiltMisses = -1;
@@ -360,6 +366,7 @@ class KssetteAccuracy extends Module {
         _cShowTime = api.getKssValue("kssette_show_song_time") == true;
         _cShowTitle = api.getKssValue("kssette_show_song_title") == true;
         _cShowDiff = api.getKssValue("kssette_show_song_diff") == true;
+        _cScoreBop = api.getKssValue("kssette_score_bop") == true;
         
         cachedModeMsg = Std.string(api.getModeMessage());
         
@@ -428,18 +435,49 @@ class KssetteAccuracy extends Module {
     public function updatePositions() {
         if (uiText == null || api == null) return;
         
-        var forceDownscrollLook:Bool = false;
-        var isMob:Bool = api.isMobileMode == true;
-        var isMobPC:Bool = api.isMobileLikePC() == true;
-        forceDownscrollLook = (isMob && !isMobPC);
-
-        var downscroll = Preferences.downscroll || forceDownscrollLook;
-        var newY = downscroll ? 110 : (FlxG.height - 50);
-        if (uiText.y != newY) uiText.y = newY;
-
-        var infoPos:String = Std.string(api.getKssValue("kssette_info_pos"));
+        var downscroll = false;
+        if (api != null && api.getDownscroll != null) downscroll = api.getDownscroll();
+        else downscroll = Preferences.downscroll;
         var timeBarPos:String = Std.string(api.getKssValue("kssette_timebar_pos"));
         var showTimeBar:Bool = api.getKssValue("kssette_show_timebar") == true;
+        var hasBottomTimebar = showTimeBar && (timeBarPos.indexOf("Bottom") != -1);
+        var hasTopTimebar = showTimeBar && (timeBarPos.indexOf("Top") != -1);
+        var inverted = api.getKssValue("kssette_score_pos") == "Inverted";
+
+        var newY = downscroll ? 110 : (FlxG.height - 50);
+        var strumYOffset:Float = 0;
+
+        if (inverted) {
+            if (downscroll) {
+                if (hasBottomTimebar) {
+                    newY = FlxG.height - 45;
+                } else {
+                    newY = FlxG.height - 25;
+                }
+            } else {
+                if (hasTopTimebar) {
+                    newY = 35;
+                } else {
+                    newY = 15;
+                }
+            }
+        } else {
+            if (downscroll) {
+                if (hasTopTimebar) newY = 135;
+                else newY = 110;
+            } else {
+                if (hasBottomTimebar) newY = FlxG.height - 75;
+                else newY = FlxG.height - 50;
+            }
+        }
+        
+        if (uiText.y != newY) uiText.y = newY;
+
+        if (uiText != null && uiText.zIndex < 900) {
+            uiText.zIndex = 1000;
+        }
+
+        var infoPos:String = Std.string(api.getKssValue("kssette_info_pos"));
 
         var safeX:Float = 18;
         if (api.isMobileMode == true) safeX = 85;
@@ -461,15 +499,35 @@ class KssetteAccuracy extends Module {
             iX = safeLeft; iY = FlxG.height - 50 - yOffset; iA = "left";
             tW = FlxG.width - safeLeft - safeRight; iW = FlxG.width - safeLeft - safeRight;
         } else {
+            var inverted = (api.getKssValue("kssette_score_pos") == "Inverted");
+            
             if (!downscroll) {
-                tY = 15; iY = 24; tX = safeLeft; tW = (FlxG.width / 2) - 10 - safeLeft; tA = "right";
-                iX = (FlxG.width / 2) + 10; iW = (FlxG.width / 2) - 10 - safeRight; iA = "left";
+                if (inverted) {
+                    tX = safeLeft; tW = (FlxG.width / 2) - 10 - safeLeft; tA = "right";
+                    iX = (FlxG.width / 2) + 10; iW = (FlxG.width / 2) - 10 - safeRight; iA = "left";
+                    
+                    if (hasBottomTimebar) {
+                        tY = FlxG.height - 55;
+                        iY = FlxG.height - 46;
+                    } else {
+                        tY = FlxG.height - 45;
+                        iY = FlxG.height - 36;
+                    }
+                } else {
+                    tY = 15; iY = 24; tX = safeLeft; tW = (FlxG.width / 2) - 10 - safeLeft; tA = "right";
+                    iX = (FlxG.width / 2) + 10; iW = (FlxG.width / 2) - 10 - safeRight; iA = "left";
+                }
             } else {
-                tA = "center"; iA = "center";
-                tX = safeLeft; iX = safeLeft;
-                tW = FlxG.width - safeLeft - safeRight; iW = FlxG.width - safeLeft - safeRight;
-                tY = uiText.y + 24;
-                iY = tY + 32;
+                if (inverted) {
+                    tY = 15; iY = 24; tX = safeLeft; tW = (FlxG.width / 2) - 10 - safeLeft; tA = "right";
+                    iX = (FlxG.width / 2) + 10; iW = (FlxG.width / 2) - 10 - safeRight; iA = "left";
+                } else {
+                    tA = "center"; iA = "center";
+                    tX = safeLeft; iX = safeLeft;
+                    tW = FlxG.width - safeLeft - safeRight; iW = FlxG.width - safeLeft - safeRight;
+                    tY = uiText.y + 24;
+                    iY = tY + 32;
+                }
             }
         }
 
@@ -673,32 +731,122 @@ class KssetteAccuracy extends Module {
             event.cancel();
             if (PlayState.instance != null) PlayState.instance.noteMiss(event.note);
         }
+        
+        try {
+            var note = event.note;
+            if (note != null && note.noteData != null && !note.noteData.getMustHitNote()) return;
+        } catch(e:Dynamic) {}
+
+        if (_cScoreBop && uiText != null) {
+            uiText.scale.set(1.1, 1.1);
+        }
     }
 
     override public function onUpdate(event) {
+        var elapsed = event.elapsed;
+        
+        if (uiText != null && uiText.exists && _cScoreBop) {
+            var lerpFactor = 1.0 - (elapsed * 15.0);
+            if (lerpFactor < 0) lerpFactor = 0;
+            uiText.scale.x = 1.0 + ((uiText.scale.x - 1.0) * lerpFactor);
+            uiText.scale.y = 1.0 + ((uiText.scale.y - 1.0) * lerpFactor);
+        }
         
         if (isPreview) {
             if (uiText != null && uiText.exists) {
-                if (_cAccMode == "Ascending") {
-                    previewAccTimer += event.elapsed;
-                    uiUpdateTimer += event.elapsed;
-                    
-                    if (uiUpdateTimer >= 0.05) {
-                        uiUpdateTimer = 0.0;
-                        var progress = (previewAccTimer % 5.0) / 5.0;
-                        var previewVisualAcc:Float = Math.round(100.0 * progress);
-                        
-                        if (previewVisualAcc != lastVisualAcc) {
-                            lastVisualAcc = previewVisualAcc;
-                            updateAccuracyText(123456, 0, previewVisualAcc, "PERFECT_GOLD", "SFC");
-                        }
+                if (api != null) {
+                    var newMode = Std.string(api.getKssValue("kssette_acc_mode"));
+                    if (newMode != _cAccMode) {
+                        _cAccMode = newMode;
+                        lastVisualAcc = -1.0; 
                     }
+                    _cSmooth = (api.getKssValue("kssette_smooth_display") == true);
+                }
+                
+                if (_cScoreBop) {
+                    if (api != null && api.preview_scoreBopTrigger) {
+                        api.preview_scoreBopTrigger = false;
+                        uiText.scale.set(1.1, 1.1);
+                    }
+                }
+                
+                var targetVisualAcc:Float = 100.0;
+                if (_cAccMode == "Ascending") {
+                    targetVisualAcc = api != null ? api.preview_simulatedAcc : 0.0;
+                } else if (_cAccMode == "Classic") {
+                    targetVisualAcc = 100.0;
+                }
+                
+                if (!_cSmooth) {
+                    displayedAcc = targetVisualAcc;
+                } else {
+                    displayedAcc += (targetVisualAcc - displayedAcc) * (event.elapsed * 8);
+                    if (Math.abs(targetVisualAcc - displayedAcc) < 0.001) displayedAcc = targetVisualAcc;
+                }
+                
+                var visualAcc:Float = Math.floor(displayedAcc * 100) / 100;
+                
+                if (visualAcc != lastVisualAcc) {
+                    lastVisualAcc = visualAcc;
+                    updateAccuracyText(123456, 0, visualAcc, "PERFECT_GOLD", "SFC");
                 }
             }
             return;
         }
 
         var elapsed = event.elapsed;
+        var state = PlayState.instance;
+        if (state != null && api != null) {
+            if (api.getKssValue("kssette_icon_pos") == "Corners" && state.healthBarBG != null && state.healthBar != null && state.iconP1 != null && state.iconP2 != null) {
+                state.iconP1.autoUpdate = false;
+                state.iconP2.autoUpdate = false;
+                
+                if (state.iconP1 != null) state.iconP1.isLegacyStyle = false;
+                if (state.iconP2 != null) state.iconP2.isLegacyStyle = false;
+
+                var lerpFactor = 1.0 - (elapsed * 15.0);
+                if (lerpFactor < 0) lerpFactor = 0;
+                
+                var p1Scale:Float = api.cachedP1Scale;
+                var p2Scale:Float = api.cachedP2Scale;
+
+                state.iconP1.scale.x = p1Scale + ((state.iconP1.scale.x - p1Scale) * lerpFactor);
+                state.iconP1.scale.y = p1Scale + ((state.iconP1.scale.y - p1Scale) * lerpFactor);
+                state.iconP2.scale.x = p2Scale + ((state.iconP2.scale.x - p2Scale) * lerpFactor);
+                state.iconP2.scale.y = p2Scale + ((state.iconP2.scale.y - p2Scale) * lerpFactor);
+
+                var hp1 = state.health;
+                var hp2 = 2.0 - state.health;
+                
+                var gSide = "NORMAL";
+                if (api.gammodPlayerSide != null) gSide = api.gammodPlayerSide;
+                
+                if (gSide == "OPPOSITE") {
+                    hp1 = 2.0 - state.health;
+                    hp2 = state.health;
+                }
+
+                if (state.iconP1 != null) state.iconP1.updateHealthIcon(hp1);
+                if (state.iconP2 != null) state.iconP2.updateHealthIcon(hp2);
+
+                state.iconP1.updateHitbox();
+                state.iconP2.updateHitbox();
+
+                var centerY = state.healthBar.y + (state.healthBar.height / 2);
+                
+                state.iconP1.x = state.healthBarBG.x + state.healthBarBG.width - (state.iconP1.width / 2);
+                state.iconP2.x = state.healthBarBG.x - (state.iconP2.width / 2);
+                
+                state.iconP1.y = centerY - (state.iconP1.height / 2);
+                state.iconP2.y = centerY - (state.iconP2.height / 2);
+            } else if (state.iconP1 != null && state.iconP2 != null) {
+                if (state.iconP1.autoUpdate == false) state.iconP1.autoUpdate = true;
+                if (state.iconP2.autoUpdate == false) state.iconP2.autoUpdate = true;
+                if (state.iconP1 != null) state.iconP1.isLegacyStyle = true;
+                if (state.iconP2 != null) state.iconP2.isLegacyStyle = true;
+            }
+        }
+
         if (!securityTriggered) {
             frameUpdateTimer += elapsed;
             if (frameUpdateTimer < 0.008) return;
@@ -708,7 +856,6 @@ class KssetteAccuracy extends Module {
             frameUpdateTimer = 0.0;
         }
 
-        var state = PlayState.instance;
         if (state == null || api == null) return;
         
         if (timeText != null && timeText.exists) {
@@ -899,6 +1046,25 @@ class KssetteAccuracy extends Module {
             lastVisualAcc = visualAcc;
 
             updateAccuracyText(lastScore, m, visualAcc, cachedRankStr, cachedTierStr);
+        }
+    }
+
+    function onStepHit(event:StepHitScriptEvent) {
+        var state = PlayState.instance;
+        if (state == null || api == null) return;
+        
+        if (api.getKssValue("kssette_icon_pos") == "Corners" && state.iconP1 != null && state.iconP2 != null) {
+            var bop1 = api.cachedP1Bop;
+            var bop2 = api.cachedP2Bop;
+            
+            if (bop1 > 0 && event.step % bop1 == 0) {
+                var p1Scale:Float = api.cachedP1Scale;
+                state.iconP1.scale.set(p1Scale * 1.2, p1Scale * 1.2);
+            }
+            if (bop2 > 0 && event.step % bop2 == 0) {
+                var p2Scale:Float = api.cachedP2Scale;
+                state.iconP2.scale.set(p2Scale * 1.2, p2Scale * 1.2);
+            }
         }
     }
 }

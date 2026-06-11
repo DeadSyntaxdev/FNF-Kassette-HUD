@@ -413,15 +413,15 @@ var triviaArray:Array<String> = [
         isPreview = false;
         
         apiModule = ModuleHandler.getModule("KssetteApi");
-        if (apiModule != null) {
-            cachedFont = apiModule.getHudFont();
-            if (cachedFont == null || cachedFont == "null" || cachedFont == "") cachedFont = "VCR OSD Mono";
-            animType = Std.string(apiModule.getKssValue("kssette_subtitles_anim"));
-            if (animType == "Karaoke") animType = "Fade"; 
-            
-            posType = Std.string(apiModule.getKssValue("kssette_subtitles_pos"));
-            smartKaraoke = apiModule.getKssValue("kssette_smart_karaoke") == true;
-        }
+        if (apiModule == null) return;
+        
+        cachedFont = apiModule.getHudFont();
+        if (cachedFont == null || cachedFont == "null" || cachedFont == "") cachedFont = "VCR OSD Mono";
+        animType = Std.string(apiModule.getKssValue("kssette_subtitles_anim"));
+        if (animType == "Karaoke") animType = "Fade"; 
+        
+        posType = Std.string(apiModule.getKssValue("kssette_subtitles_pos"));
+        smartKaraoke = apiModule.getKssValue("kssette_smart_karaoke") == true;
         
         var state = PlayState.instance;
         if (state == null) return;
