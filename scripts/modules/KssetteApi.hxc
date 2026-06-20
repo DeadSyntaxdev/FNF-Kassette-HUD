@@ -1,5 +1,7 @@
 package kassettehud.util;
 
+import openfl.utils.Assets;
+import funkin.Preferences;
 import flixel.FlxG;
 import flixel.text.FlxText;
 import flixel.text.FlxTextBorderStyle;
