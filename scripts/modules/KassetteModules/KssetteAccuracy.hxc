@@ -181,29 +181,35 @@ class KssetteAccuracy extends Module {
     }
 
     function getRankFormat(rank:String):FlxTextFormat {
+        var fmt:FlxTextFormat = null;
         switch(rank.toUpperCase()) {
             case "PERFECT_GOLD":
                 if (_fmtPerfectGold == null) _fmtPerfectGold = new FlxTextFormat(0xFFF9E859);
-                return _fmtPerfectGold;
+                fmt = _fmtPerfectGold;
             case "PERFECT":
                 if (_fmtPerfect == null) _fmtPerfect = new FlxTextFormat(0xFFFFAEFF);
-                return _fmtPerfect;
+                fmt = _fmtPerfect;
             case "EXCELLENT":
                 if (_fmtExcellent == null) _fmtExcellent = new FlxTextFormat(0xFFFFFFC5);
-                return _fmtExcellent;
+                fmt = _fmtExcellent;
             case "GREAT":
                 if (_fmtGreat == null) _fmtGreat = new FlxTextFormat(0xFFDCE6F1);
-                return _fmtGreat;
+                fmt = _fmtGreat;
             case "GOOD":
                 if (_fmtGood == null) _fmtGood = new FlxTextFormat(0xFFE19978);
-                return _fmtGood;
+                fmt = _fmtGood;
             case "SHIT":
                 if (_fmtShit == null) _fmtShit = new FlxTextFormat(0xFF4460B7);
-                return _fmtShit;
+                fmt = _fmtShit;
             default:
                 if (_fmtDefault == null) _fmtDefault = new FlxTextFormat(0xFFFFFFFF);
-                return _fmtDefault;
+                fmt = _fmtDefault;
         }
+        
+        if (fmt != null && fmt.format != null && uiText != null && uiText.textField != null && uiText.textField.defaultTextFormat != null) {
+            fmt.format.font = uiText.textField.defaultTextFormat.font;
+        }
+        return fmt;
     }
 
     override function onCountdownStart(event) {
@@ -443,17 +449,21 @@ class KssetteAccuracy extends Module {
         var hasBottomTimebar = showTimeBar && (timeBarPos.indexOf("Bottom") != -1);
         var hasTopTimebar = showTimeBar && (timeBarPos.indexOf("Top") != -1);
         var inverted = api.getKssValue("kssette_score_pos") == "Inverted";
+        var isMob = api.isMobileMode == true;
+        
+        var state = PlayState.instance;
+        var hbY:Float = (state != null && state.healthBarBG != null) ? state.healthBarBG.y : (downscroll ? (FlxG.height * 0.11) : (FlxG.height * 0.89));
 
-        var newY = downscroll ? 110 : (FlxG.height - 50);
-        var strumYOffset:Float = 0;
+        var newY:Float = 0;
 
         if (inverted) {
             if (downscroll) {
                 if (hasBottomTimebar) {
-                    newY = FlxG.height - 45;
+                    newY = FlxG.height - 60;
                 } else {
-                    newY = FlxG.height - 25;
+                    newY = FlxG.height - 40;
                 }
+                if (isMob) newY -= 20;
             } else {
                 if (hasTopTimebar) {
                     newY = 35;
@@ -463,11 +473,11 @@ class KssetteAccuracy extends Module {
             }
         } else {
             if (downscroll) {
-                if (hasTopTimebar) newY = 135;
-                else newY = 110;
+                if (hasTopTimebar) newY = hbY + 55;
+                else newY = hbY + 30;
             } else {
-                if (hasBottomTimebar) newY = FlxG.height - 75;
-                else newY = FlxG.height - 50;
+                if (hasBottomTimebar) newY = hbY - 30;
+                else newY = hbY + 30;
             }
         }
         
@@ -699,23 +709,32 @@ class KssetteAccuracy extends Module {
         if (textChanged || isHighscore) {
             uiText.clearFormats();
 
+            var activeFontFamily:String = null;
+            if (uiText.textField != null && uiText.textField.defaultTextFormat != null) {
+                activeFontFamily = uiText.textField.defaultTextFormat.font;
+            }
+
             if (_lastBuiltUnranked && _unrankedStart != -1) {
                 if (_fmtUnranked == null) _fmtUnranked = new FlxTextFormat(0xFFFF0000);
+                if (_fmtUnranked.format != null && activeFontFamily != null) _fmtUnranked.format.font = activeFontFamily;
                 uiText.addFormat(_fmtUnranked, _unrankedStart, _unrankedEnd);
             }
 
             if (_lastBuiltMult != 1.0 && _multStart != -1) {
                 if (_fmtMult == null) _fmtMult = new FlxTextFormat(0xFF66FFFF);
+                if (_fmtMult.format != null && activeFontFamily != null) _fmtMult.format.font = activeFontFamily;
                 uiText.addFormat(_fmtMult, _multStart, _multEnd);
             }
 
             if (isHighscore && _scoreStart != -1) {
                 if (_fmtHighscore == null) _fmtHighscore = new FlxTextFormat(hsColor);
                 else _fmtHighscore.format.color = hsColor;
+                if (_fmtHighscore.format != null && activeFontFamily != null) _fmtHighscore.format.font = activeFontFamily;
                 uiText.addFormat(_fmtHighscore, _scoreStart, _scoreEnd);
             }
 
             if (_cShowRank && currentTargetFmt != null && _rankStart != -1) {
+                if (currentTargetFmt.format != null && activeFontFamily != null) currentTargetFmt.format.font = activeFontFamily;
                 uiText.addFormat(currentTargetFmt, _rankStart, _rankStart + cachedRankLen);
             }
 
@@ -1038,7 +1057,12 @@ class KssetteAccuracy extends Module {
 
         uiUpdateTimer += elapsed;
         
-        if (pendingTextUpdate && (majorChange || uiUpdateTimer >= 0.033)) {
+        var updateThreshold:Float = 0.033; // ~30 fps
+        if (api != null && api.isMobileMode == true) {
+            updateThreshold = 0.1; // fuck you jetsam
+        }
+        
+        if (pendingTextUpdate && (majorChange || uiUpdateTimer >= updateThreshold)) {
             uiUpdateTimer = 0.0;
             pendingTextUpdate = false;
             

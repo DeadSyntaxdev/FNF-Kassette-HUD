@@ -1,0 +1,283 @@
+import openfl.net.URLLoader;
+import openfl.net.URLRequest;
+import haxe.Json;
+import flixel.FlxG;
+import flixel.FlxSprite;
+import flixel.text.FlxText;
+import flixel.text.FlxTextBorderStyle;
+import flixel.util.FlxColor;
+import flixel.tweens.FlxTween;
+import funkin.Paths;
+import funkin.audio.FunkinSound;
+import funkin.modding.base.ScriptedMusicBeatState;
+import funkin.ui.mainmenu.MainMenuState;
+import funkin.modding.module.ModuleHandler;
+import funkin.util.WindowUtil;
+
+class KssetteUpdateState extends ScriptedMusicBeatState {
+    
+    public var modID:String = "657203";
+    public var latestVersion:String = "Unknown";
+    var modLink:String = "https://gamebanana.com/mods/657203";
+    
+    var bg:FlxSprite;
+    var bgTexts:Array<FlxText> = [];
+    var loopWidth:Float = 0;
+    
+    var titleText:FlxText;
+    var infoText:FlxText;
+    var changelogText:FlxText;
+    
+    var btnUpdate:FlxSprite;
+    var btnUpdateText:FlxText;
+    var btnSkip:FlxSprite;
+    var btnSkipText:FlxText;
+    var curSelected:Int = 0;
+    
+    var canProceed:Bool = false;
+
+    override public function create():Void {
+        super.create();
+        
+        // Base aesthetic background
+        bg = new FlxSprite(0, 0);
+        bg.loadGraphic(Paths.image('menuDesat'));
+        bg.color = 0xFF151520;
+        bg.setGraphicSize(Std.int(bg.width * 1.1));
+        bg.updateHitbox();
+        bg.screenCenter();
+        add(bg);
+        
+        // Huge moving transparent background letters
+        var baseStr = "   UPDATE AVAILABLE   ";
+        var singleText = new FlxText(0, 0, 0, baseStr, 110);
+        singleText.setFormat(Paths.font("5by7.ttf"), 110, FlxColor.WHITE);
+        loopWidth = singleText.width;
+        
+        var fullStr = "";
+        for (j in 0...5) fullStr += baseStr; // 5 repetitions for safety
+        
+        for (i in 0...5) {
+            var yPos = i * 180 - 20;
+            var bgTxt = new FlxText(0, yPos, 0, fullStr, 110);
+            bgTxt.setFormat(Paths.font("5by7.ttf"), 110, FlxColor.WHITE, "left");
+            bgTxt.alpha = 0.05; // Very transparent
+            // No angle, straight horizontal
+            add(bgTxt);
+            bgTexts.push(bgTxt);
+        }
+        
+        titleText = new FlxText(0, 40, FlxG.width, "KASSETTE HUD UPDATE", 76);
+        titleText.setFormat(Paths.font("5by7.ttf"), 76, FlxColor.WHITE, "center", FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+        titleText.borderSize = 3;
+        add(titleText);
+        
+        var apiMod:Dynamic = ModuleHandler.getModule("KssetteApi");
+        if (apiMod != null && apiMod.latestVersion != null) {
+            latestVersion = Std.string(apiMod.latestVersion);
+        }
+        
+        infoText = new FlxText(0, 130, FlxG.width, "Fetching data from GameBanana...", 28);
+        infoText.setFormat(Paths.font("vcr.ttf"), 28, 0xFF888899, "center", FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+        add(infoText);
+        
+        btnUpdate = new FlxSprite(FlxG.width / 2 - 280, FlxG.height - 110).makeGraphic(240, 65, FlxColor.WHITE);
+        btnUpdate.visible = false;
+        add(btnUpdate);
+        
+        btnUpdateText = new FlxText(btnUpdate.x, btnUpdate.y + 16, 240, "UPDATE", 36);
+        btnUpdateText.setFormat(Paths.font("vcr.ttf"), 36, FlxColor.BLACK, "center");
+        btnUpdateText.visible = false;
+        add(btnUpdateText);
+        
+        btnSkip = new FlxSprite(FlxG.width / 2 + 40, FlxG.height - 110).makeGraphic(240, 65, FlxColor.WHITE);
+        btnSkip.visible = false;
+        add(btnSkip);
+        
+        btnSkipText = new FlxText(btnSkip.x, btnSkip.y + 16, 240, "SKIP", 36);
+        btnSkipText.setFormat(Paths.font("vcr.ttf"), 36, FlxColor.BLACK, "center");
+        btnSkipText.visible = false;
+        add(btnSkipText);
+        
+        changeSelection(0);
+        
+        FunkinSound.playMusic('freakyMenu', {
+            startingVolume: 1.0,
+            overrideExisting: false,
+            restartTrack: false,
+            persist: true
+        });
+        
+        fetchGameBananaData();
+    }
+    
+    function fetchGameBananaData() {
+        var urlUpdates = "https://gamebanana.com/apiv11/Mod/" + modID + "/Updates?_t=" + FlxG.random.int(0, 999999);
+        var loaderUpdates = new URLLoader();
+        loaderUpdates.dataFormat = 1;
+        
+        loaderUpdates.addEventListener("complete", function(e) {
+            try {
+                var json = Json.parse(loaderUpdates.data);
+                if (json._aRecords != null && json._aRecords.length > 0) {
+                    var update = null;
+                    for (i in 0...json._aRecords.length) {
+                        var rec = json._aRecords[i];
+                        var nameStr = (rec._sName != null) ? Std.string(rec._sName).toLowerCase() : "";
+                        var verStr = (rec._sVersion != null) ? Std.string(rec._sVersion).toLowerCase() : "";
+                        
+                        if (nameStr.indexOf("lite") == -1 && verStr.indexOf("lite") == -1) {
+                            update = rec;
+                            break;
+                        }
+                    }
+                    if (update == null) update = json._aRecords[0];
+                    
+                    if (update != null && update._sVersion != null) {
+                        latestVersion = Std.string(update._sVersion);
+                    }
+                    
+                    var startY:Float = 180;
+                    if (update._aChangeLog != null) {
+                        for (i in 0...update._aChangeLog.length) {
+                            var item = update._aChangeLog[i];
+                            if (item != null && item.text != null) {
+                                var catStr = (item.cat != null && item.cat != "") ? item.cat : "Info";
+                                var color = getBadgeColor(catStr);
+                                
+                                var catTxt = new FlxText(100, startY, 0, catStr.toUpperCase(), 24);
+                                catTxt.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, "center", FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+                                
+                                var capsule = new FlxSprite(90, startY - 2).makeGraphic(Std.int(catTxt.width + 20), Std.int(catTxt.height + 4), color);
+                                
+                                var descTxt = new FlxText(100 + capsule.width + 20, startY + 2, FlxG.width - 120 - capsule.width - 150, item.text, 22);
+                                descTxt.setFormat(Paths.font("vcr.ttf"), 22, FlxColor.WHITE, "left", FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+                                
+                                add(capsule);
+                                add(catTxt);
+                                add(descTxt);
+                                
+                                capsule.y -= 30; capsule.alpha = 0;
+                                catTxt.y -= 30; catTxt.alpha = 0;
+                                descTxt.y -= 30; descTxt.alpha = 0;
+                                FlxTween.tween(capsule, {y: capsule.y + 30, alpha: 1}, 0.6, {startDelay: 0.1 + (i * 0.1)});
+                                FlxTween.tween(catTxt, {y: catTxt.y + 30, alpha: 1}, 0.6, {startDelay: 0.1 + (i * 0.1)});
+                                FlxTween.tween(descTxt, {y: descTxt.y + 30, alpha: 1}, 0.6, {startDelay: 0.1 + (i * 0.1)});
+                                
+                                startY += Math.max(capsule.height, descTxt.height) + 12;
+                            }
+                        }
+                    } else if (update._sText != null && update._sText != "") {
+                        var singleDesc = new FlxText(150, startY, FlxG.width - 300, StringTools.replace(update._sText, "<br>", "\n"), 22);
+                        singleDesc.setFormat(Paths.font("vcr.ttf"), 22, FlxColor.WHITE, "left", FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+                        add(singleDesc);
+                        
+                        singleDesc.y -= 30; singleDesc.alpha = 0;
+                        FlxTween.tween(singleDesc, {y: singleDesc.y + 30, alpha: 1}, 0.6, {startDelay: 0.1});
+                    }
+                }
+            } catch(err:Dynamic) {
+                trace("[KssetteUpdate] Error parsing GameBanana JSON: " + err);
+            }
+            
+            infoText.text = "New Version: v" + latestVersion;
+            showButtons();
+        });
+        
+        loaderUpdates.addEventListener("ioError", function(e) { 
+            infoText.text = "New Version: v" + latestVersion + " (Could not fetch changelog)";
+            showButtons();
+        });
+        
+        loaderUpdates.addEventListener("securityError", function(e) { 
+            infoText.text = "New Version: v" + latestVersion + " (Could not fetch changelog)";
+            showButtons();
+        });
+        
+        loaderUpdates.load(new URLRequest(urlUpdates));
+    }
+    
+    function getBadgeColor(cat:String):Int {
+        if (cat == null) return 0xFF888888;
+        var c = cat.toLowerCase();
+        if (c == "addition" || c == "suggestion" || c == "feature")    return 0xFF6699FF;
+        if (c == "removal"  || c == "refactor")                        return 0xFF888888;
+        if (c == "overhaul" || c == "bugfix")                          return 0xFFE06666;
+        if (c == "adjustment" || c == "amendment")                     return 0xFF50C878;
+        if (c == "improvement" || c == "optimization" || c == "tweak") return 0xFFD95F8A;
+        return 0xFF888888;
+    }
+    
+    function showButtons() {
+        btnUpdate.visible = true;
+        btnUpdateText.visible = true;
+        btnSkip.visible = true;
+        btnSkipText.visible = true;
+        canProceed = true;
+    }
+    
+    function changeSelection(change:Int) {
+        curSelected += change;
+        if (curSelected < 0) curSelected = 1;
+        if (curSelected > 1) curSelected = 0;
+        
+        btnUpdate.color = (curSelected == 0) ? 0xFF00FF00 : 0xFF555555;
+        btnSkip.color = (curSelected == 1) ? 0xFFFF0000 : 0xFF555555;
+        
+        btnUpdateText.color = (curSelected == 0) ? FlxColor.BLACK : FlxColor.WHITE;
+        btnSkipText.color = (curSelected == 1) ? FlxColor.BLACK : FlxColor.WHITE;
+    }
+
+    override public function update(elapsed:Float):Void {
+        super.update(elapsed);
+        
+        // Background scrolling animation
+        for (i in 0...bgTexts.length) {
+            var txt = bgTexts[i];
+            if (i % 2 == 0) {
+                txt.x -= 40 * elapsed;
+                if (txt.x <= -loopWidth) txt.x += loopWidth;
+            } else {
+                txt.x += 40 * elapsed;
+                if (txt.x >= 0) txt.x -= loopWidth;
+            }
+        }
+        
+        if (!canProceed) return;
+        
+        if (FlxG.keys.justPressed.LEFT || FlxG.keys.justPressed.RIGHT || FlxG.keys.justPressed.A || FlxG.keys.justPressed.D) {
+            FunkinSound.playOnce(Paths.sound('scrollMenu'));
+            changeSelection(1);
+        }
+        
+        if (FlxG.mouse.justPressed) {
+            if (FlxG.mouse.overlaps(btnUpdate)) {
+                curSelected = 0;
+                confirmSelection();
+            } else if (FlxG.mouse.overlaps(btnSkip)) {
+                curSelected = 1;
+                confirmSelection();
+            }
+        }
+        
+        if (FlxG.keys.justPressed.ENTER || FlxG.keys.justPressed.SPACE) {
+            confirmSelection();
+        }
+        
+        if (FlxG.keys.justPressed.ESCAPE || FlxG.keys.justPressed.BACKSPACE) {
+            FunkinSound.playOnce(Paths.sound('cancelMenu'));
+            FlxG.switchState(new MainMenuState());
+        }
+    }
+    
+    function confirmSelection() {
+        if (curSelected == 0) {
+            FunkinSound.playOnce(Paths.sound('confirmMenu'));
+            try { WindowUtil.openURL(modLink); } catch(err:Dynamic) {}
+            FlxG.switchState(new MainMenuState());
+        } else {
+            FunkinSound.playOnce(Paths.sound('cancelMenu'));
+            FlxG.switchState(new MainMenuState());
+        }
+    }
+}

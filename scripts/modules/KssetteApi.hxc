@@ -11,6 +11,7 @@ import funkin.modding.events.StateChangeScriptEvent;
 import funkin.modding.events.UpdateScriptEvent;
 import funkin.modding.events.ScriptEvent;
 import funkin.play.PlayState;
+import funkin.ui.mainmenu.MainMenuState;
 import funkin.play.scoring.Scoring;
 import funkin.Highscore;
 import funkin.Paths;
@@ -21,17 +22,21 @@ import Std;
 import Math;
 import StringTools;
 import Reflect;
+import Type;
 import funkin.util.ReflectUtil;
 import funkin.util.FileUtil;
 import funkin.modding.PolymodHandler;
-import funkin.data.notestyle.NoteStyleRegistry;
+import openfl.net.URLLoader;
+import openfl.net.URLRequest;
+import openfl.events.Event;
+import openfl.events.IOErrorEvent;
+import openfl.events.SecurityErrorEvent;
 import funkin.modding.base.ScriptedMusicBeatState;
-import openfl.utils.Assets;
-import funkin.Preferences;
+import funkin.data.notestyle.NoteStyleRegistry;
 
 class KssetteApi extends Module {
     final optionsID:String = "kassette-hud";
-    public var hudVersion:String = "0.2.2";
+    public var hudVersion:String = "0.2.3.b2";
     public var preview_bf:Dynamic = null;
     public var preview_dad:Dynamic = null;
     public var preview_scoreBopTrigger:Bool = false;
@@ -57,6 +62,12 @@ class KssetteApi extends Module {
     public var missesCount:Int = 0;
     public var isMobileMode:Bool = false;
     public var isCompromised:Bool = false;
+    
+    public var latestVersion:String = "";
+    public var updateAvailable:Bool = false;
+    var _versionChecked:Bool = false;
+    var _hasStartedUpdateCheck:Bool = false;
+    var _hasShownUpdateScreen:Bool = false;
     private var expectedResponse:String = "";
     private var heartbeatTimer:Float = 4.0;
     private var gracePeriod:Float = 3.0;
@@ -146,14 +157,57 @@ class KssetteApi extends Module {
 
     public function new() {
         super('KssetteApi', 1000);
+        
+        isCompromised = false;
         isMobileMode = (FlxG.onMobile); 
         _isInPlayState = false;
         
         initSettings();
         refreshOptionCache();
         preloadFontsIndex();
-        isCompromised = false;
         _lastParsedChartId = "";
+    }
+    
+    public function checkForUpdates() {
+        if (_versionChecked) return;
+        _versionChecked = true;
+        
+        trace("[KssetteUpdate] Initializing update check with URLLoader (thx u Dpz)...");
+        try {
+            var loader = new URLLoader();
+            var _url:String = "https://raw.githubusercontent.com/mkssette/FNF-Kassette-HUD/refs/heads/info/last_version.txt";
+            
+            trace("Attempting to get string from URL: " + _url);
+            loader.dataFormat = 1; // URLLoaderDataFormat.TEXT
+            
+            loader.addEventListener("complete", function(e:Event) {
+                var data:String = loader.data;
+                trace("[KssetteUpdate] DOWNLOADED VERSION: '" + data + "'");
+                if (data != null && data != "") {
+                    var v = StringTools.trim(data);
+                    trace("[KssetteUpdate] COMPARING: Downloaded '" + v + "' vs Current '" + hudVersion + "'");
+                    if (v != "" && v != hudVersion && v != "0.2.3.a1") {
+                        trace("[KssetteUpdate] UPDATE AVAILABLE! Proceeding to notify.");
+                        latestVersion = v;
+                        updateAvailable = true;
+                    } else {        
+                        trace("[KssetteUpdate] NO UPDATE NEEDED. Versions match.");
+                    }
+                }
+            });
+            
+            loader.addEventListener(IOErrorEvent.IO_ERROR, function(e:Dynamic) {
+                trace("[KssetteUpdate] ERROR FETCHING UPDATE (IOError): " + Std.string(e));
+            });
+            
+            loader.addEventListener("securityError", function(e:Dynamic) {
+                trace("[KssetteUpdate] ERROR FETCHING UPDATE (Security Error): " + Std.string(e));
+            });
+            
+            loader.load(new URLRequest(_url));
+        } catch(e:Dynamic) {
+            trace("[KssetteUpdate] CAUGHT EXCEPTION: " + Std.string(e));
+        }
     }
     
     override function onSongEnd(event:ScriptEvent) {
@@ -597,10 +651,10 @@ class KssetteApi extends Module {
                                 if (note.mustHitNote == true) isPlayer = true;
                             } else if (hasDataProp) {
                                 var d = note.data;
-                                if (d != null && Std.parseInt(Std.string(d)) >= 4) isPlayer = true;
+                                if (d != null && d >= 4) isPlayer = true;
                             } else if (hasDProp) {
                                 var d = note.d;
-                                if (d != null && Std.parseInt(Std.string(d)) >= 4) isPlayer = true;
+                                if (d != null && d >= 4) isPlayer = true;
                             }
                             
                             if (isPlayer) {
@@ -608,17 +662,17 @@ class KssetteApi extends Module {
                                 var noteLen:Float = 0;
                                 
                                 if (hasTimeProp) {
-                                    if (note.time != null) noteTime = Std.parseFloat(Std.string(note.time));
+                                    noteTime = note.time;
                                 } else if (hasTProp) {
-                                    if (note.t != null) noteTime = Std.parseFloat(Std.string(note.t));
+                                    noteTime = note.t;
                                 }
                                 
                                 if (hasLengthProp) {
-                                    if (note.length != null) noteLen = Std.parseFloat(Std.string(note.length));
+                                    noteLen = note.length;
                                 } else if (hasLProp) {
-                                    if (note.l != null) noteLen = Std.parseFloat(Std.string(note.l));
+                                    noteLen = note.l;
                                 } else if (hasSustainProp) {
-                                    if (note.sustainLength != null) noteLen = Std.parseFloat(Std.string(note.sustainLength));
+                                    noteLen = note.sustainLength;
                                 }
                                 
                                 if (noteTime != -1) playerNoteTimes.push({start: noteTime, end: noteTime + noteLen});
@@ -672,7 +726,7 @@ class KssetteApi extends Module {
         var w:Int = bWidth > 150 ? 150 : bWidth;
         var h:Int = bHeight > 150 ? 150 : bHeight;
         
-        var detail:Int = 4; 
+        var detail:Int = isMobileMode ? 12 : 4; // fuck you jetsam
         var frequency:Map<Int, Int> = [-1 => 0];
         frequency.remove(-1);
         var bestColor:Int = fallbackColor;
@@ -1398,6 +1452,13 @@ class KssetteApi extends Module {
     }
 
     override public function onUpdate(event:UpdateScriptEvent) {
+        super.onUpdate(event);
+        
+        if (!_hasStartedUpdateCheck) {
+            _hasStartedUpdateCheck = true;
+            checkForUpdates();
+        }
+
         if (Highscore.tallies != null) missesCount = Highscore.tallies.missed;
 
         var state = PlayState.instance;
@@ -1516,7 +1577,7 @@ class KssetteApi extends Module {
         } else {
             heartbeatTimer = 4.0;
             gracePeriod = 3.0;
-            isCompromised = false;
+            // Si estaba comprometido (asleep), se queda así.
             _integrityTimer = 0.0;
             _accModule = null;
         }
@@ -1525,6 +1586,25 @@ class KssetteApi extends Module {
     override public function onStateChangeEnd(event:StateChangeScriptEvent):Void {
         var target = event.targetState;
         refreshOptionCache();
+        
+        if (target != null && Std.isOfType(target, MainMenuState)) {
+            var updateStr = updateAvailable ? " (UPDATE AVAILABLE)" : "";
+            var mmWatermark = new FlxText(0, FlxG.height - 24, FlxG.width - 12, "KASSETTE HUD v" + hudVersion + updateStr, 16);
+            mmWatermark.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, "right", FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+            mmWatermark.scrollFactor.set(0, 0);
+            target.add(mmWatermark);
+
+            if (!_hasShownUpdateScreen) {
+                _hasShownUpdateScreen = true;
+                if (updateAvailable) {
+                    trace("[KssetteUpdate] Transitioning to KssetteUpdateState!");
+                    FlxG.switchState(ScriptedMusicBeatState.init("KssetteUpdateState"));
+                    return;
+                } else {
+                    trace("[KssetteUpdate] Not transitioning, updateAvailable is false.");
+                }
+            }
+        }
         
         if (Std.isOfType(target, OptionsState)) {
             addSettingsCategory(target);

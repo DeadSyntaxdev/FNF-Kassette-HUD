@@ -149,7 +149,8 @@ class KssetteShowTitle extends Module {
                 var albumId:String = null;
                 if (PlayState.instance != null && PlayState.instance.currentSong != null) {
                     try {
-                        albumId = PlayState.instance.currentSong.getAlbumId(PlayState.instance.currentDifficulty, PlayState.instance.currentVariation);
+                        var diff = PlayState.instance.currentSong.getDifficulty(PlayState.instance.currentDifficulty, PlayState.instance.currentVariation);
+                        if (diff != null) albumId = diff.album;
                     } catch(e:Dynamic) {}
                 }
                 
