@@ -13,12 +13,13 @@ import funkin.modding.base.ScriptedMusicBeatState;
 import funkin.ui.mainmenu.MainMenuState;
 import funkin.modding.module.ModuleHandler;
 import funkin.util.WindowUtil;
+import funkin.util.TouchUtil;
 
 class KssetteUpdateState extends ScriptedMusicBeatState {
     
-    public var modID:String = "657203";
+    final modID:String = "657203";
     public var latestVersion:String = "Unknown";
-    var modLink:String = "https://gamebanana.com/mods/657203";
+    final modLink:String = "https://gamebanana.com/mods/657203";
     
     var bg:FlxSprite;
     var bgTexts:Array<FlxText> = [];
@@ -39,7 +40,6 @@ class KssetteUpdateState extends ScriptedMusicBeatState {
     override public function create():Void {
         super.create();
         
-        // Base aesthetic background
         bg = new FlxSprite(0, 0);
         bg.loadGraphic(Paths.image('menuDesat'));
         bg.color = 0xFF151520;
@@ -48,21 +48,19 @@ class KssetteUpdateState extends ScriptedMusicBeatState {
         bg.screenCenter();
         add(bg);
         
-        // Huge moving transparent background letters
         var baseStr = "   UPDATE AVAILABLE   ";
         var singleText = new FlxText(0, 0, 0, baseStr, 110);
         singleText.setFormat(Paths.font("5by7.ttf"), 110, FlxColor.WHITE);
         loopWidth = singleText.width;
         
         var fullStr = "";
-        for (j in 0...5) fullStr += baseStr; // 5 repetitions for safety
+        for (j in 0...5) fullStr += baseStr;
         
         for (i in 0...5) {
             var yPos = i * 180 - 20;
             var bgTxt = new FlxText(0, yPos, 0, fullStr, 110);
             bgTxt.setFormat(Paths.font("5by7.ttf"), 110, FlxColor.WHITE, "left");
-            bgTxt.alpha = 0.05; // Very transparent
-            // No angle, straight horizontal
+            bgTxt.alpha = 0.05;
             add(bgTxt);
             bgTexts.push(bgTxt);
         }
@@ -231,7 +229,6 @@ class KssetteUpdateState extends ScriptedMusicBeatState {
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
         
-        // Background scrolling animation
         for (i in 0...bgTexts.length) {
             var txt = bgTexts[i];
             if (i % 2 == 0) {
@@ -250,11 +247,11 @@ class KssetteUpdateState extends ScriptedMusicBeatState {
             changeSelection(1);
         }
         
-        if (FlxG.mouse.justPressed) {
-            if (FlxG.mouse.overlaps(btnUpdate)) {
+        if (FlxG.mouse.justPressed || TouchUtil.justPressed) {
+            if (FlxG.mouse.overlaps(btnUpdate) || TouchUtil.overlaps(btnUpdate)) {
                 curSelected = 0;
                 confirmSelection();
-            } else if (FlxG.mouse.overlaps(btnSkip)) {
+            } else if (FlxG.mouse.overlaps(btnSkip) || TouchUtil.overlaps(btnSkip)) {
                 curSelected = 1;
                 confirmSelection();
             }
