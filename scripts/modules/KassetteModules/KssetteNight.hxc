@@ -141,7 +141,7 @@ class KssetteNight extends Module {
             var state = PlayState.instance;
             var targetCam:flixel.FlxCamera = null;
             if (isPlayStateActive()) {
-                targetCam = Reflect.getProperty(state, "camHUD");
+                targetCam = state?.camHUD;
             }
             if (targetCam == null) targetCam = FlxG.camera;
             
@@ -234,7 +234,7 @@ class KssetteNight extends Module {
             }
         } else if (isPlayStateActive()) {
             var currentCam:flixel.FlxCamera = null;
-            currentCam = Reflect.getProperty(PlayState.instance, "camHUD");
+            currentCam = PlayState.instance?.camHUD;
             if (currentCam == null) currentCam = FlxG.camera;
             
             if (overlayGame.cameras == null || overlayGame.cameras.length == 0 || overlayGame.cameras[0] != currentCam) {

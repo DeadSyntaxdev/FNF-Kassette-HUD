@@ -139,8 +139,8 @@ class KssetteResumeCount extends Module {
             if (checkState.startingSong || checkState.isPlayerDying) { restoreAudio(checkState); return; }
             if (checkState.conductorInUse != null && checkState.conductorInUse.songPosition <= 0) { restoreAudio(checkState); return; }
             
-            if (Reflect.hasField(checkState, "_exiting") && Reflect.field(checkState, "_exiting") == true) { restoreAudio(checkState); return; }
-            if (Reflect.hasField(checkState, "isEndingSong") && Reflect.field(checkState, "isEndingSong") == true) { restoreAudio(checkState); return; }
+            if (checkState?._exiting == true) { restoreAudio(checkState); return; }
+            if (checkState?.isEndingSong == true) { restoreAudio(checkState); return; }
 
             startCustomCountdown();
         });
@@ -183,10 +183,8 @@ class KssetteResumeCount extends Module {
 
         if (state != null && state.playerStrumline != null && state.playerStrumline.noteStyle != null) {
             var ns = state.playerStrumline.noteStyle;
-            if (Reflect.hasField(ns, "id")) {
-                var rawId = Reflect.field(ns, "id");
-                if (rawId != null) cachedStyle = Std.string(rawId);
-            }
+            var rawId = ns?.id;
+            if (rawId != null) cachedStyle = Std.string(rawId);
         }
     }
 
@@ -199,9 +197,15 @@ class KssetteResumeCount extends Module {
 
         for (num in 0...4) {
             var soundAsset:Dynamic = null;
-            soundAsset = Paths.sound('gameplay/countdown/' + fallbackStyle + '/intro' + soundNames[num]);
+            
+            if (cachedStyle != "funkin" && cachedStyle != "pixel") {
+                soundAsset = Paths.sound('gameplay/countdown/' + cachedStyle + '/intro' + soundNames[num]);
+                if (soundAsset == null) soundAsset = Paths.sound('gameplay/countdown/' + cachedStyle + '/intro' + soundNamesNum[num]);
+            }
+            
             if (soundAsset == null) {
-                soundAsset = Paths.sound('gameplay/countdown/' + fallbackStyle + '/intro' + soundNamesNum[num]);
+                soundAsset = Paths.sound('gameplay/countdown/' + fallbackStyle + '/intro' + soundNames[num]);
+                if (soundAsset == null) soundAsset = Paths.sound('gameplay/countdown/' + fallbackStyle + '/intro' + soundNamesNum[num]);
             }
             if (soundAsset == null && fallbackStyle != "funkin") {
                 soundAsset = Paths.sound('gameplay/countdown/funkin/intro' + soundNames[num]);
@@ -213,11 +217,22 @@ class KssetteResumeCount extends Module {
             var drawScale:Float = 1.0;
 
             if (imageNames[num] != "") {
-                imageAsset = Paths.image('ui/countdown/' + fallbackStyle + '/' + imageNames[num]);
-                if (fallbackStyle == "pixel") {
-                    usePixel = true;
-                    drawScale = 6.0;
+                if (cachedStyle != "funkin" && cachedStyle != "pixel") {
+                    imageAsset = Paths.image('ui/countdown/' + cachedStyle + '/' + imageNames[num]);
+                    if (imageAsset != null) {
+                        usePixel = cachedStyle.indexOf("pixel") != -1;
+                        drawScale = usePixel ? 6.0 : 1.0;
+                    }
                 }
+                
+                if (imageAsset == null) {
+                    imageAsset = Paths.image('ui/countdown/' + fallbackStyle + '/' + imageNames[num]);
+                    if (imageAsset != null) {
+                        usePixel = fallbackStyle == "pixel";
+                        drawScale = usePixel ? 6.0 : 1.0;
+                    }
+                }
+                
                 if (imageAsset == null && fallbackStyle != "funkin") {
                     imageAsset = Paths.image('ui/countdown/funkin/' + imageNames[num]);
                     usePixel = false;

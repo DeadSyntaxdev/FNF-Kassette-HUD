@@ -265,7 +265,7 @@ class KssetteAccuracy extends Module {
         if (state.scoreText != null) state.scoreText.visible = false;
 
         if (state.playerStrumline != null) {
-            var bg1:Dynamic = Reflect.getProperty(state.playerStrumline, "background");
+            var bg1 = state.playerStrumline?.background;
             if (bg1 != null) {
                 state.playerStrumline.remove(bg1, true);
                 bg1.zIndex = 10;
@@ -274,7 +274,7 @@ class KssetteAccuracy extends Module {
             }
         }
         if (state.opponentStrumline != null) {
-            var bg2:Dynamic = Reflect.getProperty(state.opponentStrumline, "background");
+            var bg2 = state.opponentStrumline?.background;
             if (bg2 != null) {
                 state.opponentStrumline.remove(bg2, true);
                 bg2.zIndex = 10;
@@ -731,10 +731,13 @@ class KssetteAccuracy extends Module {
             if (PlayState.instance != null) PlayState.instance.noteMiss(event.note);
         }
         
-        try {
-            var note = event.note;
-            if (note != null && note.noteData != null && !note.noteData.getMustHitNote()) return;
-        } catch(e:Dynamic) {}
+        var note = event.note;
+        if (note != null && note.noteData != null) {
+            var mh = false;
+            if (note.noteData.getMustHitNote != null) mh = note.noteData.getMustHitNote();
+            else mh = note.noteData.mustHitNote;
+            if (!mh) return;
+        }
 
         if (_cScoreBop && uiText != null) {
             uiText.scale.set(1.1, 1.1);
@@ -871,7 +874,7 @@ class KssetteAccuracy extends Module {
         var minorChange:Bool = (currentScoreInt != lastScore);
 
         if (cachedActualTotal == -1 && t != null) {
-            var tn:Dynamic = Reflect.getProperty(t, "totalNotes");
+            var tn = t?.totalNotes;
             if (tn != null && tn > 0) cachedActualTotal = Std.int(tn);
             if (cachedActualTotal <= 0) cachedActualTotal = cachedTotalNotes;
         }

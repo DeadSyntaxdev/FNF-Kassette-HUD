@@ -46,7 +46,7 @@ class KssetteApi extends Module {
     var optionKeys:Array<String> = [
         "kssette_show_score", "kssette_show_misses",
         "kssette_acc_mode", "kssette_show_rank", "kssette_show_tier",
-        "kssette_middlescroll", "kssette_opponent_pos", "kssette_opponent_bg", "kssette_ghost_tapping",
+        "kssette_middlescroll", "kssette_hide_opponent", "kssette_opponent_opacity", "kssette_opponent_pos", "kssette_opponent_bg", "kssette_ghost_tapping",
         "kssette_ghost_sing", "kssette_show_timebar", "kssette_info_pos",
         "kssette_show_song_title", "kssette_show_song_diff",
         "kssette_show_song_time", "kssette_judge_pos", "kssette_mobile_keyboard", "kssette_mobile_opp_notes",
@@ -122,7 +122,8 @@ class KssetteApi extends Module {
     var _cachedHudFont:String = "";
     var _cachedHudStyleId:String = "";
     var _breakData:Dynamic = {active: false, progress: 0.0, timeLeft: 0.0};
-
+    
+    public var khudDebug:Bool = true;
     var _isInPlayState:Bool = false;
 
     var _lastP1Id:String = "";
@@ -322,7 +323,7 @@ class KssetteApi extends Module {
             if (!Save.instance.modOptions.exists(opt)) {
                 var defaultVal:Dynamic = "On";
                 switch (opt) {
-                    case "kssette_middlescroll", "kssette_opponent_bg", "kssette_ghost_sing", "kssette_judge_pos", "kssette_smart_karaoke", "kssette_night_mode", "kssette_hitsound", "kssette_mobile_keyboard", "kssette_score_bop":
+                    case "kssette_middlescroll", "kssette_hide_opponent", "kssette_opponent_bg", "kssette_ghost_sing", "kssette_judge_pos", "kssette_smart_karaoke", "kssette_night_mode", "kssette_hitsound", "kssette_mobile_keyboard", "kssette_score_bop":
                         defaultVal = "Off";
                     case "kssette_mobile_opp_notes":
                         defaultVal = "On";
@@ -338,6 +339,8 @@ class KssetteApi extends Module {
                         defaultVal = "vcr.ttf";
                     case "kssette_custom_pixel_font":
                         defaultVal = "pixel.otf";
+                    case "kssette_opponent_opacity":
+                        defaultVal = "100%";
                     case "kssette_night_start":
                         defaultVal = "20:00";
                     case "kssette_night_end":
@@ -419,6 +422,7 @@ class KssetteApi extends Module {
             if (key == "kssette_middlescroll") return "Off";
             if (key == "kssette_opponent_pos") return "Left";
             if (key == "kssette_opponent_bg") return "Off";
+            if (key == "kssette_hide_opponent") return "Off";
         }
 
         if (key == "kssette_intro_text") {
@@ -450,6 +454,11 @@ class KssetteApi extends Module {
     public function invalidateCache():Void {
         refreshOptionCache();
         clearSongCache();
+    }
+    
+    public function getFontSize(baseSize:Int, key:String):Int {
+        // Discarded feature: Always return baseSize to prevent giant fonts from old save data
+        return baseSize;
     }
     
     public function preCacheIconColor(iconId:String, isPlayer:Bool = false):Void {
@@ -1113,7 +1122,23 @@ class KssetteApi extends Module {
         var ms = Save.instance.modOptions.get("kssette_middlescroll");
         if (ms == null) ms = "Off";
 
-        if (key == "kssette_opponent_bg" && ms != "Off") return true;
+        var hideOpp = Save.instance.modOptions.get("kssette_hide_opponent");
+        if (hideOpp == null) hideOpp = "Off";
+
+        if (key == "kssette_opponent_bg" && (ms != "Off" || Std.string(hideOpp) == "On" || Std.string(hideOpp) == "true")) return true;
+        if (key == "kssette_opponent_opacity") {
+            if (ms == "Off" && (Std.string(hideOpp) == "On" || Std.string(hideOpp) == "true")) return true;
+            if (ms == "Hidden Notes" || ms == "Like Mobile" || ms == "Glass") return true;
+            if (isMobileMode) {
+                var mobPc = Save.instance.modOptions.get("kssette_mobile_keyboard");
+                if (mobPc != "On" && mobPc != true) {
+                    var mobOpp = Save.instance.modOptions.get("kssette_mobile_opp_notes");
+                    if (mobOpp == null) mobOpp = "On";
+                    if (Std.string(mobOpp) == "Off" || Std.string(mobOpp) == "false") return true;
+                }
+            }
+        }
+        if (key == "kssette_hide_opponent" && ms != "Off") return true;
         if (key == "kssette_opponent_pos" && ms == "Off") return true;
         if (key == "kssette_breakbar_pos" && ms != "Off") return true;
 

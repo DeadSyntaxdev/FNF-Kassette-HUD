@@ -129,16 +129,12 @@ class KssetteShowTitle extends Module {
         var titleBaseSize = 44;
         var artistBaseSize = 32;
 
-        try {
-            titleBaseSize = apiModule.getFontSize(44, "kssette_size_intro");
-            artistBaseSize = apiModule.getFontSize(32, "kssette_size_intro");
-        } catch(e:Dynamic) {}
+        titleBaseSize = (apiModule != null) ? apiModule.getFontSize(44, "kssette_size_intro") : 44;
+        artistBaseSize = (apiModule != null) ? apiModule.getFontSize(32, "kssette_size_intro") : 32;
 
         var showAlbum:String = "On";
-        try {
-            var rawAlbum = apiModule.getKssValue("kssette_intro_album");
-            if (rawAlbum != null) showAlbum = Std.string(rawAlbum);
-        } catch(e:Dynamic) {}
+        var rawAlbum = (apiModule != null) ? apiModule.getKssValue("kssette_intro_album") : null;
+        if (rawAlbum != null) showAlbum = Std.string(rawAlbum);
 
         var albumArtAsset:String = null;
 
@@ -148,10 +144,11 @@ class KssetteShowTitle extends Module {
             } else {
                 var albumId:String = null;
                 if (PlayState.instance != null && PlayState.instance.currentSong != null) {
-                    try {
-                        var diff = PlayState.instance.currentSong.getDifficulty(PlayState.instance.currentDifficulty, PlayState.instance.currentVariation);
+                        var diff = null;
+                        if (PlayState.instance != null && PlayState.instance.currentSong != null) {
+                            diff = PlayState.instance.currentSong.getDifficulty(PlayState.instance.currentDifficulty, PlayState.instance.currentVariation);
+                        }
                         if (diff != null) albumId = diff.album;
-                    } catch(e:Dynamic) {}
                 }
                 
                 if (albumId != null) {
@@ -468,18 +465,14 @@ class KssetteShowTitle extends Module {
         apiModule = ModuleHandler.getModule("KssetteApi");
         if (apiModule == null) return;
 
-        try {
-            var rawStyle = apiModule.getKssValue("kssette_intro_text");
+            var rawStyle = (apiModule != null) ? apiModule.getKssValue("kssette_intro_text") : null;
             animStyle = Std.string(rawStyle);
             
-            var rawPos = apiModule.getKssValue("kssette_intro_pos");
+            var rawPos = (apiModule != null) ? apiModule.getKssValue("kssette_intro_pos") : null;
             if (rawPos != null) animPos = Std.string(rawPos);
             else animPos = "Center";
             
             isActive = (animStyle != "Off" && animStyle != "false");
-        } catch(e:Dynamic) {
-            isActive = false;
-        }
         
         if (!isActive) return;
 

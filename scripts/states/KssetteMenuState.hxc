@@ -29,6 +29,8 @@ import Math;
 import Std;
 import flixel.math.FlxPoint;
 import flixel.math.FlxRect;
+import flixel.tweens.FlxTween;
+import flixel.tweens.FlxEase;
 import StringTools;
 import funkin.mobile.ui.FunkinBackButton;
 import funkin.util.TouchUtil;
@@ -137,7 +139,6 @@ class KssetteMenuState extends ScriptedMusicBeatState {
     var volSel_TxtVal:FlxText;
     var volSel_Up:FlxText;
     var volSel_Down:FlxText;
-
     var holdTimer:Float = 0;
     var panelHidden:Bool = false;
     var panelOnLeft:Bool = false;
@@ -156,7 +157,8 @@ class KssetteMenuState extends ScriptedMusicBeatState {
     var touchStartX:Float = 0;
     var isDragging:Bool = false;
     var dragOffsetY:Float = 0.0;
-    
+    var lastTouchY:Float = 0;
+    var touchVelocityY:Float = 0;
     var previewHoldTimer:Float = 0.0;
     var previewActionFired:Bool = false;
 
@@ -166,8 +168,13 @@ class KssetteMenuState extends ScriptedMusicBeatState {
     var sndCancel:Dynamic;
     var sndHit:Dynamic;
 
+    var scrollTracker:FlxSprite;
+    var scrollTween:FlxTween;
+
     override public function create():Void {
         super.create();
+        
+        scrollTracker = new FlxSprite(0, 0);
 
 
             sndScroll = Paths.sound('ui/khud_scroll');
@@ -614,59 +621,53 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         add(itemsGroup);
 
         var isMobilePC = (Save.instance.modOptions.get("kssette_mobile_keyboard") == "On");
-        try { if (Save.instance.mobileOptions.controlsScheme != "Arrows") isMobilePC = true; } catch(e:Dynamic) {}
+        if (Save.instance.mobileOptions != null && Save.instance.mobileOptions.controlsScheme != "Arrows") isMobilePC = true;
         var showPCOptions = !FlxG.onMobile || isMobilePC;
 
-        addHeader("Gameplay Settings");
-        
+        addHeader("Gameplay & Modifiers");
         if (FlxG.onMobile) {
             createToggle("PC/HITBOX MODE", "kssette_mobile_keyboard", ["On", "Off"], "Enable if using a Hitbox or Keyboard on mobile. Unlocks PC settings.");
-            createToggle("OPP NOTES FALL", "kssette_mobile_opp_notes", ["On", "Off"], "Shows the opponent's notes when using the mobile Arrows layout.");
+            createToggle("SHOW OPPONENT NOTES ON ARROWS", "kssette_mobile_opp_notes", ["On", "Off"], "Forces the opponent's notes to appear and scroll in the background during mobile Arrows gameplay.");
         }
-        
         if (showPCOptions) {
             createToggle("MIDDLE SCROLL", "kssette_middlescroll", ["Off", "On", "P Style", "Glass", "Hidden Notes", "Like Mobile"], "Moves your notes to the center of the screen for better focus.");
-            createToggle("GHOST TAPPING", "kssette_ghost_tapping", ["On", "Off", "In Breaks"], "Press keys anytime without penalty. You won't miss if there's no note.");
-            
-        }
-        createToggle("GHOST SINGING", "kssette_ghost_sing", ["On", "Off"], "Your character will play singing animations when you press empty keys.");
-        createToggle("RESUME COUNTDOWN", "kssette_resume_countdown", ["On", "Off"], "Adds a 'Ready, Set, Go!' countdown when you unpause the game.");
-        createToggle("JUDGE COUNTER", "kssette_judge_pos", ["Off", "Left", "Right", "Top Left", "Top Right"], "Shows a counter for Sicks, Goods, Bads, etc. Choose where to place it.");
-        createToggle("HITSOUND", "kssette_hitsound", ["Off", "On Note Hit", "Anytime"], "Plays a sound. On Note Hit triggers only when hitting notes, Anytime triggers on any tap.");
-        createVolumeOption("HITSOUND VOL", "kssette_hitsound_volume", "Adjust the volume of the hitsound.");
-        
-        addHeader("HUD Visuals");
-        createToggle("SHOW SCORE", "kssette_show_score", ["On", "Off"], "Show your current score.");
-        createToggle("SHOW MISSES", "kssette_show_misses", ["On", "Off"], "Show a counter for how many notes you've missed.");
-        createToggle("ACCURACY MODE", "kssette_acc_mode", ["Classic", "Ascending", "Off"], "How accuracy is calculated. 'Ascending' starts at 0% and climbs up.");
-        createToggle("SHOW RANK", "kssette_show_rank", ["On", "Off"], "Show your current Rank (P, E, G) based on performance.");
-        createToggle("SHOW FC TIER", "kssette_show_tier", ["On", "Off"], "Show your Combo Status (SFC, GFC, FC, Clear).");
-        createToggle("SCORE BOP", "kssette_score_bop", ["Off", "On"], "Makes the score text bop when hitting notes.");
-        createToggle("SHOW TIME BAR", "kssette_show_timebar", ["On", "Off"], "Show a bar indicating progress.");
-        createToggle("SHOW TIME LEFT", "kssette_show_song_time", ["On", "Off"], "Show a digital timer counting down the song.");
-        createToggle("SHOW BREAK BAR", "kssette_show_breakbar", ["On", "Off"], "Show a specific timer during long breaks in the song.");
-        createToggle("BREAK BAR STYLE", "kssette_breakbar_style", ["Default", "Classic", "Pie"], "The visual style of the break bar.");
-        createToggle("SHOW SONG TITLE", "kssette_show_song_title", ["On", "Off"], "Show the name of the song on the HUD.");
-        createToggle("SHOW DIFFICULTY", "kssette_show_song_diff", ["On", "Off"], "Show the difficulty level on the HUD.");
-        createToggle("COLORED HEALTHBAR", "kssette_colored_healthbar", ["On", "Off"], "Changes the health bar colors to match the character icons.");
-        if (showPCOptions) {
+            createToggle("HIDE OPPONENT", "kssette_hide_opponent", ["Off", "On"], "Hides the opponent's notes completely. Only active when Middle Scroll is Off.");
+            createOpacityOption("OPPONENT OPACITY", "kssette_opponent_opacity", "Adjust the transparency of the opponent's notes.");
             createToggle("OPPONENT STRUM BG", "kssette_opponent_bg", ["On", "Off"], "Show the dark background behind the opponent's notes. (Disabled on Middle Scroll)");
+            createToggle("GHOST TAPPING", "kssette_ghost_tapping", ["On", "Off", "In Breaks"], "Press keys anytime without penalty. You won't miss if there's no note.");
         }
-        
-        addHeader("Night Mode");
-        createToggle("NIGHT MODE", "kssette_night_mode", ["Off", "On", "Auto"], "Dims the game screen to reduce eye strain.");
-        createOpacityOption("NIGHT OPACITY", "kssette_night_opacity", "How dark the night mode filter should be."); 
-        createTimeOption("AUTO START", "kssette_night_start", "When set to Auto, night mode activates at this start time."); 
-        createTimeOption("AUTO END", "kssette_night_end", "When set to Auto, night mode turns off at this end time."); 
-        
-        addHeader("Positions");
+        createToggle("GHOST SINGING ANIMATION", "kssette_ghost_sing", ["On", "Off"], "Your character will play singing animations when you press empty keys.");
+        createToggle("UNPAUSE COUNTDOWN", "kssette_resume_countdown", ["On", "Off"], "Adds a 'Ready, Set, Go!' countdown when you unpause the game.");
+
+        addHeader("HUD Elements");
+        createToggle("SCORE DISPLAY", "kssette_show_score", ["On", "Off"], "Show your current score.");
+        createToggle("MISSES DISPLAY", "kssette_show_misses", ["On", "Off"], "Show a counter for how many notes you've missed.");
+        createToggle("RANK DISPLAY", "kssette_show_rank", ["On", "Off"], "Show your current Rank (P, E, G) based on performance.");
+        createToggle("COMBO TIER DISPLAY", "kssette_show_tier", ["On", "Off"], "Show your Combo Status (SFC, GFC, FC, Clear).");
+        createToggle("SONG TIME BAR", "kssette_show_timebar", ["On", "Off"], "Show a bar indicating progress.");
+        createToggle("SONG TIME TEXT", "kssette_show_song_time", ["On", "Off"], "Show a digital timer counting down the song.");
+        createToggle("BREAK BAR", "kssette_show_breakbar", ["On", "Off"], "Show a specific timer during long breaks in the song.");
+        createToggle("BREAK BAR STYLE", "kssette_breakbar_style", ["Default", "Classic", "Pie"], "The visual style of the break bar.");
+        createToggle("JUDGEMENT COUNTER", "kssette_judge_pos", ["Off", "Left", "Right", "Top Left", "Top Right"], "Shows a counter for Sicks, Goods, Bads, etc. Choose where to place it.");
+        createToggle("SONG TITLE DISPLAY", "kssette_show_song_title", ["On", "Off"], "Show the name of the song on the HUD.");
+        createToggle("DIFFICULTY DISPLAY", "kssette_show_song_diff", ["On", "Off"], "Show the difficulty level on the HUD.");
+        createToggle("COLORED HEALTH BAR", "kssette_colored_healthbar", ["On", "Off"], "Changes the health bar colors to match the character icons.");
+        createToggle("ACCURACY CALCULATION", "kssette_acc_mode", ["Classic", "Ascending", "Off"], "How accuracy is calculated. 'Ascending' starts at 0% and climbs up.");
+        createToggle("SCORE BOP ANIMATION", "kssette_score_bop", ["Off", "On"], "Makes the score text bop when hitting notes.");
+
+        addHeader("Audio Options");
+        createToggle("HITSOUND MODE", "kssette_hitsound", ["Off", "On Note Hit", "Anytime"], "Plays a sound. On Note Hit triggers only when hitting notes, Anytime triggers on any tap.");
+        createVolumeOption("HITSOUND VOLUME", "kssette_hitsound_volume", "Adjust the volume of the hitsound.");
+
+        addHeader("Layout & Positions");
         if (showPCOptions) {
             createToggle("OPPONENT POS", "kssette_opponent_pos", ["Left", "Right"], "Where to put the opponent's notes when Middle Scroll is ON.");
         }
-        createToggle("TIME BAR POS", "kssette_timebar_pos", ["Bottom", "Top", "Bottom Left", "Bottom Right", "Top Left", "Top Right", "Vertical Left", "Vertical Right", "In Health"], "Choose where the Song Progress Bar is placed on screen.");
-        createToggle("BREAK BAR POS", "kssette_breakbar_pos", ["Center", "Strumline"], "Where to place the break bar.");
-        createToggle("ICON POSITIONS", "kssette_icon_pos", ["Default", "Corners"], "Choose where the character icons are placed on the health bar.");
-        createToggle("SCORE BAR POS", "kssette_score_pos", ["Vanilla", "Inverted"], "Choose where the score text is placed relative to the health bar.");
+        createToggle("TIME BAR POSITION", "kssette_timebar_pos", ["Bottom", "Top", "Bottom Left", "Bottom Right", "Top Left", "Top Right", "Vertical Left", "Vertical Right", "In Health"], "Choose where the Song Progress Bar is placed on screen.");
+        createToggle("BREAK BAR POSITION", "kssette_breakbar_pos", ["Center", "Strumline"], "Where to place the break bar.");
+        createToggle("HEALTH ICON POSITIONS", "kssette_icon_pos", ["Default", "Corners"], "Choose where the character icons are placed on the health bar.");
+        createToggle("SCORE TEXT POSITION", "kssette_score_pos", ["Vanilla", "Inverted"], "Choose where the score text is placed relative to the health bar.");
+        
         var isDownscroll = false;
         if (apiRef != null && apiRef.getDownscroll != null) isDownscroll = apiRef.getDownscroll();
         else isDownscroll = Preferences.downscroll;
@@ -681,27 +682,26 @@ class KssetteMenuState extends ScriptedMusicBeatState {
             if (scorePosInit == "Inverted") infoLabel = "Below Health Bar";
             else infoLabel = "Above Arrows";
         }
-        
-        createToggle("INFO TEXT POS", "kssette_info_pos", [infoLabel, "Bottom Left"], "Where to show the Song Name and Difficulty.");
-        
-        addHeader("Performance");
-        createToggle("SMOOTH DISPLAY", "kssette_smooth_display", ["On", "Off"], "Makes the score and accuracy numbers scroll smoothly.");
+        createToggle("SONG INFO POSITION", "kssette_info_pos", [infoLabel, "Bottom Left"], "Where to show the Song Name and Difficulty.");
 
-        addHeader("Intro Text");
-        createToggle("SHOW SONG INTRO", "kssette_intro_text", ["Classic", "Racer", "Clap", "Off"], "Displays the song title and artist when the song starts.");
-        createToggle("SHOW ALBUM COVER", "kssette_intro_album", ["On", "Off"], "Displays the song's album cover art alongside the intro text.");
-        createToggle("INTRO POSITION", "kssette_intro_pos", ["Center", "Left", "Right"], "Where the intro text appears on screen.");
-        
-        addHeader("Fonts");
-        createFontOption("HUD FONT", "kssette_custom_font", "Choose the font for the HUD."); 
-        createFontOption("PIXEL FONT", "kssette_custom_pixel_font", "Choose the font for pixel stages."); 
+        addHeader("Visual Effects");
+        createToggle("SMOOTH NUMBER ANIMATIONS", "kssette_smooth_display", ["On", "Off"], "Makes the score and accuracy numbers scroll smoothly.");
+        createToggle("NIGHT MODE FILTER", "kssette_night_mode", ["Off", "On", "Auto"], "Dims the game screen to reduce eye strain.");
+        createOpacityOption("NIGHT FILTER OPACITY", "kssette_night_opacity", "How dark the night mode filter should be."); 
+        createTimeOption("NIGHT MODE AUTO START", "kssette_night_start", "When set to Auto, night mode activates at this start time."); 
+        createTimeOption("NIGHT MODE AUTO END", "kssette_night_end", "When set to Auto, night mode turns off at this end time."); 
+        createToggle("SONG INTRO TEXT", "kssette_intro_text", ["Classic", "Racer", "Clap", "Off"], "Displays the song title and artist when the song starts.");
+        createToggle("SONG ALBUM COVER", "kssette_intro_album", ["On", "Off"], "Displays the song's album cover art alongside the intro text.");
+        createToggle("INTRO TEXT POSITION", "kssette_intro_pos", ["Center", "Left", "Right"], "Where the intro text appears on screen.");
+
+        addHeader("Subtitles & Fonts");
+        createFontOption("MAIN HUD FONT", "kssette_custom_font", "Choose the font for the HUD."); 
+        createFontOption("PIXEL STAGE FONT", "kssette_custom_pixel_font", "Choose the font for pixel stages."); 
         createFontOption("INTRO TITLE FONT", "kssette_intro_font_title", "Choose the font for the intro title."); 
         createFontOption("INTRO ARTIST FONT", "kssette_intro_font_artist", "Choose the font for the intro artist."); 
-
-        addHeader("Subtitles");
-        createToggle("SUBTITLES POS", "kssette_subtitles_pos", ["Bottom", "Top"], "Where to display subtitles.");
-        createToggle("SUBTITLES ANIM", "kssette_subtitles_anim", ["Vanilla", "Slide", "Fade", "Vertical", "Zoom"], "How subtitles appear on screen.");
-        createToggle("SMART KARAOKE", "kssette_smart_karaoke", ["On", "Off"], "[EXPERIMENTAL] Syncs the text letter by letter like singing."); 
+        createToggle("SUBTITLES POSITION", "kssette_subtitles_pos", ["Bottom", "Top"], "Where to display subtitles.");
+        createToggle("SUBTITLES ANIMATION", "kssette_subtitles_anim", ["Vanilla", "Slide", "Fade", "Vertical", "Zoom"], "How subtitles appear on screen.");
+        createToggle("SMART KARAOKE MODE", "kssette_smart_karaoke", ["On", "Off"], "[EXPERIMENTAL] Syncs the text letter by letter like singing."); 
 
         descBg = new FlxSprite(20, screenH);
             var img = largeCapsuleAsset;
@@ -964,6 +964,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         return group;
     }
 
+
     public function openOpacitySelector(saveKey:String) {
         isOpMenuOpen = true; 
         opSel_SaveKey = saveKey;
@@ -1065,7 +1066,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         }
 
         if (opSel_Value > 100) opSel_Value = 100;
-        if (opSel_Value < 0) opSel_Value = 0;
+        if (opSel_Value < 5) opSel_Value = 5;
         
         if (oldValue != opSel_Value) updateOpacityUI();
 
@@ -1879,9 +1880,11 @@ class KssetteMenuState extends ScriptedMusicBeatState {
             }
         }
 
+        if (scrollTracker != null) {
+            curSelectedFloat = scrollTracker.y;
+        }
+
         if (!isDragging) {
-            if (Math.abs(curSelectedFloat - selectedIndex) > 0.001) curSelectedFloat = FlxMath.lerp(curSelectedFloat, selectedIndex, elapsed * 10);
-            else curSelectedFloat = selectedIndex;
             if (Math.abs(dragOffsetY) > 0.001) dragOffsetY = FlxMath.lerp(dragOffsetY, 0, elapsed * 15);
             else dragOffsetY = 0;
         }
@@ -1993,7 +1996,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
                 var isSel = i == selectedIndex;
                 if (!item.isHeader && isSel) targetX += panelOnLeft ? 40 : -40;
 
-                if (isDragging || !wasVisible) {
+                if (!wasVisible) {
                     bg.x = targetX;
                     bg.y = targetY;
                 } else {
@@ -2211,6 +2214,9 @@ class KssetteMenuState extends ScriptedMusicBeatState {
             if (sndScroll != null) FlxG.sound.play(sndScroll, 0.5);
             HapticUtil.vibrate(0, 0.01, 0.15, 0.1);
         }
+
+        if (scrollTween != null) scrollTween.cancel();
+        scrollTween = FlxTween.tween(scrollTracker, {y: selectedIndex}, 0.5, {ease: FlxEase.expoOut});
     }
 
     function handleFontInput(elapsed:Float) {
@@ -2250,7 +2256,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
             previewHoldTimer = 0.0;
             previewActionFired = false;
         } else if (tPressed) {
-            if (Math.abs(tY - touchStart) > 15 || Math.abs(tX - touchStartX) > 15) {
+            if (Math.abs(tY - touchStart) > 7 || Math.abs(tX - touchStartX) > 7) {
                 isDragging = true;
                 previewHoldTimer = 0.0;
             }
@@ -2321,7 +2327,6 @@ class KssetteMenuState extends ScriptedMusicBeatState {
                         fontSelectedIndex = i;
                         changeFontSelection(0);
                     }
-                    holdTimer = 0.2;
                     clickedItem = true;
                     break;
                 }
@@ -2334,36 +2339,9 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         }
     }
 
+
+
     function handleInput(elapsed:Float) {
-        var tX:Float = FlxG.mouse.screenX;
-        var tY:Float = FlxG.mouse.screenY;
-        var tJustPressed = false;
-        var tPressed = false;
-        var tJustReleased = false;
-
-        if (FlxG.onMobile) {
-            tJustPressed = TouchUtil.justPressed;
-            tPressed = TouchUtil.pressed;
-            tJustReleased = TouchUtil.justReleased;
-            if (TouchUtil.touch != null) {
-                tX = TouchUtil.touch.screenX;
-                tY = TouchUtil.touch.screenY;
-            }
-        } else {
-            tJustPressed = FlxG.mouse.justPressed;
-            tPressed = FlxG.mouse.pressed;
-            tJustReleased = FlxG.mouse.justReleased;
-        }
-
-        var isOverBackButton = false;
-        if (kssBackButton != null && kssBackButton.visible && kssBackButton.exists) {
-            if (FlxG.onMobile) {
-                isOverBackButton = TouchUtil.overlaps(kssBackButton, optionCam);
-            } else {
-                isOverBackButton = FlxG.mouse.overlaps(kssBackButton, optionCam);
-            }
-        }
-
         var isOverPreviewZone = false;
         if (previewHitbox != null && previewHitbox.exists) {
             if (FlxG.onMobile) {
@@ -2373,59 +2351,35 @@ class KssetteMenuState extends ScriptedMusicBeatState {
             }
         }
 
-        if (tJustPressed) {
-            touchStart = tY;
-            touchStartX = tX;
-            isDragging = false;
-            previewHoldTimer = 0.0;
-            previewActionFired = false;
-            dragOffsetY = 0.0;
-        } else if (tPressed) {
-            if (!isDragging && (Math.abs(tY - touchStart) > 15 || Math.abs(tX - touchStartX) > 15)) {
-                isDragging = true;
-                previewHoldTimer = 0.0;
-            }
-            if (isDragging && !panelHidden && !transitioningSide) {
-                dragOffsetY = (tY - touchStart) * 0.7;
-            }
-            if (isOverPreviewZone && !isDragging && !previewActionFired) {
+        if (isOverPreviewZone) {
+            var pressed = FlxG.onMobile ? TouchUtil.pressed : FlxG.mouse.pressed;
+            if (pressed) {
                 previewHoldTimer += elapsed;
-                if (previewHoldTimer >= 0.5) {
+                if (previewHoldTimer >= 0.5 && !previewActionFired) {
                     previewActionFired = true;
                     panelHidden = !panelHidden;
                     if (sndScroll != null) FlxG.sound.play(sndScroll, 0.5);
                 }
+            } else {
+                previewHoldTimer = 0.0;
+                previewActionFired = false;
             }
-        } else if (tJustReleased) {
-            var hasSwiped = false;
-            if (FlxG.onMobile) {
-                hasSwiped = SwipeUtil.swipeUp || SwipeUtil.swipeDown || SwipeUtil.swipeLeft || SwipeUtil.swipeRight;
-            }
-            if (!isDragging && !hasSwiped && holdTimer <= 0 && !previewActionFired) {
-                if (isOverBackButton) {
-                    
-                } else if (!isOverPreviewZone && !panelHidden) {
-                    fireClickAt();
-                }
-            }
-            isDragging = false;
-            previewActionFired = false;
+        } else {
             previewHoldTimer = 0.0;
+            previewActionFired = false;
         }
 
-        if (FlxG.onMobile && holdTimer <= 0) {
-            if (SwipeUtil.swipeUp) {
-                if (!panelHidden) { changeSelection(-1); holdTimer = 0.25; }
-            } else if (SwipeUtil.swipeDown) {
-                if (!panelHidden) { changeSelection(1); holdTimer = 0.25; }
-            } else if (SwipeUtil.swipeLeft || SwipeUtil.swipeRight) {
-                if (!transitioningSide && !panelHidden) {
-                    transitioningSide = true;
-                    transitionTimer = 0.0;
-                    nextPanelOnLeft = !panelOnLeft;
-                    holdTimer = 0.25;
+        if (FlxG.onMobile) {
+            if (SwipeUtil.swipeUp && !panelHidden) {
+                changeSelection(-1);
+            } else if (SwipeUtil.swipeDown && !panelHidden) {
+                changeSelection(1);
+            } else if ((SwipeUtil.swipeLeft || SwipeUtil.swipeRight) && !transitioningSide && !panelHidden && holdTimer <= 0) {
+                transitioningSide = true;
+                transitionTimer = 0.0;
+                nextPanelOnLeft = !panelOnLeft;
+                holdTimer = 0.25;
                 HapticUtil.vibrate(0, 0.01, 0.25, 0.1);
-                }
             }
         }
 
@@ -2442,9 +2396,20 @@ class KssetteMenuState extends ScriptedMusicBeatState {
                 changeSelection(1);
                 holdTimer = 0.1;
             }
-            if (controls.ACCEPT_P) {
+            
+            var acceptPressed = controls.ACCEPT_P;
+            if (FlxG.onMobile) {
+                var selItem = optionItems[selectedIndex];
+                if (selItem != null && selItem.bg != null) {
+                    if (TouchUtil.pressAction(selItem.bg)) {
+                        acceptPressed = true;
+                    }
+                }
+            }
+
+            if (acceptPressed) {
                 var item = optionItems[selectedIndex];
-                if (!item.isHeader && item.fire != null) {
+                if (item != null && !item.isHeader && item.fire != null) {
                     if (apiRef != null && apiRef.isOptionLocked(item.key)) {
                         FlxG.sound.play(Paths.sound("ui/khud_lock"), 0.3);
                         item.errorTimer = 1.0;
@@ -2455,6 +2420,8 @@ class KssetteMenuState extends ScriptedMusicBeatState {
                     }
                 }
             }
+            
+            if (!FlxG.onMobile) fireClickAt();
         }
     }
 
@@ -2466,14 +2433,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         for (i in startIdx...stopIdx) {
             var item = optionItems[i];
             if (item.bg != null && item.bg.visible) {
-                var isOver = false;
-                if (FlxG.onMobile) {
-                    isOver = TouchUtil.overlaps(item.bg, optionCam);
-                } else {
-                    isOver = FlxG.mouse.overlaps(item.bg, optionCam);
-                }
-
-                if (isOver) {
+                if (FlxG.mouse.justReleased && FlxG.mouse.overlaps(item.bg, optionCam)) {
                     if (!item.isHeader) {
                         if (selectedIndex == i) {
                             if (apiRef != null && apiRef.isOptionLocked(item.key)) {

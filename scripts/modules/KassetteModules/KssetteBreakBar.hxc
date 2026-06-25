@@ -454,12 +454,8 @@ class KssetteBreakBar extends Module {
         if (isPreview) {
             alphaTarget = 0;
             if (cachedActive && apiModule != null) {
-                var isP:Bool = true;
-                var prog:Float = 0.0;
-                try {
-                    isP = apiModule.preview_playerTurn;
-                    prog = apiModule.preview_turnProgress;
-                } catch(e:Dynamic) {}
+                var isP:Bool = apiModule?.preview_playerTurn ?? true;
+                var prog:Float = apiModule?.preview_turnProgress ?? 0.0;
 
                 if (!isP) {
                     alphaTarget = 1;

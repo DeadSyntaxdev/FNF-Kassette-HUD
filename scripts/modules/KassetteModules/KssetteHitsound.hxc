@@ -111,8 +111,9 @@ class KssetteHitsound extends Module {
 
         var note = event.note;
         if (note != null && note.noteData != null) {
-            var mustHit = Reflect.hasField(note.noteData, "getMustHitNote") ? Reflect.callMethod(note.noteData, Reflect.field(note.noteData, "getMustHitNote"), []) : null;
-            if (mustHit == null) mustHit = Reflect.hasField(note.noteData, "mustHitNote") ? Reflect.field(note.noteData, "mustHitNote") : null;
+            var mustHit = false;
+            if (note.noteData.getMustHitNote != null) mustHit = note.noteData.getMustHitNote();
+            else mustHit = note.noteData.mustHitNote;
             if (mustHit != true) return;
         } else {
             return;

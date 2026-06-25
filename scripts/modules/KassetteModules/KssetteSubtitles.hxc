@@ -4,6 +4,7 @@ import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
 import flixel.FlxG;
+import funkin.util.ReflectUtil;
 import flixel.text.FlxText;
 import flixel.text.FlxTextBorderStyle;
 import flixel.text.FlxTextFormat;
@@ -39,11 +40,9 @@ class KssetteSubtitles extends Module {
     var _nativeSubs:Dynamic = null;
     var _nativeBg:Dynamic = null;
     var _nativeTextObj:Dynamic = null;
-    var _cachedEntries:Dynamic = null;
     
     var kssttlModule:Dynamic = null;
     var checkedKssttl:Bool = false;
-    var localSubIndex:Int = 0;
     var lastTargetCam:Dynamic = null;
     
     public var isPreview:Bool = false;
@@ -55,8 +54,6 @@ class KssetteSubtitles extends Module {
     var cachedPlainText:String = "";
     var cachedFormats:Array<Dynamic> = [];
     var lastKaraokeLen:Int = -1;
-    var cachedRawUntil:Float = -1000.0;
-    var cachedActiveEntry:Dynamic = null;
 
 var triviaArray:Array<String> = [
     "Did you know? <font color=\"#00FF00\">Boyfriend is canonically 19 years old!</font>",
@@ -209,13 +206,7 @@ var triviaArray:Array<String> = [
         super("KssetteSubtitles");
     }
 
-    function getFieldSafe(obj:Dynamic, fieldName:String):Dynamic {
-        if (obj == null) return null;
-        var v = Reflect.getProperty(obj, fieldName);
-        if (v != null) return v;
-        return Reflect.field(obj, fieldName);
-        return null;
-    }
+
 
     function cancelAnimTweens() {
         if (currentTween != null) {
@@ -511,23 +502,23 @@ var triviaArray:Array<String> = [
             }
 
             if (_nativeSubs == null) {
-                _nativeSubs = getFieldSafe(state, "subtitles");
+                _nativeSubs = state?.subtitles;
                 if (_nativeSubs != null) {
-                    _nativeBg = getFieldSafe(_nativeSubs, "background");
-                    _nativeTextObj = getFieldSafe(_nativeSubs, "subtitleText");
+                    _nativeBg = _nativeSubs?.background;
+                    _nativeTextObj = _nativeSubs?.subtitleText;
                 }
             }
 
             if (_nativeSubs != null) {
-                var nCams:Dynamic = getFieldSafe(_nativeSubs, "cameras");
+                var nCams:Dynamic = _nativeSubs?.cameras;
                 var targetCam:Dynamic = null;
                 
                 if (nCams != null && nCams.length > 0) {
                     targetCam = nCams[0];
                 } else {
-                    var cOth = getFieldSafe(state, "camOther");
+                    var cOth = state?.camOther;
                     if (cOth != null) targetCam = cOth;
-                    else targetCam = getFieldSafe(state, "camHUD");
+                    else targetCam = state?.camHUD;
                 }
 
                 if (targetCam != null && lastTargetCam != targetCam) {
@@ -543,26 +534,19 @@ var triviaArray:Array<String> = [
                     _nativeTextObj.visible = false; _nativeTextObj.alpha = 0;
                 }
 
-                var newData = getFieldSafe(_nativeSubs, "subtitlesData");
-                if (_cachedEntries != newData) {
-                    _cachedEntries = newData;
-                    localSubIndex = 0;
-                    lastRawText = "";
-                    cachedRawUntil = -1000.0;
-                    cachedActiveEntry = null;
-                }
+                // No longer caching JSON array; strictly using fallback.
             }
             
             var sLengthMs:Float = state.currentSongLengthMs;
             if (sLengthMs <= 0) isCutscene = true;
             
             if (_nativeSubs != null) {
-                var snd = getFieldSafe(_nativeSubs, "assignedSound");
+                var snd = _nativeSubs?.assignedSound;
                 if (snd != null) {
-                    var sTime = getFieldSafe(snd, "time");
+                    var sTime = snd?.time;
                     if (sTime != null) currentSubsTime = sTime;
                     
-                    var sndLen = getFieldSafe(snd, "length");
+                    var sndLen = snd?.length;
                     if (sndLen != null && sLengthMs > 0) {
                         var diffVal = Math.abs(Std.parseFloat(Std.string(sndLen)) - sLengthMs);
                         if (diffVal > 5000) {
@@ -578,69 +562,18 @@ var triviaArray:Array<String> = [
 
             if (currentSubsTime < 0) isCutscene = true;
 
-            if (_cachedEntries != null) {
-                var len:Int = 0;
-                if (_cachedEntries != null && Reflect.hasField(_cachedEntries, "length")) len = _cachedEntries.length;
-                
-                if (len > 0) {
-                    if (currentSubsTime >= 0 && currentSubsTime <= cachedRawUntil) {
-                        rawTargetText = lastRawText;
-                        activeEntry = cachedActiveEntry;
-                    } else {
-                        if (localSubIndex > 0) {
-                            if (currentSubsTime < getFieldSafe(_cachedEntries[localSubIndex - 1], "end")) {
-                                localSubIndex = 0;
-                            }
-                        }
-
-                        while (localSubIndex < len && getFieldSafe(_cachedEntries[localSubIndex], "end") < currentSubsTime) {
-                            localSubIndex++;
-                        }
-
-                        var tempIdx = localSubIndex;
-                        var joinedText:String = "";
-                        var nextChange:Float = 1000000000.0;
-
-                        while (tempIdx < len) {
-                            var eStart:Dynamic = getFieldSafe(_cachedEntries[tempIdx], "start");
-                            var startTime:Float = (eStart != null) ? Std.parseFloat(Std.string(eStart)) : 0.0;
-                            var entry = startTime > currentSubsTime ? null : _cachedEntries[tempIdx];
-                            if (entry == null) {
-                                if (startTime < nextChange) nextChange = startTime;
-                                break;
-                            }
-
-                            var eEnd = getFieldSafe(entry, "end");
-                            var endTime:Float = (eEnd != null) ? Std.parseFloat(Std.string(eEnd)) : currentSubsTime;
-                            if (currentSubsTime <= endTime) {
-                                var eText = getFieldSafe(entry, "text");
-                                if (eText != null) {
-                                    if (joinedText != "") joinedText += " ";
-                                    joinedText += Std.string(eText);
-                                }
-                                if (activeEntry == null) activeEntry = entry;
-                                if (endTime < nextChange) nextChange = endTime;
-                            }
-                            tempIdx++;
-                        }
-
-                        if (joinedText != "") {
-                            rawTargetText = joinedText;
-                        }
-                        cachedRawUntil = nextChange;
-                        cachedActiveEntry = activeEntry;
-                    }
-                }
-            } 
+            // JSON reading block completely removed in favor of native fallback logic.
             
             if (rawTargetText == "" && _nativeTextObj != null) {
-                var fallbackText = getFieldSafe(_nativeTextObj, "text");
-                var fallbackHtml = getFieldSafe(_nativeTextObj, "htmlText");
+                var fallbackText = _nativeTextObj?.text;
+                var fallbackHtml = _nativeTextObj?.htmlText;
                 
                 if (fallbackText != null && Std.string(fallbackText) != "" && Std.string(fallbackText) != "null") {
                     rawTargetText = Std.string(fallbackText);
+                    if (rawTargetText != lastRawText && apiModule != null && apiModule?.khudDebug == true) trace("[KssetteSubtitles] Using text fallback: " + rawTargetText);
                 } else if (fallbackHtml != null && Std.string(fallbackHtml) != "" && Std.string(fallbackHtml) != "null") {
                     rawTargetText = Std.string(fallbackHtml);
+                    if (rawTargetText != lastRawText && apiModule != null && apiModule?.khudDebug == true) trace("[KssetteSubtitles] Using HTML fallback: " + rawTargetText);
                 }
             }
         }
@@ -648,6 +581,8 @@ var triviaArray:Array<String> = [
         if (rawTargetText == lastRawText) {
             return;
         }
+        
+
         
         var isAppend:Bool = false;
         var prevPlainLen = cachedPlainText.length;
@@ -700,24 +635,7 @@ var triviaArray:Array<String> = [
                 var startIdx:Int = isAppend ? prevPlainLen : 0;
                 var endIdx:Int = cachedPlainText.length;
                 var durK:Float = 0.35;
-                var hasExactTiming:Bool = false;
-
-                if (!isPreview && activeEntry != null) {
-                    var exactEnd:Dynamic = getFieldSafe(activeEntry, "end");
-                    if (exactEnd != null) {
-                        var currentPosSnd:Float = 0;
-                        if (Conductor.instance != null) {
-                            currentPosSnd = Conductor.instance.songPosition;
-                        }
-                        var timeRemaining:Float = (Std.parseFloat(Std.string(exactEnd)) - currentPosSnd) / 1000.0;
-                        if (timeRemaining > 0.05) {
-                            durK = timeRemaining;
-                            hasExactTiming = true;
-                        }
-                    }
-                }
-
-                if (!hasExactTiming) {
+                // No exact timing available when using fallback, use smart dynamic karaoke
                     var stepSecs:Float = 0.15;
                     if (Conductor.instance != null && Conductor.instance.stepCrochet > 0) {
                         stepSecs = Conductor.instance.stepCrochet / 1000.0;
@@ -729,7 +647,8 @@ var triviaArray:Array<String> = [
                     } else {
                         durK = Math.min(endIdx * (stepSecs * 0.3), stepSecs * 12);
                     }
-                }
+                
+                if (apiModule != null && apiModule?.khudDebug == true) trace("[KssetteSubtitles] Subtitle Display: " + (cachedPlainText == "" ? "(Empty)" : cachedPlainText) + " | Font: " + displayFont + " | Size: " + displaySize + " | Karaoke dur: " + durK);
 
                 updateTextDisplay(startIdx);
                 
@@ -745,7 +664,7 @@ var triviaArray:Array<String> = [
                         if (subText != null && subText.exists) updateTextDisplay(cachedPlainText.length);
                     }
                 }, function(v:Float) {
-                    var currentLen = Math.round(v);
+                    var currentLen = Math.ceil(v);
                     if (currentLen != lastKaraokeLen) {
                         lastKaraokeLen = currentLen;
                         if (subText != null && subText.exists) updateTextDisplay(currentLen);
@@ -770,9 +689,9 @@ var triviaArray:Array<String> = [
                         subText.alpha = 0;
                         dur = 0.35;
                     } else if (isAppend) {
-                        subText.x = targetX + 30; 
-                        subText.alpha = 0.7;
-                        dur = 0.15;
+                        subText.x = targetX; 
+                        subText.alpha = 1;
+                        dur = 0.01;
                     } else {
                         subText.x = -50;
                         subText.alpha = 0;
@@ -790,9 +709,9 @@ var triviaArray:Array<String> = [
                         subText.alpha = 0;
                         dur = 0.35;
                     } else if (isAppend) {
-                        subText.x = targetX + 20; 
-                        subText.alpha = 0.5;
-                        dur = 0.15;
+                        subText.x = targetX; 
+                        subText.alpha = 1;
+                        dur = 0.01;
                     } else {
                         subText.x = targetX;
                         subText.alpha = 0;
@@ -815,10 +734,10 @@ var triviaArray:Array<String> = [
                         subText.alpha = 0;
                         dur = 0.35;
                     } else if (isAppend) {
-                        subText.x = targetX + 25; 
+                        subText.x = targetX; 
                         subText.y = targetY; 
-                        subText.alpha = 0.7;
-                        dur = 0.15;
+                        subText.alpha = 1;
+                        dur = 0.01;
                         easeF = FlxEase.expoOut;
                     } else {
                         subText.x = targetX;

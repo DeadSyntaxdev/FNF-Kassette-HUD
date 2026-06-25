@@ -14,6 +14,7 @@ import funkin.ui.FullScreenScaleMode;
 import Std;
 import Math;
 import Reflect;
+import StringTools;
 
 class KssMiddlescroll extends Module {
     var cachedMode:String = "Off";
@@ -68,6 +69,17 @@ class KssMiddlescroll extends Module {
         if (rawMode == true) cachedMode = "On";
         else if (rawMode == false) cachedMode = "Off";
         else cachedMode = Std.string(rawMode);
+
+        var rawHideOpp:Dynamic = apiModule.getKssValue("kssette_hide_opponent");
+        var hideOpp:Bool = isOn(rawHideOpp);
+
+        var rawOppOp:Dynamic = apiModule.getKssValue("kssette_opponent_opacity");
+        var oppOpacity:Float = 1.0;
+        if (rawOppOp != null) {
+            var valStr = StringTools.replace(Std.string(rawOppOp), "%", "");
+            var valNum = Std.parseFloat(valStr);
+            if (!Math.isNaN(valNum)) oppOpacity = valNum / 100.0;
+        }
 
         cachedOppPos = Std.string(apiModule.getKssValue("kssette_opponent_pos"));
         var rawOppBg:Dynamic = apiModule.getKssValue("kssette_opponent_bg");
@@ -137,7 +149,7 @@ class KssMiddlescroll extends Module {
         if (oppStrum != null) {
             var bg = oppStrum.background;
             if (bg != null) {
-                if (!isModActive && cachedOppBg && !isMobLayout) {
+                if (!isModActive && cachedOppBg && !isMobLayout && !hideOpp) {
                     bg.visible = true;
                     var realWidth:Float = 0;
                     var startX:Float = oppStrum.x;
@@ -196,14 +208,8 @@ class KssMiddlescroll extends Module {
                 }
             }
 
-            if (cachedMode == "Hidden Notes") {
-                oppStrum.x = -5000;
-                var oNotes = oppStrum.strumlineNotes.members;
-                if (oNotes != null) {
-                    for (note in oNotes) {
-                        if (note != null) note.x = -5000;
-                    }
-                }
+            if (cachedMode == "Hidden Notes" || (!isModActive && hideOpp)) {
+                oppStrum.visible = false;
             } else if (cachedMode == "Glass") {
                 if (myStrum != null) {
                     oppStrum.x = myStrum.x;
@@ -242,6 +248,10 @@ class KssMiddlescroll extends Module {
                     }
                     lastNudgedStrum = oppStrum;
                 }
+            }
+
+            if (oppStrum.visible && oppOpacity < 1.0) {
+                oppStrum.alpha = oppOpacity;
             }
         }
 
@@ -293,10 +303,7 @@ class KssMiddlescroll extends Module {
                     note.holdNoteSprite.visible = false;
                 }
                 
-                if (cachedMode == "Hidden Notes") {
-                    note.x = -5000;
-                    if (note.holdNoteSprite != null) note.holdNoteSprite.x = -5000;
-                }
+                // removed x=-5000 method
                 return;
             }
 
