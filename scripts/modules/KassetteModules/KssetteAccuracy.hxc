@@ -283,26 +283,6 @@ class KssetteAccuracy extends Module {
             }
         }
 
-            if (state.healthBarBG != null) {
-                state.healthBarBG.zIndex = 110;
-                state.remove(state.healthBarBG, true);
-                state.add(state.healthBarBG);
-            }
-            if (state.healthBar != null) {
-                state.healthBar.zIndex = 111;
-                state.remove(state.healthBar, true);
-                state.add(state.healthBar);
-            }
-            if (state.iconP1 != null) {
-                state.iconP1.zIndex = 112;
-                state.remove(state.iconP1, true);
-                state.add(state.iconP1);
-            }
-            if (state.iconP2 != null) {
-                state.iconP2.zIndex = 112;
-                state.remove(state.iconP2, true);
-                state.add(state.iconP2);
-            }
 
             setupUI(state.camHUD);
             updateSettings();
@@ -815,56 +795,7 @@ class KssetteAccuracy extends Module {
 
         var elapsed = event.elapsed;
         var state = PlayState.instance;
-        if (state != null && api != null) {
-            if (api.getKssValue("kssette_icon_pos") == "Corners" && state.healthBarBG != null && state.healthBar != null && state.iconP1 != null && state.iconP2 != null) {
-                state.iconP1.autoUpdate = false;
-                state.iconP2.autoUpdate = false;
-                
-                if (state.iconP1 != null) state.iconP1.isLegacyStyle = false;
-                if (state.iconP2 != null) state.iconP2.isLegacyStyle = false;
 
-                var lerpFactor = 1.0 - (elapsed * 15.0);
-                if (lerpFactor < 0) lerpFactor = 0;
-                
-                var p1Scale:Float = api.cachedP1Scale;
-                var p2Scale:Float = api.cachedP2Scale;
-
-                state.iconP1.scale.x = p1Scale + ((state.iconP1.scale.x - p1Scale) * lerpFactor);
-                state.iconP1.scale.y = p1Scale + ((state.iconP1.scale.y - p1Scale) * lerpFactor);
-                state.iconP2.scale.x = p2Scale + ((state.iconP2.scale.x - p2Scale) * lerpFactor);
-                state.iconP2.scale.y = p2Scale + ((state.iconP2.scale.y - p2Scale) * lerpFactor);
-
-                var hp1 = state.health;
-                var hp2 = 2.0 - state.health;
-                
-                var gSide = "NORMAL";
-                if (api.gammodPlayerSide != null) gSide = api.gammodPlayerSide;
-                
-                if (gSide == "OPPOSITE") {
-                    hp1 = 2.0 - state.health;
-                    hp2 = state.health;
-                }
-
-                if (state.iconP1 != null) state.iconP1.updateHealthIcon(hp1);
-                if (state.iconP2 != null) state.iconP2.updateHealthIcon(hp2);
-
-                state.iconP1.updateHitbox();
-                state.iconP2.updateHitbox();
-
-                var centerY = state.healthBar.y + (state.healthBar.height / 2);
-                
-                state.iconP1.x = state.healthBarBG.x + state.healthBarBG.width - (state.iconP1.width / 2);
-                state.iconP2.x = state.healthBarBG.x - (state.iconP2.width / 2);
-                
-                state.iconP1.y = centerY - (state.iconP1.height / 2);
-                state.iconP2.y = centerY - (state.iconP2.height / 2);
-            } else if (state.iconP1 != null && state.iconP2 != null) {
-                if (state.iconP1.autoUpdate == false) state.iconP1.autoUpdate = true;
-                if (state.iconP2.autoUpdate == false) state.iconP2.autoUpdate = true;
-                if (state.iconP1 != null) state.iconP1.isLegacyStyle = true;
-                if (state.iconP2 != null) state.iconP2.isLegacyStyle = true;
-            }
-        }
 
         if (!securityTriggered) {
             frameUpdateTimer += elapsed;
@@ -1074,21 +1005,5 @@ class KssetteAccuracy extends Module {
     }
 
     function onStepHit(event:StepHitScriptEvent) {
-        var state = PlayState.instance;
-        if (state == null || api == null) return;
-        
-        if (api.getKssValue("kssette_icon_pos") == "Corners" && state.iconP1 != null && state.iconP2 != null) {
-            var bop1 = api.cachedP1Bop;
-            var bop2 = api.cachedP2Bop;
-            
-            if (bop1 > 0 && event.step % bop1 == 0) {
-                var p1Scale:Float = api.cachedP1Scale;
-                state.iconP1.scale.set(p1Scale * 1.2, p1Scale * 1.2);
-            }
-            if (bop2 > 0 && event.step % bop2 == 0) {
-                var p2Scale:Float = api.cachedP2Scale;
-                state.iconP2.scale.set(p2Scale * 1.2, p2Scale * 1.2);
-            }
-        }
     }
 }

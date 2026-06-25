@@ -1,0 +1,243 @@
+package kassettehud.util;
+
+import funkin.modding.module.Module;
+import funkin.modding.module.ModuleHandler;
+import funkin.play.PlayState;
+import flixel.FlxG;
+import flixel.math.FlxMath;
+import Std;
+import Reflect;
+import flixel.util.FlxColor;
+
+class KssetteHealthBar extends Module {
+    var _lastP1Id:String = "";
+    var _lastP2Id:String = "";
+    var _p1Color:Int = 0xFF66FF33;
+    var _p2Color:Int = 0xFFFF0000;
+
+    public function new() {
+        super("KssetteHealthBar");
+    }
+
+    override function onCountdownStart(event) {
+        var api = ModuleHandler.getModule("KssetteApi");
+        if (api == null) return;
+        
+        api.registerModule("KssetteHealthBar", this);
+        
+        _lastP1Id = "";
+        _lastP2Id = "";
+
+        var state = PlayState.instance;
+        if (state == null) return;
+
+        if (state.healthBarBG != null) {
+            state.healthBarBG.zIndex = 110;
+            state.remove(state.healthBarBG, true);
+            state.add(state.healthBarBG);
+        }
+        if (state.healthBar != null) {
+            state.healthBar.zIndex = 111;
+            state.remove(state.healthBar, true);
+            state.add(state.healthBar);
+        }
+        if (state.iconP1 != null) {
+            state.iconP1.zIndex = 112;
+            state.remove(state.iconP1, true);
+            state.add(state.iconP1);
+        }
+        if (state.iconP2 != null) {
+            state.iconP2.zIndex = 112;
+            state.remove(state.iconP2, true);
+            state.add(state.iconP2);
+        }
+    }
+
+    override function onUpdate(event) {
+        var elapsed = event.elapsed;
+        var state = PlayState.instance;
+        var api = ModuleHandler.getModule("KssetteApi");
+        if (state == null || api == null) return;
+
+        var p1 = state.iconP1;
+        var p2 = state.iconP2;
+        var curP1:String = "none1";
+        var curP2:String = "none2";
+        
+        if (p1 != null) {
+            var id1 = Reflect.getProperty(p1, "characterId");
+            if (id1 == null) id1 = Reflect.getProperty(p1, "iconId");
+            if (id1 != null) curP1 = Std.string(id1);
+        }
+        if (p2 != null) {
+            var id2 = Reflect.getProperty(p2, "characterId");
+            if (id2 == null) id2 = Reflect.getProperty(p2, "iconId");
+            if (id2 != null) curP2 = Std.string(id2);
+        }
+
+        // --- HEALTH BAR COLORING LOGIC ---
+        var gammodPlayerSide = "NORMAL";
+        if (api.gammodPlayerSide != null) gammodPlayerSide = api.gammodPlayerSide;
+        
+        var dadObj = null;
+        if (state.currentStage != null) {
+            try { dadObj = state.currentStage.getDad(); } catch(e:Dynamic) {}
+        }
+        var isSolo:Bool = (dadObj == null);
+        if (dadObj != null) {
+            try { if (dadObj.characterId == "none") isSolo = true; } catch(e:Dynamic) {}
+        }
+        if (curP1 == curP2 && curP1 != "none1" && curP1 != "") isSolo = true;
+
+        if (state.iconP2 != null) {
+            state.iconP2.visible = !isSolo;
+            if (isSolo) state.iconP2.alpha = 0;
+        }
+        
+        var hb = state.healthBar;
+        if (hb != null) {
+            if (isSolo) {
+                hb.flipX = true;
+            } else {
+                hb.flipX = false;
+            }
+        }
+
+        if (api.getKssValue("kssette_colored_healthbar") == true) {
+            var _gammodPlay = ModuleHandler.getModule("GammodPlayModule");
+            if (_gammodPlay != null) {
+                try { _gammodPlay.scriptSet("healthBarOverride", false); } catch(e:Dynamic) {}
+                try { Reflect.setProperty(_gammodPlay, "healthBarOverride", false); } catch(e:Dynamic) {}
+            }
+            
+            if (p1 != null && p2 != null) {
+                if (hb != null) {
+                    
+                    if (curP1 != _lastP1Id || curP2 != _lastP2Id) {
+                        _lastP1Id = curP1;
+                        _lastP2Id = curP2;
+                        
+                        _p1Color = api.extractIconColor(p1, true, curP1);
+                        _p2Color = api.extractIconColor(p2, false, curP2);
+                        
+                        if (isSolo) {
+                            hb.createFilledBar(FlxColor.BLACK, _p1Color);
+                        } else if (gammodPlayerSide == "OPPOSITE") {
+                            hb.createFilledBar(_p1Color, _p2Color);
+                        } else {
+                            hb.createFilledBar(_p2Color, _p1Color);
+                        }
+                        hb.updateBar();
+                    }
+                }
+            }
+        } else if (api.getKssValue("kssette_colored_healthbar") != true && _lastP1Id != "") {
+            var _gammodPlay = ModuleHandler.getModule("GammodPlayModule");
+            if (_gammodPlay != null) {
+                try { _gammodPlay.scriptSet("healthBarOverride", true); } catch(e:Dynamic) {}
+                try { Reflect.setProperty(_gammodPlay, "healthBarOverride", true); } catch(e:Dynamic) {}
+            }
+
+            _lastP1Id = "";
+            _lastP2Id = "";
+            if (hb != null) {
+                if (isSolo) {
+                    hb.createFilledBar(FlxColor.BLACK, 0xFF66FF33);
+                } else if (gammodPlayerSide == "OPPOSITE") {
+                    hb.createFilledBar(0xFF66FF33, 0xFFFF0000);
+                } else {
+                    hb.createFilledBar(0xFFFF0000, 0xFF66FF33);
+                }
+                hb.updateBar();
+            }
+        }
+
+        // --- ICON POSITIONS LOGIC ---
+        var isCorners = api.getKssValue("kssette_icon_pos") == "Corners";
+        
+        if ((isCorners || isSolo) && state.healthBarBG != null && state.healthBar != null && state.iconP1 != null) {
+            state.iconP1.autoUpdate = false;
+            if (state.iconP2 != null) state.iconP2.autoUpdate = false;
+            
+            state.iconP1.isLegacyStyle = false;
+            if (state.iconP2 != null) state.iconP2.isLegacyStyle = false;
+
+            var lerpFactor = 1.0 - (elapsed * 15.0);
+            if (lerpFactor < 0) lerpFactor = 0;
+            
+            var p1Scale:Float = api.cachedP1Scale;
+            state.iconP1.scale.x = p1Scale + ((state.iconP1.scale.x - p1Scale) * lerpFactor);
+            state.iconP1.scale.y = p1Scale + ((state.iconP1.scale.y - p1Scale) * lerpFactor);
+            
+            if (state.iconP2 != null) {
+                var p2Scale:Float = api.cachedP2Scale;
+                state.iconP2.scale.x = p2Scale + ((state.iconP2.scale.x - p2Scale) * lerpFactor);
+                state.iconP2.scale.y = p2Scale + ((state.iconP2.scale.y - p2Scale) * lerpFactor);
+            }
+
+            var hp1 = state.health;
+            var hp2 = 2.0 - state.health;
+            
+            if (gammodPlayerSide == "OPPOSITE") {
+                hp1 = 2.0 - state.health;
+                hp2 = state.health;
+            }
+
+            state.iconP1.updateHealthIcon(hp1);
+            if (state.iconP2 != null) state.iconP2.updateHealthIcon(hp2);
+
+            state.iconP1.updateHitbox();
+            if (state.iconP2 != null) state.iconP2.updateHitbox();
+
+            var centerY = state.healthBar.y + (state.healthBar.height / 2);
+            
+            if (isSolo) {
+                state.iconP1.x = state.healthBarBG.x - (state.iconP1.width / 2);
+                state.iconP1.flipX = false;
+            } else if (isCorners) {
+                state.iconP1.x = state.healthBarBG.x + state.healthBarBG.width - (state.iconP1.width / 2);
+                state.iconP1.flipX = true;
+            }
+            
+            if (state.iconP2 != null) {
+                state.iconP2.x = state.healthBarBG.x - (state.iconP2.width / 2);
+                state.iconP2.y = centerY - (state.iconP2.height / 2);
+            }
+            
+            state.iconP1.y = centerY - (state.iconP1.height / 2);
+            
+            if (isSolo && hp1 < 0.4) {
+                try {
+                    if (state.iconP1.animation.curAnim != null) {
+                        state.iconP1.animation.curAnim.curFrame = 1;
+                    }
+                } catch(e:Dynamic) {}
+            }
+        } else if (state.iconP1 != null && state.iconP2 != null) {
+            if (state.iconP1.autoUpdate == false) state.iconP1.autoUpdate = true;
+            if (state.iconP2.autoUpdate == false) state.iconP2.autoUpdate = true;
+            state.iconP1.isLegacyStyle = true;
+            state.iconP2.isLegacyStyle = true;
+        }
+    }
+
+    override function onStepHit(event) {
+        var state = PlayState.instance;
+        var api = ModuleHandler.getModule("KssetteApi");
+        if (state == null || api == null) return;
+        
+        if (api.getKssValue("kssette_icon_pos") == "Corners" && state.iconP1 != null && state.iconP2 != null) {
+            var bop1 = api.cachedP1Bop;
+            var bop2 = api.cachedP2Bop;
+            
+            if (bop1 > 0 && event.step % bop1 == 0) {
+                var p1Scale:Float = api.cachedP1Scale;
+                state.iconP1.scale.set(p1Scale * 1.2, p1Scale * 1.2);
+            }
+            if (bop2 > 0 && event.step % bop2 == 0) {
+                var p2Scale:Float = api.cachedP2Scale;
+                state.iconP2.scale.set(p2Scale * 1.2, p2Scale * 1.2);
+            }
+        }
+    }
+}
