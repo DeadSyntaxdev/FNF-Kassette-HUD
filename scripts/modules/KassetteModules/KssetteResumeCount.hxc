@@ -12,8 +12,8 @@ import funkin.Paths;
 import funkin.audio.FunkinSound;
 import flixel.util.FlxTimer;
 import Std;
-import Reflect;
 import funkin.modding.events.ScriptEvent;
+import funkin.data.notestyle.NoteStyleRegistry;
 
 class KssetteResumeCount extends Module {
     var cachedActive:Bool = false;
@@ -54,10 +54,10 @@ class KssetteResumeCount extends Module {
     function restoreAudio(state:PlayState) {
         if (FlxG.sound.music != null) FlxG.sound.music.volume = storedVolume;
         if (state != null && state.vocals != null) {
-            try {
+            if (state.vocals.playerVolume != null) {
                 state.vocals.playerVolume = storedPlayerVol;
                 state.vocals.opponentVolume = storedOpponentVol;
-            } catch(e:Dynamic) {
+            } else {
                 state.vocals.volume = storedVocalsVolume;
             }
         }
@@ -96,11 +96,8 @@ class KssetteResumeCount extends Module {
     }
 
     override public function onNoteHit(event) { cancelIfLocked(event); }
-
     override public function onNoteMiss(event) { cancelIfLocked(event); }
-
     override public function onNoteGhostMiss(event) { cancelIfLocked(event); }
-    
     override public function onPause(event:ScriptEvent) { cancelIfLocked(event); }
 
     override public function onResume(event) {
@@ -118,19 +115,18 @@ class KssetteResumeCount extends Module {
             FlxG.sound.music.volume = 0;
         }
         if (state.vocals != null) {
-            try {
+            if (state.vocals.playerVolume != null) {
                 storedPlayerVol = state.vocals.playerVolume;
                 storedOpponentVol = state.vocals.opponentVolume;
                 state.vocals.playerVolume = 0;
                 state.vocals.opponentVolume = 0;
-            } catch(e:Dynamic) {
+            } else {
                 storedVocalsVolume = state.vocals.volume;
                 state.vocals.volume = 0;
             }
         }
 
         var originalState = state;
-
         resumeTimer = new FlxTimer().start(0.001, function(tmr:FlxTimer) {
             var checkState = PlayState.instance;
             
@@ -139,8 +135,7 @@ class KssetteResumeCount extends Module {
             if (checkState.startingSong || checkState.isPlayerDying) { restoreAudio(checkState); return; }
             if (checkState.conductorInUse != null && checkState.conductorInUse.songPosition <= 0) { restoreAudio(checkState); return; }
             
-            if (checkState?._exiting == true) { restoreAudio(checkState); return; }
-            if (checkState?.isEndingSong == true) { restoreAudio(checkState); return; }
+            if (checkState._exiting == true || checkState.isEndingSong == true) { restoreAudio(checkState); return; }
 
             startCustomCountdown();
         });
@@ -162,10 +157,10 @@ class KssetteResumeCount extends Module {
         }
         if (state.vocals != null) {
             state.vocals.pause();
-            try {
+            if (state.vocals.playerVolume != null) {
                 state.vocals.playerVolume = storedPlayerVol;
                 state.vocals.opponentVolume = storedOpponentVol;
-            } catch(e:Dynamic) {
+            } else {
                 state.vocals.volume = storedVocalsVolume;
             }
         }
@@ -183,8 +178,7 @@ class KssetteResumeCount extends Module {
 
         if (state != null && state.playerStrumline != null && state.playerStrumline.noteStyle != null) {
             var ns = state.playerStrumline.noteStyle;
-            var rawId = ns?.id;
-            if (rawId != null) cachedStyle = Std.string(rawId);
+            if (ns.id != null) cachedStyle = Std.string(ns.id);
         }
     }
 
@@ -197,19 +191,9 @@ class KssetteResumeCount extends Module {
 
         for (num in 0...4) {
             var soundAsset:Dynamic = null;
-            
-            if (cachedStyle != "funkin" && cachedStyle != "pixel") {
-                soundAsset = Paths.sound('gameplay/countdown/' + cachedStyle + '/intro' + soundNames[num]);
-                if (soundAsset == null) soundAsset = Paths.sound('gameplay/countdown/' + cachedStyle + '/intro' + soundNamesNum[num]);
-            }
-            
-            if (soundAsset == null) {
-                soundAsset = Paths.sound('gameplay/countdown/' + fallbackStyle + '/intro' + soundNames[num]);
-                if (soundAsset == null) soundAsset = Paths.sound('gameplay/countdown/' + fallbackStyle + '/intro' + soundNamesNum[num]);
-            }
-            if (soundAsset == null && fallbackStyle != "funkin") {
-                soundAsset = Paths.sound('gameplay/countdown/funkin/intro' + soundNames[num]);
-            }
+            soundAsset = Paths.sound('gameplay/countdown/' + fallbackStyle + '/intro' + soundNames[num]);
+            if (soundAsset == null) soundAsset = Paths.sound('gameplay/countdown/' + fallbackStyle + '/intro' + soundNamesNum[num]);
+            if (soundAsset == null && fallbackStyle != "funkin") soundAsset = Paths.sound('gameplay/countdown/funkin/intro' + soundNames[num]);
             cachedSounds[num] = soundAsset;
 
             var imageAsset:Dynamic = null;
@@ -217,29 +201,17 @@ class KssetteResumeCount extends Module {
             var drawScale:Float = 1.0;
 
             if (imageNames[num] != "") {
-                if (cachedStyle != "funkin" && cachedStyle != "pixel") {
-                    imageAsset = Paths.image('ui/countdown/' + cachedStyle + '/' + imageNames[num]);
-                    if (imageAsset != null) {
-                        usePixel = cachedStyle.indexOf("pixel") != -1;
-                        drawScale = usePixel ? 6.0 : 1.0;
-                    }
+                imageAsset = Paths.image('ui/countdown/' + fallbackStyle + '/' + imageNames[num]);
+                if (fallbackStyle == "pixel") {
+                    usePixel = true;
+                    drawScale = 6.0;
                 }
-                
-                if (imageAsset == null) {
-                    imageAsset = Paths.image('ui/countdown/' + fallbackStyle + '/' + imageNames[num]);
-                    if (imageAsset != null) {
-                        usePixel = fallbackStyle == "pixel";
-                        drawScale = usePixel ? 6.0 : 1.0;
-                    }
-                }
-                
                 if (imageAsset == null && fallbackStyle != "funkin") {
                     imageAsset = Paths.image('ui/countdown/funkin/' + imageNames[num]);
                     usePixel = false;
                     drawScale = 1.0;
                 }
             }
-
             cachedImages[num] = imageAsset;
             cachedImagePixel[num] = usePixel;
             cachedImageScale[num] = drawScale;
@@ -252,7 +224,6 @@ class KssetteResumeCount extends Module {
         if (state.startingSong || state.isPlayerDying) return;
 
         var beatTime:Float = (Conductor.instance != null) ? Conductor.instance.beatLengthMs / 1000 : 0.6;
-
         var soundAsset:Dynamic = cachedSounds[num];
         var imageAsset:Dynamic = cachedImages[num];
         var usePixel:Bool = cachedImagePixel[num];
@@ -263,9 +234,7 @@ class KssetteResumeCount extends Module {
         if (imageAsset != null) {
             var sprite = new FlxSprite().loadGraphic(imageAsset);
             sprite.scrollFactor.set(0, 0);
-
             if (usePixel) sprite.antialiasing = false;
-            
             sprite.setGraphicSize(Std.int(sprite.width * drawScale));
             sprite.updateHitbox();
             sprite.screenCenter();

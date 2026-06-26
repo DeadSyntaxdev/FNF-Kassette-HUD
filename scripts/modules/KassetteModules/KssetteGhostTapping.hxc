@@ -73,22 +73,24 @@ class KssGhostTapping extends Module {
         return false;
     }
 
-    function handleGhostSing(dir:Int) {
+function handleGhostSing(dir:Int) {
         if (!_cGhostSing) return;
         var state = PlayState.instance;
         if (state == null || state.isPlayerDying || isPaused) return;
 
         var isOpposite = false;
-        var api:Dynamic = ModuleHandler.getModule("KssetteApi");
-        if (api != null && api.gammodPlayerSide == "OPPOSITE") {
-            isOpposite = true;
-        }
+        var api = ModuleHandler.getModule("KssetteApi");
+        if (api != null && api.gammodPlayerSide == "OPPOSITE") isOpposite = true;
         
         var player = state.currentStage != null ? (isOpposite ? state.currentStage.getDad() : state.currentStage.getBoyfriend()) : null;
-        if (player != null) {
-            player.playSingAnimation(dir, false); 
-            player.holdTimer = 0;
-        }
+        if (player == null) return;
+
+        // forcing animation lol
+        var anims = ["singLEFT", "singDOWN", "singUP", "singRIGHT"];
+        player.playAnimation(anims[dir], true, false, false);
+        player.holdTimer = 0;
+        
+        trace("[KssGhostTapping] Forced animation: " + anims[dir]);
     }
 
     override function onGhostMissNote(event:Dynamic) {

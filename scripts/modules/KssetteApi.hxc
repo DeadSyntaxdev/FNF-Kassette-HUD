@@ -457,7 +457,8 @@ class KssetteApi extends Module {
     }
     
     public function getFontSize(baseSize:Int, key:String):Int {
-        // Discarded feature: Always return baseSize to prevent giant fonts from old save data
+        // discarded feature: always return baseSize to prevent giant fonts from old save data
+        // idk when i can add the font size feature, sorry
         return baseSize;
     }
     
@@ -530,6 +531,8 @@ class KssetteApi extends Module {
 
         super.onCountdownStart(event);
         updateIconCache();
+
+        trace("[KssetteApi] Initialization started for song: " + getSongTitle() + " | Difficulty: " + getDifficulty());
         
         _gammodHandler = ModuleHandler.getModule("GammodModifierHandler");
         _gammodMult = ModuleHandler.getModule("GammodMult");
@@ -620,7 +623,7 @@ class KssetteApi extends Module {
                     }
                 }
 
-                if (getKssValue("kssette_show_breakbar") == true && state.currentChart.notes != null) {
+                if (state.currentChart.notes != null) {
                     var notesArray:Array<Dynamic> = state.currentChart.notes;
                     var len:Int = notesArray.length;
                     
