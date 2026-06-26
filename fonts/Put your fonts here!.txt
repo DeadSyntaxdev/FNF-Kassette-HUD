@@ -1,0 +1,6 @@
+you can choose ANY FONT. Yes, ANY FONT YOU WANT. Just install the .ttf or .otf file into the HUD's fonts folder to make your menu feel more personal. You can even use fonts from other mods you own!
+
+
+you can find fonts in page like:
+DAfont
+Google fonts
