@@ -1,5 +1,44 @@
 package kassettehud.util;
 
+/**
+ * KssetteAccuracy
+ *
+ * Calculates and displays real-time player accuracy, score, misses, rank,
+ * and combo tier during gameplay. Also manages the time display, song info
+ * text, mode indicator marquee (Botplay/AutoPlay), and per-judgement counters.
+ *
+ * Accuracy modes (kssette_acc_mode):
+ *   - "Classic"   - (hits - misses) / total * 100. Standard percentage.
+ *   - "Ascending" - Same formula, but weighted by note progress so the value
+ *                   starts at 0 and climbs toward the true percentage as notes
+ *                   are processed.
+ *   - "Off"       - Accuracy not displayed.
+ *
+ * Smooth display (kssette_smooth_display):
+ *   When enabled, the displayed accuracy lerps toward the true value at 8x
+ *   speed per frame rather than snapping instantly.
+ *
+ * Score bop (kssette_score_bop):
+ *   Briefly scales the score text to 1.1x on every successful player note hit.
+ *
+ * Security system:
+ *   If Botplay is active but the modeText marquee is hidden or mismatched,
+ *   securityTriggered is set and the player strumline is disabled to prevent
+ *   score abuse via HUD hiding.
+ *
+ * Settings managed:
+ *   - kssette_acc_mode, kssette_show_score, kssette_show_misses
+ *   - kssette_show_rank, kssette_show_tier, kssette_smooth_display
+ *   - kssette_show_song_time, kssette_show_song_title, kssette_show_song_diff
+ *   - kssette_score_bop, kssette_judge_pos, kssette_score_pos, kssette_info_pos
+ *
+ * Dependencies:
+ *   - KssetteApi.getRankID()    - current letter rank
+ *   - KssetteApi.getComboTier() - current combo tier string
+ *   - KssetteApi.getModeMessage() - current mode label (Botplay, etc.)
+ *   - Highscore.tallies          - live judgement counters
+ */
+
 import flixel.FlxG;
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
@@ -15,51 +54,86 @@ import funkin.Highscore;
 import flixel.FlxG;
 import Std;
 import Math;
-import Reflect;
 
 class KssetteAccuracy extends Module {
+    /** Text separator used between score, accuracy, rank, etc. */
     var separator:String = " / ";
     
+    /** Primary HUD text object (score, accuracy, rank, tier). */
     public var uiText:FlxText;
+    /** Secondary text showing song title and/or difficulty. */
     public var infoText:FlxText; 
+    /** Text showing remaining song time. */
     public var timeText:FlxText; 
+    /** Scrolling marquee showing the current game mode (e.g., "Botplay"). */
     public var modeText:FlxText; 
+    /** Label FlxText objects for each judgement counter (Sicks, Goods, etc.). */
     public var judgeLabels:Array<FlxText> = [];
+    /** Value FlxText objects for each judgement counter. */
     public var judgeValues:Array<FlxText> = [];
+    /** Judgement identifier strings shown in the panel. */
     public var judgeNames:Array<String> = ["sick", "good", "bad", "shit", "miss", "maxCombo"];
     
+    /** Last cached score value; change detection guard. */
     var lastScore:Int = -1;
+    /** Last cached miss count; change detection guard. */
     var lastMisses:Int = -1;
+    /** Last cached max combo; change detection guard. */
     var lastMaxCombo:Int = -1;
+    /** Last cached total notes hit; change detection guard. */
     var lastNotesHit:Int = -1;
+    /** Last displayed remaining-time in seconds; change detection guard. */
     var lastTimeSeconds:Int = -1;
+    /** Last displayed accuracy value; change detection guard. */
     var lastVisualAcc:Float = -1;
     
+    /** Last cached sick count for the judge panel. */
     var lastSick:Int = -1;
+    /** Last cached good count for the judge panel. */
     var lastGood:Int = -1;
+    /** Last cached bad count for the judge panel. */
     var lastBad:Int = -1;
+    /** Last cached shit count for the judge panel. */
     var lastShit:Int = -1;
+    /** Last cached miss count for the judge panel. */
     var lastMissesJudge:Int = -1;
+    /** Last cached max combo for the judge panel. */
     var lastMaxComboJudge:Int = -1;
 
+    /** True if the anti-cheat system has been triggered. */
     var securityTriggered:Bool = false;
+    /** Total player note count pre-computed from the chart. */
     var cachedTotalNotes:Int = -1;
+    /** Adjusted actual note total (may differ when tallies exceed pre-count). */
     var cachedActualTotal:Int = -1;
+    /** Accuracy value currently shown on screen (used for smooth lerp). */
     var displayedAcc:Float = 0;
+    /** Timer that throttles UI text rebuilds to ~30fps (mobile: ~10fps). */
     var uiUpdateTimer:Float = 0.0;
+    /** True when a UI text rebuild is pending on the next threshold tick. */
     var pendingTextUpdate:Bool = false;
+    /** Timer used to simulate accuracy changes in the options menu preview. */
     var previewAccTimer:Float = 0.0;
+    /** Per-frame throttle timer (~120Hz gate before any update logic runs). */
     var frameUpdateTimer:Float = 0.0;
     
+    /** Cached HUD font string (from KssetteApi.getHudFont()). */
     public var cachedFont:String = "";
 
+    /** Active FlxTextFormat applied to the rank portion of uiText. */
     var currentTargetFmt:FlxTextFormat = null;
+    /** Cached character length of the formatted rank string. */
     var cachedRankLen:Int = 0;
+    /** Prefix text built before the accuracy percentage. */
     var cachedPrefix:String = "";
+    /** Suffix text built after the accuracy percentage (rank, tier). */
     var cachedSuffix:String = "";
+    /** Whether a separator is needed between prefix and accuracy. */
     var prefixNeedsSepForAcc:Bool = false;
+    /** Target accuracy value that displayedAcc lerps toward. */
     var targetAcc:Float = 0.0;
 
+    // --- Cached FlxTextFormat instances (created once, reused each frame) ---
     var _fmtPerfectGold:FlxTextFormat;
     var _fmtPerfect:FlxTextFormat;
     var _fmtExcellent:FlxTextFormat;
@@ -70,8 +144,10 @@ class KssetteAccuracy extends Module {
     var _fmtUnranked:FlxTextFormat;
     var _fmtMult:FlxTextFormat;
     var _fmtHighscore:FlxTextFormat;
+    /** Current hue angle for the rainbow highscore color animation. */
     var _rainbowHue:Float = 0.0;
 
+    // --- Cached text content and format ranges (avoids unnecessary rebuilds) ---
     var _lastBuiltScoreInt:Int = -1;
     var _lastBuiltMisses:Int = -1;
     var _lastBuiltAcc:Float = -1;
@@ -80,6 +156,7 @@ class KssetteAccuracy extends Module {
     var _lastBuiltMult:Float = 1.0;
     var _lastBuiltUnranked:Bool = false;
     
+    // Cached full text string and format range indices for efficient partial re-formatting.
     var _cachedText:String = "";
     var _unrankedStart:Int = -1;
     var _unrankedEnd:Int = -1;
@@ -89,7 +166,9 @@ class KssetteAccuracy extends Module {
     var _scoreEnd:Int = -1;
     var _rankStart:Int = -1;
 
+    /** Cached reference to KssetteApi. */
     var api:Dynamic = null;
+    // --- Cached option flags (read once per settings update) ---
     var _cShowScore:Bool = true;
     var _cShowMisses:Bool = true;
     var _cShowRank:Bool = true;
@@ -105,17 +184,27 @@ class KssetteAccuracy extends Module {
     var _cScoreBop:Bool = false;
     var _bopTimer:Float = 0.0;
 
+    /** Cached accuracy rank string (e.g. "PERFECT_GOLD"). */
     var cachedRankStr:String = "?";
+    /** Cached combo tier string (e.g. "SFC", "GFC"). */
     var cachedTierStr:String = "N/A";
+    /** Cached mode message string (e.g. "Botplay"); empty when no mode is active. */
     var cachedModeMsg:String = "";
 
+    /** True when rendering in the options menu preview instead of gameplay. */
     public var isPreview:Bool = false;
+    /** Camera to render into during preview mode. */
     public var previewCam:flixel.FlxCamera = null;
 
     public function new() {
         super("KssetteAccuracy");
     }
 
+    /**
+     * Returns the display label for a judgement identifier.
+     * @param name  Judgement ID ("sick", "good", "bad", "shit", "miss", "maxCombo").
+     * @return      Human-readable label for the UI panel.
+     */
     function getJudgeName(name:String):String {
         switch(name) {
             case 'sick': return 'Sicks';
@@ -128,6 +217,11 @@ class KssetteAccuracy extends Module {
         }
     }
 
+    /**
+     * Formats a rank ID to its abbreviated display form.
+     * @param id  Rank identifier (e.g. "PERFECT_GOLD", "EXCELLENT").
+     * @return    Short display string (e.g. "P [GOLD]", "E").
+     */
     function formatRank(id:String):String {
         if (id == null || id == "" || id == "?") return "?";
         switch (id.toUpperCase()) {
@@ -141,6 +235,10 @@ class KssetteAccuracy extends Module {
         }
     }
 
+    /**
+     * Destroys all UI text objects created by this module.
+     * Called before rebuilding the UI or when leaving PlayState.
+     */
     public function cleanupUI() {
         if (uiText != null) uiText.destroy();
         if (infoText != null) infoText.destroy();
@@ -152,6 +250,19 @@ class KssetteAccuracy extends Module {
         judgeValues = [];
     }
 
+    /**
+     * Creates a FlxText node with standard HUD formatting and adds it to the scene.
+     *
+     * @param x      X position.
+     * @param y      Y position.
+     * @param w      Field width (0 = auto).
+     * @param text   Initial text content.
+     * @param size   Font size in points.
+     * @param align  Text alignment ("center", "left", "right").
+     * @param z      Z-index for draw-order sorting.
+     * @param cam    Camera to assign the text to.
+     * @return       The created FlxText instance.
+     */
     function makeText(x:Float, y:Float, w:Float, text:String, size:Int, align:String, z:Int, cam:flixel.FlxCamera):FlxText {
         var t = new FlxText(x, y, w, text, size);
         t.setFormat(cachedFont, size, FlxColor.WHITE, align, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
@@ -162,6 +273,11 @@ class KssetteAccuracy extends Module {
         return t;
     }
 
+    /**
+     * Builds all UI text objects and adds them to the scene.
+     * Destroys any existing UI first via cleanupUI().
+     * @param cam  The HUD camera to assign all text nodes to.
+     */
     public function setupUI(cam:flixel.FlxCamera) {
         cleanupUI();
 
@@ -180,6 +296,14 @@ class KssetteAccuracy extends Module {
         }
     }
 
+    /**
+     * Returns the cached or freshly-created FlxTextFormat for a given rank ID.
+     * Colors match the in-game rank palettes (gold, purple, yellow, etc.).
+     * The format's font is synchronized to the active uiText font on each call.
+     *
+     * @param rank  Rank ID (e.g. "PERFECT_GOLD", "GREAT").
+     * @return      A FlxTextFormat with the appropriate color.
+     */
     function getRankFormat(rank:String):FlxTextFormat {
         var fmt:FlxTextFormat = null;
         switch(rank.toUpperCase()) {
@@ -212,6 +336,14 @@ class KssetteAccuracy extends Module {
         return fmt;
     }
 
+    /**
+     * Called at song start. Registers with KssetteApi, invalidates the rank
+     * cache, pre-computes the total note count, builds the UI, and applies
+     * initial position/settings.
+     *
+     * Also hides PlayState's built-in scoreText and re-adds strumline
+     * backgrounds to camHUD for correct draw ordering.
+     */
     override function onCountdownStart(event) {
         api = ModuleHandler.getModule("KssetteApi");
         if (api == null) return;
@@ -265,7 +397,7 @@ class KssetteAccuracy extends Module {
         if (state.scoreText != null) state.scoreText.visible = false;
 
         if (state.playerStrumline != null) {
-            var bg1:Dynamic = Reflect.getProperty(state.playerStrumline, "background");
+            var bg1 = state.playerStrumline?.background;
             if (bg1 != null) {
                 state.playerStrumline.remove(bg1, true);
                 bg1.zIndex = 10;
@@ -274,7 +406,7 @@ class KssetteAccuracy extends Module {
             }
         }
         if (state.opponentStrumline != null) {
-            var bg2:Dynamic = Reflect.getProperty(state.opponentStrumline, "background");
+            var bg2 = state.opponentStrumline?.background;
             if (bg2 != null) {
                 state.opponentStrumline.remove(bg2, true);
                 bg2.zIndex = 10;
@@ -283,26 +415,6 @@ class KssetteAccuracy extends Module {
             }
         }
 
-            if (state.healthBarBG != null) {
-                state.healthBarBG.zIndex = 110;
-                state.remove(state.healthBarBG, true);
-                state.add(state.healthBarBG);
-            }
-            if (state.healthBar != null) {
-                state.healthBar.zIndex = 111;
-                state.remove(state.healthBar, true);
-                state.add(state.healthBar);
-            }
-            if (state.iconP1 != null) {
-                state.iconP1.zIndex = 112;
-                state.remove(state.iconP1, true);
-                state.add(state.iconP1);
-            }
-            if (state.iconP2 != null) {
-                state.iconP2.zIndex = 112;
-                state.remove(state.iconP2, true);
-                state.add(state.iconP2);
-            }
 
             setupUI(state.camHUD);
             updateSettings();
@@ -313,11 +425,17 @@ class KssetteAccuracy extends Module {
             state.refresh();
     }
 
+    /** Called on resume. Re-applies settings and positions in case options changed. */
     override public function onResume(event) {
         updateSettings();
         updatePositions();
     }
 
+    /**
+     * Entry point for the options menu preview. Sets up the HUD UI in preview
+     * mode and renders a static example (score=123456, acc=100%, rank=P[GOLD]).
+     * @param cam  The preview camera to render into.
+     */
     public function buildPreview(cam:flixel.FlxCamera) {
         isPreview = true;
         previewCam = cam;
@@ -331,6 +449,10 @@ class KssetteAccuracy extends Module {
         updatePreview();
     }
 
+    /**
+     * Refreshes the preview to show the current settings. Called by the
+     * options menu whenever a relevant setting changes.
+     */
     public function updatePreview() {
         if (!isPreview || uiText == null) return;
         
@@ -359,6 +481,11 @@ class KssetteAccuracy extends Module {
         }
     }
 
+    /**
+     * Reads and caches all relevant option values from KssetteApi.
+     * Also updates font, text visibility, info text, time text, and judge labels.
+     * Called at countdown start, on resume, and during preview updates.
+     */
     function updateSettings() {
         if (api == null) return;
         
@@ -438,6 +565,11 @@ class KssetteAccuracy extends Module {
         }
     }
 
+    /**
+     * Computes and applies the screen positions of all HUD text elements
+     * based on downscroll mode, timebar position, score panel position,
+     * and info panel position. Also lays out the judgement counter panel.
+     */
     public function updatePositions() {
         if (uiText == null || api == null) return;
         
@@ -584,6 +716,18 @@ class KssetteAccuracy extends Module {
         }
     }
 
+    /**
+     * Builds the main uiText string and applies colored FlxTextFormat ranges
+     * for score, rank, multiplier, and unranked status. The text is only fully
+     * rebuilt when any relevant parameter changes; otherwise only format ranges
+     * are re-applied for the highscore rainbow effect.
+     *
+     * @param scoreInt  Current integer score.
+     * @param misses    Total miss count.
+     * @param acc       Displayed accuracy percentage (already floored to 2dp).
+     * @param rankStr   Rank identifier string (e.g. "PERFECT_GOLD").
+     * @param tierStr   Combo tier string (e.g. "SFC").
+     */
     public function updateAccuracyText(scoreInt:Int, misses:Int, acc:Float, rankStr:String, tierStr:String) {
         if (uiText == null || !uiText.exists) return;
 
@@ -742,6 +886,11 @@ class KssetteAccuracy extends Module {
         }
     }
     
+    /**
+     * Called on each note hit. Triggers the score bop animation when enabled,
+     * and re-routes the hit to a miss if the security system has been triggered.
+     * Only processes player notes (getMustHitNote == true).
+     */
     override function onNoteHit(event) {
         super.onNoteHit(event);
         if (isPreview) return;
@@ -751,16 +900,30 @@ class KssetteAccuracy extends Module {
             if (PlayState.instance != null) PlayState.instance.noteMiss(event.note);
         }
         
-        try {
-            var note = event.note;
-            if (note != null && note.noteData != null && !note.noteData.getMustHitNote()) return;
-        } catch(e:Dynamic) {}
+        var note = event.note;
+        if (note?.noteData != null) {
+            var mh = note.noteData?.getMustHitNote();
+            if (mh == null) mh = note.noteData?.mustHitNote;
+            if (!mh) return;
+        }
 
         if (_cScoreBop && uiText != null) {
             uiText.scale.set(1.1, 1.1);
         }
     }
 
+    /**
+     * Per-frame update. Manages three primary responsibilities:
+     *
+     * 1. Preview mode: simulates accuracy changes and reacts to preview triggers.
+     * 2. Gameplay mode:
+     *    a. Updates the time text countdown.
+     *    b. Scrolls the mode marquee text.
+     *    c. Runs the anti-cheat check (Botplay detection).
+     *    d. Reads Highscore.tallies and computes target accuracy.
+     *    e. Applies smooth accuracy lerp.
+     *    f. Throttled UI text rebuild (~30fps, or immediately on major changes).
+     */
     override public function onUpdate(event) {
         var elapsed = event.elapsed;
         
@@ -815,56 +978,7 @@ class KssetteAccuracy extends Module {
 
         var elapsed = event.elapsed;
         var state = PlayState.instance;
-        if (state != null && api != null) {
-            if (api.getKssValue("kssette_icon_pos") == "Corners" && state.healthBarBG != null && state.healthBar != null && state.iconP1 != null && state.iconP2 != null) {
-                state.iconP1.autoUpdate = false;
-                state.iconP2.autoUpdate = false;
-                
-                if (state.iconP1 != null) state.iconP1.isLegacyStyle = false;
-                if (state.iconP2 != null) state.iconP2.isLegacyStyle = false;
 
-                var lerpFactor = 1.0 - (elapsed * 15.0);
-                if (lerpFactor < 0) lerpFactor = 0;
-                
-                var p1Scale:Float = api.cachedP1Scale;
-                var p2Scale:Float = api.cachedP2Scale;
-
-                state.iconP1.scale.x = p1Scale + ((state.iconP1.scale.x - p1Scale) * lerpFactor);
-                state.iconP1.scale.y = p1Scale + ((state.iconP1.scale.y - p1Scale) * lerpFactor);
-                state.iconP2.scale.x = p2Scale + ((state.iconP2.scale.x - p2Scale) * lerpFactor);
-                state.iconP2.scale.y = p2Scale + ((state.iconP2.scale.y - p2Scale) * lerpFactor);
-
-                var hp1 = state.health;
-                var hp2 = 2.0 - state.health;
-                
-                var gSide = "NORMAL";
-                if (api.gammodPlayerSide != null) gSide = api.gammodPlayerSide;
-                
-                if (gSide == "OPPOSITE") {
-                    hp1 = 2.0 - state.health;
-                    hp2 = state.health;
-                }
-
-                if (state.iconP1 != null) state.iconP1.updateHealthIcon(hp1);
-                if (state.iconP2 != null) state.iconP2.updateHealthIcon(hp2);
-
-                state.iconP1.updateHitbox();
-                state.iconP2.updateHitbox();
-
-                var centerY = state.healthBar.y + (state.healthBar.height / 2);
-                
-                state.iconP1.x = state.healthBarBG.x + state.healthBarBG.width - (state.iconP1.width / 2);
-                state.iconP2.x = state.healthBarBG.x - (state.iconP2.width / 2);
-                
-                state.iconP1.y = centerY - (state.iconP1.height / 2);
-                state.iconP2.y = centerY - (state.iconP2.height / 2);
-            } else if (state.iconP1 != null && state.iconP2 != null) {
-                if (state.iconP1.autoUpdate == false) state.iconP1.autoUpdate = true;
-                if (state.iconP2.autoUpdate == false) state.iconP2.autoUpdate = true;
-                if (state.iconP1 != null) state.iconP1.isLegacyStyle = true;
-                if (state.iconP2 != null) state.iconP2.isLegacyStyle = true;
-            }
-        }
 
         if (!securityTriggered) {
             frameUpdateTimer += elapsed;
@@ -940,7 +1054,7 @@ class KssetteAccuracy extends Module {
         var minorChange:Bool = (currentScoreInt != lastScore);
 
         if (cachedActualTotal == -1 && t != null) {
-            var tn:Dynamic = Reflect.getProperty(t, "totalNotes");
+            var tn = t?.totalNotes;
             if (tn != null && tn > 0) cachedActualTotal = Std.int(tn);
             if (cachedActualTotal <= 0) cachedActualTotal = cachedTotalNotes;
         }
@@ -1070,25 +1184,6 @@ class KssetteAccuracy extends Module {
             lastVisualAcc = visualAcc;
 
             updateAccuracyText(lastScore, m, visualAcc, cachedRankStr, cachedTierStr);
-        }
-    }
-
-    function onStepHit(event:StepHitScriptEvent) {
-        var state = PlayState.instance;
-        if (state == null || api == null) return;
-        
-        if (api.getKssValue("kssette_icon_pos") == "Corners" && state.iconP1 != null && state.iconP2 != null) {
-            var bop1 = api.cachedP1Bop;
-            var bop2 = api.cachedP2Bop;
-            
-            if (bop1 > 0 && event.step % bop1 == 0) {
-                var p1Scale:Float = api.cachedP1Scale;
-                state.iconP1.scale.set(p1Scale * 1.2, p1Scale * 1.2);
-            }
-            if (bop2 > 0 && event.step % bop2 == 0) {
-                var p2Scale:Float = api.cachedP2Scale;
-                state.iconP2.scale.set(p2Scale * 1.2, p2Scale * 1.2);
-            }
         }
     }
 }

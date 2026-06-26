@@ -12,38 +12,82 @@ import funkin.Paths;
 import funkin.audio.FunkinSound;
 import flixel.util.FlxTimer;
 import Std;
-import Reflect;
 import funkin.modding.events.ScriptEvent;
 
+/**
+ * KssetteResumeCount
+ * 
+ * Displays an animated custom countdown (3 -> 2 -> 1 -> GO!) when the player
+ * resumes gameplay from pause. 
+ * 
+ * While the countdown is active:
+ *  - The song score is locked to prevent drift.
+ *  - Music and vocals are paused.
+ *  - Note hits, misses, and ghost taps are cancelled to prevent penalty.
+ * 
+ * Countdown assets (sounds and images) are resolved automatically based on
+ * the active NoteStyle, falling back to pixel or base funkin styles as needed.
+ */
+
 class KssetteResumeCount extends Module {
+    /** Indicates whether the resume countdown feature is enabled in the options. */
     var cachedActive:Bool = false;
+    /** True if the 3-2-1 countdown animation is currently running. */
     var isCounting:Bool = false;
+    /** True during the brief check period between resuming and starting the countdown. */
     var isResuming:Bool = false;
+    /** Timer controlling the rhythm of the countdown sequence. */
     var currentTimer:FlxTimer;
+    /** Timer used to defer execution to check if the state is stable after resuming. */
     var resumeTimer:FlxTimer;
+    
+    /** The original music volume before the countdown started. */
     var storedVolume:Float = 1.0;
+    /** The original mono vocals volume. */
     var storedVocalsVolume:Float = 1.0;
+    /** The original multi-track player vocals volume. */
     var storedPlayerVol:Float = 1.0;
+    /** The original multi-track opponent vocals volume. */
     var storedOpponentVol:Float = 1.0;
+    /** The original score to lock and prevent background drift. */
     var storedScore:Int = 0;
+    
+    /** Reference to the KssetteApi module for reading configurations. */
     var apiModule:Dynamic = null;
 
+    /** The cached NoteStyle ID used to resolve assets. */
     var cachedStyle:String = "funkin";
+    /** Indicates if the resolved style is pixel-based. */
     var cachedPixel:Bool = false;
+    /** The scale factor applied to the countdown images. */
     var cachedScale:Float = 1.0;
+    
+    /** Base sound file names for standard styles. */
     var soundNames:Array<String> = ["GO", "ONE", "TWO", "THREE"];
+    /** Base sound file names for numeric styles. */
     var soundNamesNum:Array<String> = ["Go", "1", "2", "3"];
+    /** Base image file names for the countdown sprites. */
     var imageNames:Array<String> = ["go", "set", "ready", ""];
+    
+    /** Pre-loaded sound assets for each countdown step. */
     var cachedSounds:Array<Dynamic> = [null, null, null, null];
+    /** Pre-loaded image assets for each countdown step. */
     var cachedImages:Array<Dynamic> = [null, null, null, null];
+    /** Indicates if a specific image step should use pixel antialiasing. */
     var cachedImagePixel:Array<Bool> = [false, false, false, false];
+    /** The calculated drawing scale for a specific image step. */
     var cachedImageScale:Array<Float> = [1.0, 1.0, 1.0, 1.0];
+    /** The NoteStyle ID that the currently cached assets belong to. */
     var cachedAssetsStyle:String = "";
 
     public function new() {
         super("KssetteResumeCount");
     }
 
+    /**
+     * Cancels any active countdown timers to prevent orphaned events
+     * when the state changes unexpectedly (e.g. death or exit).
+     */
     function cancelTimers() {
         if (currentTimer != null) currentTimer.cancel();
         if (resumeTimer != null) resumeTimer.cancel();
@@ -51,21 +95,33 @@ class KssetteResumeCount extends Module {
         resumeTimer = null;
     }
 
+    /**
+     * Restores the audio volume to the levels stored before pausing.
+     * @param state The active PlayState instance.
+     */
     function restoreAudio(state:PlayState) {
         if (FlxG.sound.music != null) FlxG.sound.music.volume = storedVolume;
-        if (state != null && state.vocals != null) {
-            try {
+        if (state?.vocals != null) {
+            if (state.vocals?.playerVolume != null) {
                 state.vocals.playerVolume = storedPlayerVol;
                 state.vocals.opponentVolume = storedOpponentVol;
-            } catch(e:Dynamic) {
+            } else {
                 state.vocals.volume = storedVocalsVolume;
             }
         }
         isResuming = false;
     }
 
+    /**
+     * Cancels an event if the countdown is currently active.
+     * @param event The ScriptEvent to cancel.
+     */
     function cancelIfLocked(event:Dynamic) { if (isCounting || isResuming) event.cancel(); }
 
+    /**
+     * Initializes the resume count module when a new song starts.
+     * Registers with the API and pre-caches the countdown assets.
+     */
     override public function onCountdownStart(event) {
         super.onCountdownStart(event);
         cachedActive = false;
@@ -84,6 +140,10 @@ class KssetteResumeCount extends Module {
         }
     }
 
+    /**
+     * Per-frame update logic. Monitors for unexpected state changes 
+     * and forces the song score to remain locked while the countdown is active.
+     */
     override public function onUpdate(event) {
         if (isCounting) {
             var state = PlayState.instance;
@@ -95,14 +155,22 @@ class KssetteResumeCount extends Module {
         }
     }
 
+    /** Cancels note hits during the countdown. */
     override public function onNoteHit(event) { cancelIfLocked(event); }
 
+    /** Cancels note misses during the countdown. */
     override public function onNoteMiss(event) { cancelIfLocked(event); }
 
+    /** Cancels ghost tap misses during the countdown. */
     override public function onNoteGhostMiss(event) { cancelIfLocked(event); }
     
+    /** Prevents the player from pausing again during the countdown. */
     override public function onPause(event:ScriptEvent) { cancelIfLocked(event); }
 
+    /**
+     * Triggered when the player resumes from pause. 
+     * Silences audio immediately and defers the countdown start to ensure state stability.
+     */
     override public function onResume(event) {
         super.onResume(event);
         var state = PlayState.instance;
@@ -118,12 +186,12 @@ class KssetteResumeCount extends Module {
             FlxG.sound.music.volume = 0;
         }
         if (state.vocals != null) {
-            try {
+            if (state.vocals?.playerVolume != null) {
                 storedPlayerVol = state.vocals.playerVolume;
                 storedOpponentVol = state.vocals.opponentVolume;
                 state.vocals.playerVolume = 0;
                 state.vocals.opponentVolume = 0;
-            } catch(e:Dynamic) {
+            } else {
                 storedVocalsVolume = state.vocals.volume;
                 state.vocals.volume = 0;
             }
@@ -139,13 +207,16 @@ class KssetteResumeCount extends Module {
             if (checkState.startingSong || checkState.isPlayerDying) { restoreAudio(checkState); return; }
             if (checkState.conductorInUse != null && checkState.conductorInUse.songPosition <= 0) { restoreAudio(checkState); return; }
             
-            if (Reflect.hasField(checkState, "_exiting") && Reflect.field(checkState, "_exiting") == true) { restoreAudio(checkState); return; }
-            if (Reflect.hasField(checkState, "isEndingSong") && Reflect.field(checkState, "isEndingSong") == true) { restoreAudio(checkState); return; }
+            if (checkState?._exiting == true) { restoreAudio(checkState); return; }
+            if (checkState?.isEndingSong == true) { restoreAudio(checkState); return; }
 
             startCustomCountdown();
         });
     }
 
+    /**
+     * Starts the custom 3-2-1 countdown logic.
+     */
     function startCustomCountdown() {
         var state = PlayState.instance;
         if (state == null || isCounting) {
@@ -162,10 +233,10 @@ class KssetteResumeCount extends Module {
         }
         if (state.vocals != null) {
             state.vocals.pause();
-            try {
+            if (state.vocals?.playerVolume != null) {
                 state.vocals.playerVolume = storedPlayerVol;
                 state.vocals.opponentVolume = storedOpponentVol;
-            } catch(e:Dynamic) {
+            } else {
                 state.vocals.volume = storedVocalsVolume;
             }
         }
@@ -176,20 +247,26 @@ class KssetteResumeCount extends Module {
         doCount(3);
     }
 
+    /**
+     * Retrieves the current NoteStyle ID from the player's strumline
+     * to resolve the correct set of countdown assets.
+     */
     function cacheStyle(state:PlayState) {
         cachedStyle = "funkin";
         cachedPixel = false;
         cachedScale = 1.0;
 
-        if (state != null && state.playerStrumline != null && state.playerStrumline.noteStyle != null) {
-            var ns = state.playerStrumline.noteStyle;
-            if (Reflect.hasField(ns, "id")) {
-                var rawId = Reflect.field(ns, "id");
-                if (rawId != null) cachedStyle = Std.string(rawId);
-            }
+        if (state?.playerStrumline?.noteStyle != null) {
+            var rawId = state.playerStrumline.noteStyle?.id;
+            if (rawId != null) cachedStyle = Std.string(rawId);
         }
     }
 
+    /**
+     * Pre-loads the sound and image assets for the current NoteStyle.
+     * Evaluates multiple fallback paths (custom -> pixel -> funkin) 
+     * to ensure assets are properly resolved.
+     */
     function cacheCountdownAssets() {
         if (cachedAssetsStyle == cachedStyle) return;
         cachedAssetsStyle = cachedStyle;
@@ -231,6 +308,12 @@ class KssetteResumeCount extends Module {
         }
     }
 
+    /**
+     * Recursive countdown step executor.
+     * Plays the associated sound and animates the sprite, then schedules
+     * the next step (3 -> 2 -> 1 -> GO).
+     * @param num The current countdown step (3 to 0).
+     */
     function doCount(num:Int) {
         var state = PlayState.instance;
         if (state == null || !isCounting) return;

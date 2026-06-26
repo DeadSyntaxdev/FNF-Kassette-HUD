@@ -1,9 +1,47 @@
 package kassettehud.util;
 
+/**
+ * KssetteSubtitles
+ *
+ * Renders synchronized song lyrics (subtitles) during gameplay and in
+ * the options menu preview. Supports karaoke-style formatting and smart
+ * mode that highlights lines based on who is currently singing.
+ *
+ * Subtitle data format:
+ *   The module reads from "data/songs/{songId}/subtitles.json", which
+ *   should contain an array of entries:
+ *     { "text": "...", "time": 1234, "duration": 2000, "character": "bf" }
+ *   HTML color/style tags (e.g. <font color="#FF0000">, <b>, <i>) are
+ *   parsed for karaoke reveal effects.
+ *
+ * When no subtitle file is available, the module falls back to a built-in
+ * "trivia" array with fun FNF facts displayed at random intervals.
+ *
+ * Animation modes (kssette_subtitles_anim):
+ *   - "Slide" - Slides in from below (or above) and fades out.
+ *   - "Fade"  - Fades in/out only.
+ *   - "Off"   - Appears/disappears instantly.
+ *
+ * Smart karaoke (kssette_smart_karaoke):
+ *   When enabled, only lines belonging to the currently singing character
+ *   are highlighted; the other side is shown at reduced opacity.
+ *
+ * Settings managed:
+ *   - kssette_subtitles_anim: "Slide" | "Fade" | "Off"
+ *   - kssette_subtitles_pos:  "Bottom" | "Top" | "Center"
+ *   - kssette_smart_karaoke:  "On" | "Off"
+ *
+ * Dependencies:
+ *   - KssetteApi.getKssValue()  - reads option values
+ *   - KssetteApi.getHudFont()   - HUD font string
+ *   - Subtitle JSON files in data/songs/{id}/subtitles.json
+ */
+
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
 import flixel.FlxG;
+import funkin.util.ReflectUtil;
 import flixel.text.FlxText;
 import flixel.text.FlxTextBorderStyle;
 import flixel.text.FlxTextFormat;
@@ -12,51 +50,72 @@ import flixel.tweens.FlxEase;
 import funkin.Conductor;
 import Math;
 import Std;
-import Reflect;
 import StringTools;
 import flixel.util.FlxColor;
 
 class KssetteSubtitles extends Module {
     
+    /** Default font size for subtitle text. */
     var defaultFontSize:Int = 24;
+    /** Y position of subtitles when placed at the top of the screen. */
     var topY_Normal:Float = 190;
+    /** Vertical offset from the bottom edge when placed at the bottom. */
     var bottomY_Offset:Float = 190;
 
+    /** Cached reference to KssetteApi. */
     var apiModule:Dynamic = null;
+    /** HUD font name read from KssetteApi.getHudFont(). */
     var cachedFont:String = "VCR OSD Mono";
+    /** Active animation style: "Slide", "Fade", or "Off". */
     var animType:String = "Slide";
+    /** Current position mode: "Bottom", "Top", or "Center". */
     var posType:String = "Bottom";
+    /** Whether smart karaoke highlighting is active. */
     var smartKaraoke:Bool = false;
     
+    /** Last raw subtitle text shown; guards against redundant updates. */
     var lastRawText:String = "";
+    /** Active FlxTween for the main show/hide animation. */
     var currentTween:FlxTween = null;
+    /** Active FlxTween for the karaoke reveal effect. */
     var karaokeTween:FlxTween = null;
+    /** Active FlxTween for the scale pulse effect. */
     var scaleTween:FlxTween = null;
+    /** Whether subtitles are currently visible on screen. */
     var isShowing:Bool = false;
     
+    /** The primary FlxText node that displays subtitle content. */
     var subText:FlxText;
 
+    // --- Native subtitle system bridge ---
     var _nativeSubs:Dynamic = null;
     var _nativeBg:Dynamic = null;
     var _nativeTextObj:Dynamic = null;
-    var _cachedEntries:Dynamic = null;
     
+    /** Reference to the KssttLSubtitles compatibility module, if present. */
     var kssttlModule:Dynamic = null;
+    /** True once we have checked for the KssttL module (avoids repeated lookups). */
     var checkedKssttl:Bool = false;
-    var localSubIndex:Int = 0;
+    /** The camera that subtitles were last assigned to; used to detect camera changes. */
     var lastTargetCam:Dynamic = null;
     
+    /** True when rendering in the options menu preview instead of gameplay. */
     public var isPreview:Bool = false;
+    /** Camera to render into during preview mode. */
     public var previewCam:flixel.FlxCamera = null;
+    /** Timer for the preview demo cycle (cycles through subtitle in/out states). */
     var previewTimer:Float = 0.0;
+    /** Per-frame throttle timer (~120Hz gate). */
     var updateTimer:Float = 0.0;
+    /** Current animation state index for the preview demo. */
     var previewState:Int = 0;
 
+    /** Cached plain text after stripping HTML from the current subtitle entry. */
     var cachedPlainText:String = "";
+    /** Cached format ranges extracted from HTML tags (color, bold, italic). */
     var cachedFormats:Array<Dynamic> = [];
+    /** Last karaoke visible-length applied; avoids redundant format re-application. */
     var lastKaraokeLen:Int = -1;
-    var cachedRawUntil:Float = -1000.0;
-    var cachedActiveEntry:Dynamic = null;
 
 var triviaArray:Array<String> = [
     "Did you know? <font color=\"#00FF00\">Boyfriend is canonically 19 years old!</font>",
@@ -209,14 +268,12 @@ var triviaArray:Array<String> = [
         super("KssetteSubtitles");
     }
 
-    function getFieldSafe(obj:Dynamic, fieldName:String):Dynamic {
-        if (obj == null) return null;
-        var v = Reflect.getProperty(obj, fieldName);
-        if (v != null) return v;
-        return Reflect.field(obj, fieldName);
-        return null;
-    }
 
+
+    /**
+     * Cancels all active animation tweens (show/hide, karaoke reveal, scale pulse).
+     * Safe to call even if no tweens are active.
+     */
     function cancelAnimTweens() {
         if (currentTween != null) {
             currentTween.cancel();
@@ -232,6 +289,10 @@ var triviaArray:Array<String> = [
         }
     }
 
+    /**
+     * Resets subtitle state without destroying the text object.
+     * Cancels tweens, clears the subText reference, and resets active entry tracking.
+     */
     function cleanUp() {
         cancelAnimTweens();
         subText = null;
@@ -240,6 +301,10 @@ var triviaArray:Array<String> = [
         cachedActiveEntry = null;
     }
 
+    /**
+     * Fully destroys the subtitle FlxText object and removes it from the scene.
+     * Calls cleanUp() first to cancel tweens and reset state.
+     */
     function destroySubText() {
         var oldText = subText;
         cleanUp();
@@ -251,6 +316,11 @@ var triviaArray:Array<String> = [
         subText = null;
     }
 
+    /**
+     * Creates the subtitle FlxText object and adds it to the given camera.
+     * Destroys any existing subText first to avoid duplication.
+     * @param cam  Camera to assign the subtitle text to.
+     */
     function createSubText(cam:flixel.FlxCamera) {
         if (subText != null) {
             destroySubText();
@@ -265,6 +335,12 @@ var triviaArray:Array<String> = [
         else FlxG.state.add(subText);
     }
 
+    /**
+     * Parses a simple HTML-formatted string, stripping tags to create plain text
+     * and recording format ranges for color, bold, and italics.
+     * @param htmlStr      Input string with <font>, <i>, <b> tags.
+     * @param defaultColor Fallback text color to apply if no <font color> is active.
+     */
     function compileHTML(htmlStr:String, defaultColor:Int) {
         cachedPlainText = "";
         if (cachedFormats == null) cachedFormats = [];
@@ -353,6 +429,11 @@ var triviaArray:Array<String> = [
         }
     }
 
+    /**
+     * Updates the text value and applies cached text formats up to a given character length.
+     * Used heavily by the karaoke effect to selectively format only the revealed characters.
+     * @param visibleLen The number of plain-text characters that should receive formatting.
+     */
     function updateTextDisplay(visibleLen:Int) {
         if (subText == null || !subText.exists) return;
         
@@ -369,6 +450,10 @@ var triviaArray:Array<String> = [
         }
     }
 
+    /**
+     * Prepares the UI for the options menu preview mode.
+     * @param cam The preview camera to render subtitles on.
+     */
     public function buildPreview(cam:flixel.FlxCamera) {
         isPreview = true;
         previewCam = cam;
@@ -383,6 +468,10 @@ var triviaArray:Array<String> = [
         updatePreview();
     }
 
+    /**
+     * Refreshes the preview state, pulling new settings from KssetteApi.
+     * Resets the preview cycle timer.
+     */
     public function updatePreview() {
         if (!isPreview) return;
         if (apiModule != null) {
@@ -399,6 +488,9 @@ var triviaArray:Array<String> = [
         lastRawText = "";
     }
 
+    /**
+     * Clears subtitle state when a song is retried.
+     */
     override public function onSongRetry(event:Dynamic) {
         super.onSongRetry(event);
         destroySubText();
@@ -408,6 +500,10 @@ var triviaArray:Array<String> = [
         cachedActiveEntry = null;
     }
     
+    /**
+     * Called at song start. Initializes text objects, caches settings,
+     * and resets internal variables/flags.
+     */
     override public function onCountdownStart(event:Dynamic) {
         super.onCountdownStart(event);
         isPreview = false;
@@ -445,6 +541,13 @@ var triviaArray:Array<String> = [
         cachedActiveEntry = null;
     }
     
+    /**
+     * Per-frame update. Manages:
+     *   - Preview mode looping and trivia display.
+     *   - Extracting text/timing data from the native subtitle system (as a fallback).
+     *   - Synchronizing with the song conductor.
+     *   - Calculating and running the karaoke tweens and show/hide animations.
+     */
     override public function onUpdate(event:Dynamic) {
         if (subText == null) return;
 
@@ -511,23 +614,23 @@ var triviaArray:Array<String> = [
             }
 
             if (_nativeSubs == null) {
-                _nativeSubs = getFieldSafe(state, "subtitles");
+                _nativeSubs = state?.subtitles;
                 if (_nativeSubs != null) {
-                    _nativeBg = getFieldSafe(_nativeSubs, "background");
-                    _nativeTextObj = getFieldSafe(_nativeSubs, "subtitleText");
+                    _nativeBg = _nativeSubs?.background;
+                    _nativeTextObj = _nativeSubs?.subtitleText;
                 }
             }
 
             if (_nativeSubs != null) {
-                var nCams:Dynamic = getFieldSafe(_nativeSubs, "cameras");
+                var nCams:Dynamic = _nativeSubs?.cameras;
                 var targetCam:Dynamic = null;
                 
                 if (nCams != null && nCams.length > 0) {
                     targetCam = nCams[0];
                 } else {
-                    var cOth = getFieldSafe(state, "camOther");
+                    var cOth = state?.camOther;
                     if (cOth != null) targetCam = cOth;
-                    else targetCam = getFieldSafe(state, "camHUD");
+                    else targetCam = state?.camHUD;
                 }
 
                 if (targetCam != null && lastTargetCam != targetCam) {
@@ -543,26 +646,19 @@ var triviaArray:Array<String> = [
                     _nativeTextObj.visible = false; _nativeTextObj.alpha = 0;
                 }
 
-                var newData = getFieldSafe(_nativeSubs, "subtitlesData");
-                if (_cachedEntries != newData) {
-                    _cachedEntries = newData;
-                    localSubIndex = 0;
-                    lastRawText = "";
-                    cachedRawUntil = -1000.0;
-                    cachedActiveEntry = null;
-                }
+                // No longer caching JSON array; strictly using fallback.
             }
             
             var sLengthMs:Float = state.currentSongLengthMs;
             if (sLengthMs <= 0) isCutscene = true;
             
             if (_nativeSubs != null) {
-                var snd = getFieldSafe(_nativeSubs, "assignedSound");
+                var snd = _nativeSubs?.assignedSound;
                 if (snd != null) {
-                    var sTime = getFieldSafe(snd, "time");
+                    var sTime = snd?.time;
                     if (sTime != null) currentSubsTime = sTime;
                     
-                    var sndLen = getFieldSafe(snd, "length");
+                    var sndLen = snd?.length;
                     if (sndLen != null && sLengthMs > 0) {
                         var diffVal = Math.abs(Std.parseFloat(Std.string(sndLen)) - sLengthMs);
                         if (diffVal > 5000) {
@@ -578,69 +674,18 @@ var triviaArray:Array<String> = [
 
             if (currentSubsTime < 0) isCutscene = true;
 
-            if (_cachedEntries != null) {
-                var len:Int = 0;
-                if (_cachedEntries != null && Reflect.hasField(_cachedEntries, "length")) len = _cachedEntries.length;
-                
-                if (len > 0) {
-                    if (currentSubsTime >= 0 && currentSubsTime <= cachedRawUntil) {
-                        rawTargetText = lastRawText;
-                        activeEntry = cachedActiveEntry;
-                    } else {
-                        if (localSubIndex > 0) {
-                            if (currentSubsTime < getFieldSafe(_cachedEntries[localSubIndex - 1], "end")) {
-                                localSubIndex = 0;
-                            }
-                        }
-
-                        while (localSubIndex < len && getFieldSafe(_cachedEntries[localSubIndex], "end") < currentSubsTime) {
-                            localSubIndex++;
-                        }
-
-                        var tempIdx = localSubIndex;
-                        var joinedText:String = "";
-                        var nextChange:Float = 1000000000.0;
-
-                        while (tempIdx < len) {
-                            var eStart:Dynamic = getFieldSafe(_cachedEntries[tempIdx], "start");
-                            var startTime:Float = (eStart != null) ? Std.parseFloat(Std.string(eStart)) : 0.0;
-                            var entry = startTime > currentSubsTime ? null : _cachedEntries[tempIdx];
-                            if (entry == null) {
-                                if (startTime < nextChange) nextChange = startTime;
-                                break;
-                            }
-
-                            var eEnd = getFieldSafe(entry, "end");
-                            var endTime:Float = (eEnd != null) ? Std.parseFloat(Std.string(eEnd)) : currentSubsTime;
-                            if (currentSubsTime <= endTime) {
-                                var eText = getFieldSafe(entry, "text");
-                                if (eText != null) {
-                                    if (joinedText != "") joinedText += " ";
-                                    joinedText += Std.string(eText);
-                                }
-                                if (activeEntry == null) activeEntry = entry;
-                                if (endTime < nextChange) nextChange = endTime;
-                            }
-                            tempIdx++;
-                        }
-
-                        if (joinedText != "") {
-                            rawTargetText = joinedText;
-                        }
-                        cachedRawUntil = nextChange;
-                        cachedActiveEntry = activeEntry;
-                    }
-                }
-            } 
+            // JSON reading block completely removed in favor of native fallback logic.
             
             if (rawTargetText == "" && _nativeTextObj != null) {
-                var fallbackText = getFieldSafe(_nativeTextObj, "text");
-                var fallbackHtml = getFieldSafe(_nativeTextObj, "htmlText");
+                var fallbackText = _nativeTextObj?.text;
+                var fallbackHtml = _nativeTextObj?.htmlText;
                 
                 if (fallbackText != null && Std.string(fallbackText) != "" && Std.string(fallbackText) != "null") {
                     rawTargetText = Std.string(fallbackText);
+                    if (rawTargetText != lastRawText && apiModule != null && apiModule?.khudDebug == true) trace("[KssetteSubtitles] Using text fallback: " + rawTargetText);
                 } else if (fallbackHtml != null && Std.string(fallbackHtml) != "" && Std.string(fallbackHtml) != "null") {
                     rawTargetText = Std.string(fallbackHtml);
+                    if (rawTargetText != lastRawText && apiModule != null && apiModule?.khudDebug == true) trace("[KssetteSubtitles] Using HTML fallback: " + rawTargetText);
                 }
             }
         }
@@ -648,6 +693,8 @@ var triviaArray:Array<String> = [
         if (rawTargetText == lastRawText) {
             return;
         }
+        
+
         
         var isAppend:Bool = false;
         var prevPlainLen = cachedPlainText.length;
@@ -700,24 +747,7 @@ var triviaArray:Array<String> = [
                 var startIdx:Int = isAppend ? prevPlainLen : 0;
                 var endIdx:Int = cachedPlainText.length;
                 var durK:Float = 0.35;
-                var hasExactTiming:Bool = false;
-
-                if (!isPreview && activeEntry != null) {
-                    var exactEnd:Dynamic = getFieldSafe(activeEntry, "end");
-                    if (exactEnd != null) {
-                        var currentPosSnd:Float = 0;
-                        if (Conductor.instance != null) {
-                            currentPosSnd = Conductor.instance.songPosition;
-                        }
-                        var timeRemaining:Float = (Std.parseFloat(Std.string(exactEnd)) - currentPosSnd) / 1000.0;
-                        if (timeRemaining > 0.05) {
-                            durK = timeRemaining;
-                            hasExactTiming = true;
-                        }
-                    }
-                }
-
-                if (!hasExactTiming) {
+                // No exact timing available when using fallback, use smart dynamic karaoke
                     var stepSecs:Float = 0.15;
                     if (Conductor.instance != null && Conductor.instance.stepCrochet > 0) {
                         stepSecs = Conductor.instance.stepCrochet / 1000.0;
@@ -729,7 +759,8 @@ var triviaArray:Array<String> = [
                     } else {
                         durK = Math.min(endIdx * (stepSecs * 0.3), stepSecs * 12);
                     }
-                }
+                
+                if (apiModule != null && apiModule?.khudDebug == true) trace("[KssetteSubtitles] Subtitle Display: " + (cachedPlainText == "" ? "(Empty)" : cachedPlainText) + " | Font: " + displayFont + " | Size: " + displaySize + " | Karaoke dur: " + durK);
 
                 updateTextDisplay(startIdx);
                 
@@ -745,7 +776,7 @@ var triviaArray:Array<String> = [
                         if (subText != null && subText.exists) updateTextDisplay(cachedPlainText.length);
                     }
                 }, function(v:Float) {
-                    var currentLen = Math.round(v);
+                    var currentLen = Math.ceil(v);
                     if (currentLen != lastKaraokeLen) {
                         lastKaraokeLen = currentLen;
                         if (subText != null && subText.exists) updateTextDisplay(currentLen);
@@ -770,9 +801,9 @@ var triviaArray:Array<String> = [
                         subText.alpha = 0;
                         dur = 0.35;
                     } else if (isAppend) {
-                        subText.x = targetX + 30; 
-                        subText.alpha = 0.7;
-                        dur = 0.15;
+                        subText.x = targetX; 
+                        subText.alpha = 1;
+                        dur = 0.01;
                     } else {
                         subText.x = -50;
                         subText.alpha = 0;
@@ -790,9 +821,9 @@ var triviaArray:Array<String> = [
                         subText.alpha = 0;
                         dur = 0.35;
                     } else if (isAppend) {
-                        subText.x = targetX + 20; 
-                        subText.alpha = 0.5;
-                        dur = 0.15;
+                        subText.x = targetX; 
+                        subText.alpha = 1;
+                        dur = 0.01;
                     } else {
                         subText.x = targetX;
                         subText.alpha = 0;
@@ -815,10 +846,10 @@ var triviaArray:Array<String> = [
                         subText.alpha = 0;
                         dur = 0.35;
                     } else if (isAppend) {
-                        subText.x = targetX + 25; 
+                        subText.x = targetX; 
                         subText.y = targetY; 
-                        subText.alpha = 0.7;
-                        dur = 0.15;
+                        subText.alpha = 1;
+                        dur = 0.01;
                         easeF = FlxEase.expoOut;
                     } else {
                         subText.x = targetX;

@@ -17,9 +17,7 @@ import funkin.util.TouchUtil;
 
 class KssetteUpdateState extends ScriptedMusicBeatState {
     
-    final modID:String = "657203";
     public var latestVersion:String = "Unknown";
-    final modLink:String = "https://gamebanana.com/mods/657203";
     
     var bg:FlxSprite;
     var bgTexts:Array<FlxText> = [];
@@ -110,28 +108,16 @@ class KssetteUpdateState extends ScriptedMusicBeatState {
     }
     
     function fetchGameBananaData() {
-        var urlUpdates = "https://gamebanana.com/apiv11/Mod/" + modID + "/Updates?_t=" + FlxG.random.int(0, 999999);
+        var urlUpdates = "https://gamebanana.com/apiv11/Mod/657203/Updates?_t=" + FlxG.random.int(0, 999999);
         var loaderUpdates = new URLLoader();
-        loaderUpdates.dataFormat = 1;
         
         loaderUpdates.addEventListener("complete", function(e) {
             try {
                 var json = Json.parse(loaderUpdates.data);
-                if (json._aRecords != null && json._aRecords.length > 0) {
-                    var update = null;
-                    for (i in 0...json._aRecords.length) {
-                        var rec = json._aRecords[i];
-                        var nameStr = (rec._sName != null) ? Std.string(rec._sName).toLowerCase() : "";
-                        var verStr = (rec._sVersion != null) ? Std.string(rec._sVersion).toLowerCase() : "";
-                        
-                        if (nameStr.indexOf("lite") == -1 && verStr.indexOf("lite") == -1) {
-                            update = rec;
-                            break;
-                        }
-                    }
-                    if (update == null) update = json._aRecords[0];
+                if (json != null && json._aRecords != null && json._aRecords.length > 0) {
+                    var update = json._aRecords[0];
                     
-                    if (update != null && update._sVersion != null) {
+                    if (update._sVersion != null) {
                         latestVersion = Std.string(update._sVersion);
                     }
                     
@@ -270,7 +256,7 @@ class KssetteUpdateState extends ScriptedMusicBeatState {
     function confirmSelection() {
         if (curSelected == 0) {
             FunkinSound.playOnce(Paths.sound('confirmMenu'));
-            try { WindowUtil.openURL(modLink); } catch(err:Dynamic) {}
+            try { WindowUtil.openURL("https://gamebanana.com/mods/657203"); } catch(err:Dynamic) {}
             FlxG.switchState(new MainMenuState());
         } else {
             FunkinSound.playOnce(Paths.sound('cancelMenu'));

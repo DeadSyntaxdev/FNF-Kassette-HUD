@@ -1,5 +1,27 @@
 package kassettehud.util;
 
+/**
+ * KssetteHitsound
+ *
+ * Plays a custom sound effect when the player hits notes or presses note keys.
+ *
+ * Modes:
+ *   - "Off"         - Disabled; no custom hitsound plays.
+ *   - "On Note Hit" - Plays on successful note hits (player notes only).
+ *   - "Anytime"     - Plays on any key press, regardless of notes (ghost-tap style).
+ *
+ * The hitsound asset is loaded from "play/hitsound" in the mod's audio folder
+ * and is cached at countdown start for zero-latency playback during gameplay.
+ *
+ * Managed settings:
+ *   - kssette_hitsound:        "Off" | "On Note Hit" | "Anytime"
+ *   - kssette_hitsound_volume: "10%" ... "100%"
+ *
+ * Dependencies:
+ *   - KssetteApi.getKssValue() - reads option values
+ *   - Paths.sound()            - loads the hitsound asset
+ */
+
 import flixel.FlxG;
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
@@ -12,43 +34,47 @@ import funkin.modding.events.UpdateScriptEvent;
 import Std;
 import Math;
 import StringTools;
-import Reflect;
-import funkin.util.ReflectUtil;
+
 class KssetteHitsound extends Module {
+    /** Indicates if the game is paused; suppresses hitsound playback. */
     var isPaused:Bool = false;
+    /** Cached reference to the hitsound audio asset. */
     var hitSound:Dynamic = null;
+    /** Cached reference to the KssetteApi module. */
     var apiModule:Dynamic = null;
 
     public function new() {
         super('KssetteHitsound');
     }
 
+    /**
+     * Resolves and normalizes the current hitsound mode from the saved setting.
+     * Normalizes legacy boolean values (true/"On") to "On Note Hit".
+     *
+     * @return "On Note Hit" | "Anytime" | "Off"
+     */
     function getMode():String {
         if (apiModule == null) apiModule = ModuleHandler.getModule("KssetteApi");
         if (apiModule == null) return "Off";
-        var val:Dynamic = null;
-        
-        val = apiModule.getKssValue("kssette_hitsound");
-
+        var val = apiModule?.getKssValue("kssette_hitsound");
         if (val == null) return "Off";
-
         var s = Std.string(val);
         if (s == "On" || s == "on" || s == "true" || val == true || s == "On Note Hit") return "On Note Hit";
         if (s == "Anytime" || s == "anytime") return "Anytime";
-        
         return "Off";
     }
 
+    /**
+     * Reads the hitsound volume setting and converts it to a float from 0.0 to 1.0.
+     * Accepts values like "80%" or "0.8"; falls back to 1.0 if unset or invalid.
+     * Reads from KssetteApi if available, otherwise falls back directly to Save.
+     */
     function readVolume():Float {
         if (apiModule == null) apiModule = ModuleHandler.getModule("KssetteApi");
-        var v:Dynamic = null;
-        
-        if (apiModule != null) {
-            v = apiModule.getKssValue("kssette_hitsound_volume");
-        } else if (Save.instance != null && Save.instance.modOptions != null && Save.instance.modOptions.exists("kssette_hitsound_volume")) {
+        var v:Dynamic = apiModule?.getKssValue("kssette_hitsound_volume");
+        if (v == null && Save.instance?.modOptions?.exists("kssette_hitsound_volume") == true) {
             v = Save.instance.modOptions.get("kssette_hitsound_volume");
         }
-
         if (v != null) {
             var p = Std.parseFloat(StringTools.replace(Std.string(v), "%", ""));
             if (!Math.isNaN(p)) return p > 1.0 ? p / 100.0 : p;
@@ -56,33 +82,49 @@ class KssetteHitsound extends Module {
         return 1.0;
     }
 
+    /**
+     * Plays the hitsound at the currently configured volume.
+     * Lazy-loads the sound asset on the first call if not already cached.
+     */
     function playHitSound() {
         if (hitSound == null) hitSound = Paths.sound("play/hitsound");
         if (hitSound != null) FunkinSound.playOnce(hitSound, readVolume());
     }
 
+    /**
+     * Called at the start of the song. Pre-caches the hitsound asset and resets the paused state.
+     * Loading here ensures the first hit in a song has no latency.
+     */
     override public function onCountdownStart(event:Dynamic) {
         super.onCountdownStart(event);
         isPaused = false;
-        hitSound = null;
         hitSound = Paths.sound("play/hitsound");
+        trace("[KssetteHitsound] onCountdownStart - mode=" + getMode() + " hitSoundLoaded=" + (hitSound != null));
     }
 
+    /** Sets isPaused to suppress hitsound playback during the pause menu. */
     override function onPause(event:ScriptEvent) {
         super.onPause(event);
         isPaused = true;
     }
 
+    /** Clears isPaused when changing game state. */
     override function onStateChangeEnd(event:ScriptEvent) {
         super.onStateChangeEnd(event);
         isPaused = false;
     }
 
+    /** Clears isPaused when the player resumes from pause. */
     override function onResume(event:ScriptEvent) {
         super.onResume(event);
         isPaused = false;
     }
 
+    /**
+     * Per-frame update. Handles "Anytime" mode: plays the hitsound
+     * whenever a note key is pressed, regardless of whether a note exists.
+     * Only executes when mode is "Anytime" and the game is not paused or dying.
+     */
     override public function onUpdate(event:UpdateScriptEvent) {
         super.onUpdate(event);
 
@@ -92,7 +134,7 @@ class KssetteHitsound extends Module {
         var state = PlayState.instance;
         if (state == null || state.isPlayerDying) return;
 
-        var controlsObj = state.controls;
+        var controlsObj = state?.controls;
         if (controlsObj == null) return;
 
         if (controlsObj.NOTE_LEFT_P || controlsObj.NOTE_DOWN_P || controlsObj.NOTE_UP_P || controlsObj.NOTE_RIGHT_P) {
@@ -100,6 +142,11 @@ class KssetteHitsound extends Module {
         }
     }
 
+    /**
+     * Called when a note is hit. Handles "On Note Hit" mode:
+     * plays the hitsound only for player notes (getMustHitNote == true).
+     * Ignores opponent notes to prevent double-triggering in auto-play.
+     */
     override function onNoteHit(event:Dynamic) {
         super.onNoteHit(event);
         
@@ -110,13 +157,12 @@ class KssetteHitsound extends Module {
         if (state == null || state.isPlayerDying) return;
 
         var note = event.note;
-        if (note != null && note.noteData != null) {
-            var mustHit = Reflect.hasField(note.noteData, "getMustHitNote") ? Reflect.callMethod(note.noteData, Reflect.field(note.noteData, "getMustHitNote"), []) : null;
-            if (mustHit == null) mustHit = Reflect.hasField(note.noteData, "mustHitNote") ? Reflect.field(note.noteData, "mustHitNote") : null;
-            if (mustHit != true) return;
-        } else {
-            return;
-        }
+        if (note?.noteData == null) return;
+
+        // Use `?` for safe invocation; fall back to the property if the function is absent.
+        var mustHit = note.noteData?.getMustHitNote();
+        if (mustHit == null) mustHit = note.noteData?.mustHitNote;
+        if (mustHit != true) return;
 
         playHitSound();
     }

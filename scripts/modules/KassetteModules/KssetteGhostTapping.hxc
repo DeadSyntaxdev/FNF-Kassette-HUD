@@ -1,21 +1,56 @@
 package kassettehud.util;
 
+/**
+ * KssGhostTapping
+ *
+ * Handles "ghost tapping" and "ghost singing" behaviors during gameplay.
+ *
+ * Ghost Tapping: Prevents the game from penalizing the player for pressing
+ * note keys when there are no active notes to hit. It can be configured
+ * to always allow ghost inputs, disable them, or allow them only during
+ * long note gaps ("breaks") detected by KssetteApi.getBreakData().
+ *
+ * Ghost Sing: When enabled, plays the player character's singing animation
+ * upon key presses even when not hitting a note, providing visual feedback.
+ *
+ * Managed settings:
+ *   - kssette_ghost_tapping: "Off" | "On" | "In Breaks"
+ *   - kssette_ghost_sing:    "On"  | "Off"
+ *
+ * Dependencies:
+ *   - KssetteApi.getKssValue()  - reads option values
+ *   - KssetteApi.getBreakData() - checks if a break is currently active in the chart
+ *   - KssetteApi.isGammodMode   - disables ghost tap during Gammod auto-play
+ */
+
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
 import flixel.FlxG;
 import Std;
-import Reflect;
 
 class KssGhostTapping extends Module {
+    /** Current ghost tapping mode: "Off", "On", or "In Breaks". */
     var _cGhostTappingMode:String = "Off";
+
+    /** Indicates whether to animate the player character on ghost taps. */
     var _cGhostSing:Bool = false;
+
+    /** Tracks if the game is paused to suppress ghost singing. */
     var isPaused:Bool = false;
 
     public function new() {
         super('KssGhostTapping', 1);
     }
 
+    /**
+     * Called when the countdown begins (song is starting).
+     * Reads the ghost tapping and ghost sing settings from KssetteApi
+     * and caches them for the duration of the song.
+     *
+     * NOTE: The ghost tapping value can be a boolean (true/false) or the string
+     * "In Breaks", so all three cases are handled explicitly.
+     */
     override public function onCountdownStart(event:Dynamic) {
         super.onCountdownStart(event);
         isPaused = false;
@@ -23,73 +58,97 @@ class KssGhostTapping extends Module {
         var api = ModuleHandler.getModule("KssetteApi");
         if (api == null) return;
 
-        try {
-            var gtVal = api.getKssValue("kssette_ghost_tapping");
-            _cGhostTappingMode = Std.string(gtVal);
-            if (gtVal == true) _cGhostTappingMode = "On";
-            if (gtVal == false) _cGhostTappingMode = "Off";
-            
-            var gsVal = api.getKssValue("kssette_ghost_sing");
-            _cGhostSing = (gsVal == true || gsVal == "On");
-        } catch(e:Dynamic) {
-            _cGhostTappingMode = "Off";
-            _cGhostSing = false;
-        }
+            // Normalize bool/string to a canonical string. Preserves "In Breaks" as is.
+            var gtVal = api?.getKssValue("kssette_ghost_tapping");
+            _cGhostTappingMode = (gtVal == null || gtVal == false) ? "Off"
+                               : (gtVal == true)                   ? "On"
+                               : Std.string(gtVal);
+        
+            // Ghost sing: whether to animate character on ghost taps.
+            var gsVal = api?.getKssValue("kssette_ghost_sing");
+            _cGhostSing = (gsVal == true || Std.string(gsVal) == "On");
+
+            trace("[KssGhostTapping] onCountdownStart - mode=" + _cGhostTappingMode + " ghostSing=" + _cGhostSing);
     }
 
+    /** Tracks pause state to suppress ghost singing animations. */
     override function onPause(event:Dynamic) {
         super.onPause(event);
         isPaused = true;
     }
 
+    /** Clears the paused state when game state changes. */
     override function onStateChangeEnd(event:Dynamic) {
         super.onStateChangeEnd(event);
         isPaused = false;
     }
 
+    /** Clears the paused state when the player resumes gameplay. */
     override function onResume(event:Dynamic) {
         super.onResume(event);
         isPaused = false;
     }
 
+    /**
+     * Returns true if the Gammod modifier is active.
+     * Ghost tapping is always disabled during Gammod sessions to avoid
+     * interfering with the modifier's own note handling logic.
+     */
     function isGammodActive():Bool {
         var api = ModuleHandler.getModule("KssetteApi");
-        var isActive = false;
-        if (api != null) {
-            isActive = (api.isGammodMode == true);
-        }
-        
-        return isActive;
+        return (api?.isGammodMode == true);
     }
 
+    /**
+     * Determines whether ghost tapping should be allowed right now.
+     *
+     * Rules (checked in order):
+     *   1. Gammod active       -> always false (Gammod handles its own logic).
+     *   2. Mode is "On"        -> always true.
+     *   3. Mode is "In Breaks" -> true only if KssetteApi reports an active break.
+     *   4. Otherwise           -> false.
+     */
     function canGhostTap():Bool {
         if (isGammodActive()) return false;
         if (_cGhostTappingMode == "On") return true;
         
         if (_cGhostTappingMode == "In Breaks") {
-            var api:Dynamic = ModuleHandler.getModule("KssetteApi");
-            if (api != null) {
-                try {
-                    var breakData = api.getBreakData();
-                    if (breakData != null && breakData.active == true) {
-                        return true;
-                    }
-                } catch(e:Dynamic) {}
-            }
+            var api = ModuleHandler.getModule("KssetteApi");
+            var breakData = api?.getBreakData();
+            return (breakData?.active == true);
         }
         return false;
     }
 
+    /**
+     * Cancels the ghost miss event if ghost tapping is allowed.
+     * Prevents miss penalties and health loss on empty key presses.
+     * "onGhostMissNote" is the legacy event name used in older V-Slice builds.
+     */
     override function onGhostMissNote(event:Dynamic) {
         if (!canGhostTap()) return;
         event.cancel();
     }
 
+    /**
+     * Same as onGhostMissNote — cancels ghost miss on the current event name.
+     * Both handlers are kept for compatibility across V-Slice versions.
+     */
     override function onNoteGhostMiss(event:Dynamic) {
         if (!canGhostTap()) return;
         event.cancel();
     }
 
+    /**
+     * Per-frame update. When ghost singing is enabled, checks if the player
+     * is pressing any note keys this frame and triggers the corresponding
+     * sing animation on the player character.
+     *
+     * Only executes when:
+     *   - _cGhostSing is true
+     *   - PlayState is active and not in a dying sequence
+     *   - Game is not paused
+     */
     override public function onUpdate(event:Dynamic) {
         super.onUpdate(event);
 
@@ -98,48 +157,19 @@ class KssGhostTapping extends Module {
         var state = PlayState.instance;
         if (state == null || state.isPlayerDying || isPaused) return;
 
-        var controlsObj:Dynamic = null;
-        controlsObj = Reflect.getProperty(FlxG.state, "controls");
-
-        if (controlsObj == null) {
-            controlsObj = state.controls;
-        }
+        var controlsObj = state?.controls;
         if (controlsObj == null) return;
 
-        var isOpposite = false;
-        var api:Dynamic = ModuleHandler.getModule("KssetteApi");
-        if (api != null && api.gammodPlayerSide == "OPPOSITE") {
-            isOpposite = true;
-        }
-        
-        var player = state.currentStage != null ? (isOpposite ? state.currentStage.getDad() : state.currentStage.getBoyfriend()) : null;
+        // Determine which character to animate based on Gammod's player side setting.
+        var api = ModuleHandler.getModule("KssetteApi");
+        var isOpposite = (api?.gammodPlayerSide == "OPPOSITE");
+        var player = isOpposite ? state.currentStage?.getDad() : state.currentStage?.getBoyfriend();
         if (player == null) return;
 
-        var hitLeft = false;
-        var hitDown = false;
-        var hitUp = false;
-        var hitRight = false;
-
-        hitLeft = controlsObj.NOTE_LEFT_P;
-        hitDown = controlsObj.NOTE_DOWN_P;
-        hitUp = controlsObj.NOTE_UP_P;
-        hitRight = controlsObj.NOTE_RIGHT_P;
-
-        if (hitLeft) {
-            player.playAnimation("singLEFT", true, false, false);
-            player.holdTimer = 0;
-        }
-        if (hitDown) {
-            player.playAnimation("singDOWN", true, false, false);
-            player.holdTimer = 0;
-        }
-        if (hitUp) {
-            player.playAnimation("singUP", true, false, false);
-            player.holdTimer = 0;
-        }
-        if (hitRight) {
-            player.playAnimation("singRIGHT", true, false, false);
-            player.holdTimer = 0;
-        }
+        // Trigger singing animation for each direction pressed this frame.
+        if (controlsObj.NOTE_LEFT_P)  { player.playAnimation("singLEFT",  true, false, false); player.holdTimer = 0; }
+        if (controlsObj.NOTE_DOWN_P)  { player.playAnimation("singDOWN",  true, false, false); player.holdTimer = 0; }
+        if (controlsObj.NOTE_UP_P)    { player.playAnimation("singUP",    true, false, false); player.holdTimer = 0; }
+        if (controlsObj.NOTE_RIGHT_P) { player.playAnimation("singRIGHT", true, false, false); player.holdTimer = 0; }
     }
 }
