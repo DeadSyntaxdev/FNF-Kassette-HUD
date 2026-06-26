@@ -16,7 +16,7 @@ import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import Std;
 import Math;
-import Reflect;
+
 import StringTools;
 import funkin.ui.FullScreenScaleMode;
 import funkin.Conductor;
@@ -207,7 +207,7 @@ class KssetteHUDPreview extends Module {
             } catch(e:Dynamic) {}
             if (!isArrowsScheme) {
                 try {
-                    if (Reflect.hasField(Save.instance, "mobileOptions") && Reflect.hasField(Save.instance.mobileOptions, "controlsScheme")) {
+                    if (Save.instance?.mobileOptions?.controlsScheme != null) {
                         if (Std.string(Save.instance.mobileOptions.controlsScheme) == "Arrows") isArrowsScheme = true;
                     }
                 } catch(e:Dynamic) {}

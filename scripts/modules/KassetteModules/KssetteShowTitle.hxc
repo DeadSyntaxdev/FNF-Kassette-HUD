@@ -1,22 +1,23 @@
 package kassettehud.util;
 
 /**
- * KssetteShowTitle - Mostrar título e info de la canción al iniciar
+ * KssetteShowTitle
  *
- * Propósito:
- *   Muestra el título, artista y dificultad de la canción como una
- *   animación de texto al inicio del gameplay, con opciones de fuente
- *   y posición personalizables.
+ * Displays the song title, artist, and difficulty at the start of a song.
+ * Uses a customizable intro animation (Clap, Racer, Classic) with adjustable
+ * text positions and fonts.
  *
- * Opciones que maneja:
+ * Managed settings:
  *   - kssette_show_song_title: "On" | "Off"
  *   - kssette_show_song_diff: "On" | "Off"
- *   - kssette_intro_text: texto personalizado para el intro
- *   - kssette_intro_font_title: fuente para el título
- *   - kssette_intro_font_artist: fuente para el artista
+ *   - kssette_intro_text: custom intro animation style
+ *   - kssette_intro_font_title: font for the song title
+ *   - kssette_intro_font_artist: font for the artist name
+ *   - kssette_intro_album: show album art
  *
- * Dependencias:
- *   - KssetteApi (para leer opciones y datos de la canción)
+ * Dependencies:
+ *   - KssetteApi (for settings and song data)
+ *   - AlbumRegistry (for album art graphics)
  */
 
 import funkin.modding.module.Module;
@@ -59,6 +60,10 @@ class KssetteShowTitle extends Module {
         super("KssetteShowTitle");
     }
 
+    /**
+     * Safely cancels tweens, removes from scene, and destroys a UI object.
+     * @param obj The graphic or text object to clean up.
+     */
     function killObj(obj:Dynamic) {
         if (obj != null) {
             FlxTween.cancelTweensOf(obj);
@@ -68,6 +73,9 @@ class KssetteShowTitle extends Module {
         }
     }
 
+    /**
+     * Cleans up all title texts and the album sprite.
+     */
     function cleanUp() {
         killObj(titleTxt);
         killObj(artistTxt);
@@ -77,6 +85,9 @@ class KssetteShowTitle extends Module {
         albumSprite = null;
     }
 
+    /**
+     * Resolves the font names for the title and artist from KssetteApi.
+     */
     function cacheIntroFonts() {
         var titleFontKey = "vcr.ttf";
         var artistFontKey = "vcr.ttf";
@@ -93,23 +104,36 @@ class KssetteShowTitle extends Module {
         cachedArtistFont = Std.string(apiModule.resolveCustomFont(artistFontKey));
     }
 
+    /**
+     * Called when the PlayState starts changing. Cleans up UI to prevent leaks.
+     */
     override public function onStateChangeStart(event:Dynamic) {
         super.onStateChangeStart(event);
         isPreview = false;
         cleanUp();
     }
 
+    /**
+     * Called when a song is retried. Resets the fade out flag and cleans up UI.
+     */
     override public function onSongRetry(event:Dynamic) {
         super.onSongRetry(event);
         isFadingOut = false;
         cleanUp();
     }
 
+    /**
+     * Cleans up all objects when the module is destroyed.
+     */
     override public function onDestroy(event:Dynamic) {
         super.onDestroy(event);
         cleanUp();
     }
 
+    /**
+     * Initializes the intro UI elements based on the current song and settings.
+     * @param cam The camera to render the UI on.
+     */
     function setupUI(cam:flixel.FlxCamera) {
         cleanUp();
         if (!isActive) return;
@@ -300,6 +324,9 @@ class KssetteShowTitle extends Module {
         }
     }
 
+    /**
+     * Starts the intro animation based on the configured animation style (Clap, Racer, or Classic).
+     */
     function startAnim() {
         if (!isActive) return;
 
@@ -475,6 +502,9 @@ class KssetteShowTitle extends Module {
         }
     }
 
+    /**
+     * Sets up the UI at the start of the countdown.
+     */
     override public function onCountdownStart(event:Dynamic) {
         super.onCountdownStart(event);
         isFadingOut = false;
@@ -501,6 +531,9 @@ class KssetteShowTitle extends Module {
         setupUI(state.camHUD);
     }
 
+    /**
+     * Triggers the intro animation once the song actually starts.
+     */
     override public function onSongStart(event:Dynamic) {
         super.onSongStart(event);
         if (!isPreview && isActive) {
@@ -508,6 +541,10 @@ class KssetteShowTitle extends Module {
         }
     }
 
+    /**
+     * Prepares the UI for the options menu preview mode.
+     * @param cam The preview camera to render onto.
+     */
     public function buildPreview(cam:flixel.FlxCamera) {
         isPreview = true;
         isFadingOut = false;
@@ -541,6 +578,9 @@ class KssetteShowTitle extends Module {
 
 
 
+    /**
+     * Refreshes the preview state, pulling new settings from KssetteApi.
+     */
     public function updatePreview() {
         if (!isPreview || apiModule == null) return;
 
@@ -578,6 +618,10 @@ class KssetteShowTitle extends Module {
         }
     }
 
+    /**
+     * Forces the UI to fade out rapidly. Usually triggered when the first
+     * note is approaching to ensure the screen is clear.
+     */
     function forceFadeOut() {
         isFadingOut = true;
         if (titleTxt != null && titleTxt.visible) {
@@ -594,6 +638,10 @@ class KssetteShowTitle extends Module {
         }
     }
 
+    /**
+     * Per-frame update. Handles the preview cycle loop and checks if
+     * the intro needs to fade out before the first note hits.
+     */
     override public function onUpdate(event:Dynamic) {
         if (isPreview && isActive) {
             if (previewTimer > 0) {

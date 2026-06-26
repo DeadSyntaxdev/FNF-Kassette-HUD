@@ -3,26 +3,23 @@ package kassettehud.util;
 /**
  * KssetteHitsound
  *
- * Reproduce un efecto de sonido personalizado cuando el jugador acierta o presiona las teclas de nota.
+ * Plays a custom sound effect when the player hits notes or presses note keys.
  *
- * Modos:
+ * Modes:
  *   - "Off"         - Disabled; no custom hitsound plays.
  *   - "On Note Hit" - Plays on successful note hits (player notes only).
  *   - "Anytime"     - Plays on any key press, regardless of notes (ghost-tap style).
- *   - "Off": Desactivado; no se reproduce ningún sonido de acierto personalizado.
- *   - "On Note Hit": Se reproduce en aciertos de nota exitosos (solo notas del jugador).
- *   - "Anytime": Se reproduce con cualquier pulsación de tecla, independientemente de las notas (estilo "ghost-tap").
  *
- * El recurso de sonido de acierto se carga desde "play/hitsound" en la carpeta de audio del mod
- * y se cachea al inicio de la cuenta atrás para una reproducción instantánea durante el juego.
+ * The hitsound asset is loaded from "play/hitsound" in the mod's audio folder
+ * and is cached at countdown start for zero-latency playback during gameplay.
  *
- * Ajustes que maneja:
+ * Managed settings:
  *   - kssette_hitsound:        "Off" | "On Note Hit" | "Anytime"
  *   - kssette_hitsound_volume: "10%" ... "100%"
  *
- * Dependencias:
- *   - KssetteApi.getKssValue() - lee los valores de las opciones
- *   - Paths.sound()            - carga el recurso de sonido de acierto
+ * Dependencies:
+ *   - KssetteApi.getKssValue() - reads option values
+ *   - Paths.sound()            - loads the hitsound asset
  */
 
 import flixel.FlxG;
@@ -39,11 +36,11 @@ import Math;
 import StringTools;
 
 class KssetteHitsound extends Module {
-    /** Indica si el juego está en pausa; suprime la reproducción de sonidos de acierto. */
+    /** Indicates if the game is paused; suppresses hitsound playback. */
     var isPaused:Bool = false;
-    /** Referencia cacheada al recurso de audio del sonido de acierto. */
+    /** Cached reference to the hitsound audio asset. */
     var hitSound:Dynamic = null;
-    /** Referencia cacheada al módulo KssetteApi. */
+    /** Cached reference to the KssetteApi module. */
     var apiModule:Dynamic = null;
 
     public function new() {
@@ -51,8 +48,8 @@ class KssetteHitsound extends Module {
     }
 
     /**
-     * Resuelve y normaliza el modo de sonido de acierto actual desde el ajuste guardado.
-     * Normaliza valores booleanos heredados (true/"On") a "On Note Hit".
+     * Resolves and normalizes the current hitsound mode from the saved setting.
+     * Normalizes legacy boolean values (true/"On") to "On Note Hit".
      *
      * @return "On Note Hit" | "Anytime" | "Off"
      */
@@ -68,9 +65,9 @@ class KssetteHitsound extends Module {
     }
 
     /**
-     * Lee el ajuste de volumen del sonido de acierto y lo convierte a un flotante de 0.0 a 1.0.
-     * Acepta valores como "80%" o "0.8"; recurre a 1.0 si no está configurado o es inválido.
-     * Lee desde KssetteApi si está disponible, de lo contrario recurre directamente a Save.
+     * Reads the hitsound volume setting and converts it to a float from 0.0 to 1.0.
+     * Accepts values like "80%" or "0.8"; falls back to 1.0 if unset or invalid.
+     * Reads from KssetteApi if available, otherwise falls back directly to Save.
      */
     function readVolume():Float {
         if (apiModule == null) apiModule = ModuleHandler.getModule("KssetteApi");
@@ -86,8 +83,8 @@ class KssetteHitsound extends Module {
     }
 
     /**
-     * Reproduce el sonido de acierto al volumen configurado actualmente.
-     * Carga el recurso de sonido de forma perezosa en la primera llamada si no está ya cacheado.
+     * Plays the hitsound at the currently configured volume.
+     * Lazy-loads the sound asset on the first call if not already cached.
      */
     function playHitSound() {
         if (hitSound == null) hitSound = Paths.sound("play/hitsound");
@@ -95,8 +92,8 @@ class KssetteHitsound extends Module {
     }
 
     /**
-     * Se llama al inicio de la canción. Pre-cachea el recurso de sonido de acierto y resetea el estado de pausa.
-     * Cargar aquí asegura que el primer acierto en una canción no tenga latencia.
+     * Called at the start of the song. Pre-caches the hitsound asset and resets the paused state.
+     * Loading here ensures the first hit in a song has no latency.
      */
     override public function onCountdownStart(event:Dynamic) {
         super.onCountdownStart(event);
@@ -105,28 +102,28 @@ class KssetteHitsound extends Module {
         trace("[KssetteHitsound] onCountdownStart - mode=" + getMode() + " hitSoundLoaded=" + (hitSound != null));
     }
 
-    /** Establece isPaused para suprimir la reproducción de sonidos de acierto durante el menú de pausa. */
+    /** Sets isPaused to suppress hitsound playback during the pause menu. */
     override function onPause(event:ScriptEvent) {
         super.onPause(event);
         isPaused = true;
     }
 
-    /** Limpia isPaused al cambiar de estado de juego. */
+    /** Clears isPaused when changing game state. */
     override function onStateChangeEnd(event:ScriptEvent) {
         super.onStateChangeEnd(event);
         isPaused = false;
     }
 
-    /** Limpia isPaused cuando el jugador reanuda desde la pausa. */
+    /** Clears isPaused when the player resumes from pause. */
     override function onResume(event:ScriptEvent) {
         super.onResume(event);
         isPaused = false;
     }
 
     /**
-     * Actualización por frame. Maneja el modo "Anytime": reproduce el sonido de acierto
-     * cada vez que se presiona una tecla de nota, sin importar si existe una nota.
-     * Solo se ejecuta cuando el modo es "Anytime" y el juego no está en pausa o muriendo.
+     * Per-frame update. Handles "Anytime" mode: plays the hitsound
+     * whenever a note key is pressed, regardless of whether a note exists.
+     * Only executes when mode is "Anytime" and the game is not paused or dying.
      */
     override public function onUpdate(event:UpdateScriptEvent) {
         super.onUpdate(event);
@@ -146,9 +143,9 @@ class KssetteHitsound extends Module {
     }
 
     /**
-     * Se llama cuando se acierta una nota. Maneja el modo "On Note Hit":
-     * reproduce el sonido de acierto solo para las notas del jugador (getMustHitNote == true).
-     * Ignora las notas del oponente para evitar una doble activación en auto-play.
+     * Called when a note is hit. Handles "On Note Hit" mode:
+     * plays the hitsound only for player notes (getMustHitNote == true).
+     * Ignores opponent notes to prevent double-triggering in auto-play.
      */
     override function onNoteHit(event:Dynamic) {
         super.onNoteHit(event);
@@ -162,7 +159,7 @@ class KssetteHitsound extends Module {
         var note = event.note;
         if (note?.noteData == null) return;
 
-        // Usa `?` para llamar de forma segura a getMustHitNote(); recurre a la forma de propiedad como alternativa.
+        // Use `?` for safe invocation; fall back to the property if the function is absent.
         var mustHit = note.noteData?.getMustHitNote();
         if (mustHit == null) mustHit = note.noteData?.mustHitNote;
         if (mustHit != true) return;

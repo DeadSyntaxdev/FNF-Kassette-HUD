@@ -863,6 +863,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
             flashTimer: 0.0,
             valOffX: valueOffsetX,
             currentIndex: 0,
+            framesUntilUpdate: null,
             fire: null
         };
     }
@@ -891,16 +892,10 @@ class KssetteMenuState extends ScriptedMusicBeatState {
                 
                 if (self.textDisplay != null) {
                     self.textDisplay.text = menuInst.formatShortValue(newVal);
-                    self.valueWidth = self.textDisplay.width;
+                    self.framesUntilUpdate = 2; // Wait for FlxText to regen Graphic
                     
                     var tColor = menuInst.getValueColor(self.textDisplay.text);
                     if (self.textDisplay.color != tColor) self.textDisplay.color = tColor;
-                    
-                    if (self.valueWidth > menuInst.valueMaxWidth) {
-                        self.textDisplay.x = self.bg.x + self.bg.width - self.valOffX - menuInst.valueMaxWidth;
-                    } else {
-                        self.textDisplay.x = self.bg.x + self.bg.width - self.valOffX - self.valueWidth;
-                    }
                 }
                 
                 self.slideTimer = 0.0;
@@ -1831,12 +1826,14 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         var halfH = halfScreenH;
 
         var backPressed = false;
+        /* yea this shit is actually useless, but im lazy to delete and correct 
+        this, maybe for other update lol 
         #if android
         if (Reflect.hasField(FlxG, "android") && FlxG.android != null) {
             backPressed = FlxG.android.justReleased.BACK;
         }
         #end
-
+       */
         var esc = controls.BACK_P || backPressed;
 
         if (esc) {
@@ -2038,7 +2035,6 @@ class KssetteMenuState extends ScriptedMusicBeatState {
                             if (rawVal == null) rawVal = "Off";
                             value.text = formatShortValue(Std.string(rawVal));
                             value.color = getValueColor(value.text);
-                            item.valueWidth = value.width;
                         }
                     }
 
@@ -2084,15 +2080,24 @@ class KssetteMenuState extends ScriptedMusicBeatState {
                     }
 
                     if (value != null) {
-                        if (item.valueWidth == null) item.valueWidth = value.width;
-                        var cachedValW = item.valueWidth;
-                        var vX = bg.x + bg.width - valueOffsetX - cachedValW;
-                        if (cachedValW > valueMaxWidth) {
-                            vX = bg.x + bg.width - valueOffsetX - valueMaxWidth;
-                        }
-                        value.x = vX;
-                        value.y = bg.y + valueOffsetY;
-                    }
+                                if (item.framesUntilUpdate != null && item.framesUntilUpdate > 0) {
+                                    item.framesUntilUpdate--;
+                                } 
+                                else if (item.cachedValStr != value.text) {
+                                    item.valueWidth = value.textField.textWidth + 4; 
+                                    item.cachedValStr = value.text;
+                                }
+
+                                var currentValW = item.valueWidth != null ? item.valueWidth : value.width;
+                                var vX = bg.x + bg.width - valueOffsetX - currentValW;
+                                
+                                if (currentValW > valueMaxWidth) {
+                                    vX = bg.x + bg.width - valueOffsetX - valueMaxWidth;
+                                }
+                                
+                                value.x = vX;
+                                value.y = bg.y + valueOffsetY;
+                            }
 
                     if (isSel) {
                         if (item.clipped == true) {

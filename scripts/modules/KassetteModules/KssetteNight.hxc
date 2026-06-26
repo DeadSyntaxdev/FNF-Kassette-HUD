@@ -3,31 +3,28 @@ package kassettehud.util;
 /**
  * KssetteNight
  *
- * Aplica una superposición oscura semitransparente sobre la pantalla del juego
- * durante las horas nocturnas, simulando un modo de reducción de luz azul / modo nocturno.
+ * Applies a dark, semi-transparent overlay to the game screen during
+ * nighttime hours, simulating a blue-light reduction / night mode.
  *
- * El alfa de la superposición transita suavemente cuando el modo se activa o
- * desactiva, y se reevalúa una vez por segundo mediante una comprobación de tiempo.
+ * The overlay's alpha smoothly transitions when the mode toggles active
+ * or inactive, and is re-evaluated once per second via a time check.
  *
- * Modos (kssette_night_mode):
+ * Modes (kssette_night_mode):
  *   - "Off"       - Overlay always hidden.
  *   - "On"        - Overlay always visible at configured opacity.
  *   - "Scheduled" - Active only between the configured start and end times.
- *   - "Off": Superposición siempre oculta.
- *   - "On": Superposición siempre visible con la opacidad configurada.
- *   - "Scheduled": Activo solo entre las horas de inicio y fin configuradas.
  *
- * Las horas de inicio/fin manejan correctamente los intervalos que cruzan la medianoche
- * (p. ej., 20:00 → 06:00).
+ * The start/end times correctly handle intervals that cross midnight
+ * (e.g., 20:00 → 06:00).
  *
- * Ajustes que maneja:
+ * Managed settings:
  *   - kssette_night_mode:    "Off" | "On" | "Scheduled"
  *   - kssette_night_opacity: "10%" ... "100%" (default 65%)
  *   - kssette_night_start:   "HH:MM" (default "20:00")
  *   - kssette_night_end:     "HH:MM" (default "06:00")
  *
  * Dependencies:
- *   - KssetteApi.getKssValue() - lee los valores de las opciones
+ *   - KssetteApi.getKssValue() - reads option values
  */
 
 import flixel.FlxG;
@@ -41,31 +38,31 @@ import Math;
 import StringTools;
 
 class KssetteNight extends Module {
-    /** El sprite de superposición oscura a pantalla completa. */
+    /** The full-screen dark overlay sprite. */
     var overlayGame:FunkinSprite;
-    /** Indica si la superposición está actualmente en el estado "debería ser visible". */
+    /** Indicates if the overlay is currently in the "should be visible" state. */
     var isActive:Bool = false;
     
-    /** Temporizador que se acumula hasta 1 segundo para reevaluar las condiciones de tiempo. */
+    /** Timer that accumulates to 1 second to re-evaluate time conditions. */
     var timeCheckTimer:Float = 0.0;
-    /** Alfa objetivo hacia el que la superposición se interpola (ya sea `cachedOpacity` o ~0). */
+    /** Target alpha the overlay interpolates towards (either `cachedOpacity` or ~0). */
     var targetAlpha:Float = 0.01;
-    /** Referencia cacheada a KssetteApi. */
+    /** Cached reference to KssetteApi. */
     var apiModule:Dynamic = null;
-    /** Ajuste actual del modo nocturno: "Off", "On", o "Scheduled". */
+    /** Current night mode setting: "Off", "On", or "Scheduled". */
     var cachedMode:String = "Off";
-    /** Opacidad deseada de la superposición (0.0–1.0) cuando el modo nocturno está activo. */
+    /** Desired opacity of the overlay (0.0-1.0) when night mode is active. */
     var cachedOpacity:Float = 0.65;
-    /** Inicio de la ventana nocturna en segundos desde la medianoche. */
+    /** Start of the night window in seconds from midnight. */
     var cachedStartSecs:Int = 72000; // 20:00
-    /** Fin de la ventana nocturna en segundos desde la medianoche. */
+    /** End of the night window in seconds from midnight. */
     var cachedEndSecs:Int = 21600;   // 06:00
-    /** Temporizador para omitir actualizaciones de alfa por frame por debajo de 120Hz. */
+    /** Timer to throttle per-frame alpha updates below 120Hz. */
     var updateTimer:Float = 0.0;
     
-    /** Verdadero cuando se renderiza una vista previa en el menú de opciones en lugar del juego. */
+    /** True when rendering a preview in the options menu rather than in-game. */
     public var isPreview:Bool = false;
-    /** Cámara para renderizar en el modo de vista previa. */
+    /** Camera for rendering in preview mode. */
     public var previewCam:flixel.FlxCamera = null;
 
     public function new() {
@@ -73,8 +70,8 @@ class KssetteNight extends Module {
     }
 
     /**
-     * Elimina el sprite de superposición de la escena y resetea el estado activo.
-     * Es seguro llamarlo incluso si la superposición nunca fue creada.
+     * Removes the overlay sprite from the scene and resets the active state.
+     * Safe to call even if the overlay was never created.
      */
     public function cleanUp() {
         if (overlayGame != null) {
@@ -86,7 +83,7 @@ class KssetteNight extends Module {
         targetAlpha = 0.01;
     }
 
-    /** Limpia la superposición al navegar fuera del estado de juego actual. */
+    /** Cleans up the overlay when navigating away from the current game state. */
     override public function onStateChangeStart(event:Dynamic) {
         super.onStateChangeStart(event);
         isPreview = false;
@@ -94,11 +91,11 @@ class KssetteNight extends Module {
     }
 
     /**
-     * Punto de entrada para el sistema de vista previa del menú de opciones.
-     * Inicializa el sprite de superposición en modo de vista previa y evalúa el
-     * estado nocturno actual para que la vista previa se renderice inmediatamente.
+     * Entry point for the options menu preview system.
+     * Initializes the overlay sprite in preview mode and evaluates the
+     * current night state so the preview renders immediately.
      *
-     * @param cam Cámara en la que se renderizará la vista previa.
+     * @param cam Camera to render the preview on.
      */
     public function buildPreview(cam:flixel.FlxCamera) {
         isPreview = true;
@@ -109,16 +106,16 @@ class KssetteNight extends Module {
         applyCalculatedState(evaluateState());
     }
 
-    /** Devuelve verdadero solo cuando PlayState es el estado activo de Flixel. */
+    /** Returns true only when PlayState is Flixel's active state. */
     function isPlayStateActive():Bool {
         return PlayState.instance != null && Std.isOfType(FlxG.state, PlayState);
     }
 
     /**
-     * Lee y normaliza el ajuste del modo nocturno desde KssetteApi.
-     * Mapea los valores booleanos true/false a "On"/"Off" por consistencia.
+     * Reads and normalizes the night mode setting from KssetteApi.
+     * Maps true/false boolean values to "On"/"Off" for consistency.
      *
-     * @return "On" | "Off" | el string del ajuste sin procesar (p. ej. "Scheduled")
+     * @return "On" | "Off" | raw setting string (e.g. "Scheduled")
      */
     function getMode():String {
         if (apiModule == null) return "Off";
@@ -129,11 +126,11 @@ class KssetteNight extends Module {
     }
 
     /**
-     * Parsea un string de reloj "HH:MM" a segundos desde la medianoche.
-     * Devuelve el valor de respaldo si el string es nulo, vacío o está mal formado.
+     * Parses a "HH:MM" clock string into seconds from midnight.
+     * Returns the fallback value if the string is null, empty, or malformed.
      *
-     * @param timeStr Un string como "20:00" o "06:30".
-     * @param fallback Valor a devolver si el parseo falla.
+     * @param timeStr A string like "20:00" or "06:30".
+     * @param fallback Value to return if parsing fails.
      */
     function parseClockSeconds(timeStr:String, fallback:Int):Int {
         if (timeStr == null || timeStr == "null") return fallback;
@@ -147,9 +144,9 @@ class KssetteNight extends Module {
     }
 
     /**
-     * Lee todos los ajustes del modo nocturno desde KssetteApi y los cachea localmente.
-     * Se llama al inicio de la cuenta atrás, al reanudar y durante las actualizaciones de la vista previa.
-     * Los valores de opacidad aceptan tanto strings de porcentaje ("65%") como decimales ("0.65").
+     * Reads all night mode settings from KssetteApi and caches them locally.
+     * Called at countdown start, on resume, and during preview updates.
+     * Opacity values accept both percentage strings ("65%") and decimals ("0.65").
      */
     function refreshSettings():Void {
         apiModule = ModuleHandler.getModule("KssetteApi");
@@ -173,12 +170,12 @@ class KssetteNight extends Module {
     }
 
     /**
-     * Evalúa si la superposición nocturna debería estar visible actualmente.
-     * Para los modos "Off"/"On" devuelve inmediatamente; para el modo programado
-     * comprueba la hora actual del sistema contra la ventana configurada.
-     * Maneja ventanas nocturnas que cruzan la medianoche (inicio > fin).
+     * Evaluates if the night overlay should be visible currently.
+     * For "Off"/"On" modes it returns immediately; for scheduled mode
+     * it checks the current system time against the configured window.
+     * Handles night windows that cross midnight (start > end).
      *
-     * @return Verdadero si la superposición debería estar en su opacidad activa.
+     * @return True if the overlay should be at its active opacity.
      */
     function evaluateState():Bool {
         if (cachedMode == "Off") return false;
@@ -186,13 +183,13 @@ class KssetteNight extends Module {
 
         var now = Date.now();
         var curSecs = (now.getHours() * 3600) + (now.getMinutes() * 60) + now.getSeconds();
-        // Rango normal (p. ej. 08:00-18:00): inicio < fin.
+        // Normal range (e.g. 08:00-18:00): start < end.
         if (cachedStartSecs < cachedEndSecs) return curSecs >= cachedStartSecs && curSecs < cachedEndSecs;
-        // Rango nocturno (p. ej. 20:00-06:00): cruza la medianoche.
+        // Night range (e.g. 20:00-06:00): crosses midnight.
         return curSecs >= cachedStartSecs || curSecs < cachedEndSecs;
     }
 
-    /** Reevalúa los ajustes y el estado activo; se usa para refrescar la vista previa del menú de opciones. */
+    /** Re-evaluates settings and active state; used to refresh the options menu preview. */
     public function updatePreview() {
         if (!isPreview) return;
         refreshSettings();
@@ -200,10 +197,10 @@ class KssetteNight extends Module {
     }
 
     /**
-     * Crea el FunkinSprite de superposición y lo añade al estado/cámara apropiado.
-     * Usa un sprite de color sólido de 1x1 escalado para cubrir toda la pantalla.
-     * En modo de vista previa, asigna la cámara de vista previa; en el juego, asigna camHUD.
-     * Retorna temprano si la superposición ya existe y está viva.
+     * Creates the overlay FunkinSprite and adds it to the appropriate state/camera.
+     * Uses a 1x1 solid color sprite scaled to cover the entire screen.
+     * In preview mode, it assigns the preview camera; in-game, it assigns camHUD.
+     * Returns early if the overlay already exists and is alive.
      */
     function initSprite() {
         if (overlayGame != null && overlayGame.exists) return;
@@ -249,8 +246,8 @@ class KssetteNight extends Module {
     }
 
     /**
-     * Se llama cuando comienza la cuenta atrás de la canción. Inicializa la superposición para el juego,
-     * lee todos los ajustes y aplica el estado inicial activo/inactivo.
+     * Called when the song countdown begins. Initializes the overlay for gameplay,
+     * reads all settings, and applies the initial active/inactive state.
      */
     override function onCountdownStart(event:Dynamic):Void {
         super.onCountdownStart(event);
@@ -273,8 +270,8 @@ class KssetteNight extends Module {
     }
     
     /**
-     * Se llama cuando el jugador reanuda desde la pausa.
-     * Vuelve a leer los ajustes en caso de que hayan cambiado mientras estaba en pausa (p. ej., el tiempo cruzó un límite).
+     * Called when the player resumes from pause.
+     * Re-reads settings in case they changed while paused (e.g., time crossed a boundary).
      */
     override public function onResume(event:Dynamic) {
         super.onResume(event);
@@ -285,15 +282,15 @@ class KssetteNight extends Module {
     }
 
     /**
-     * Actualización por frame. Maneja:
-     *   1. Cambio de modo vista previa/juego cuando PlayState se activa.
-     *   2. Reevaluación de la ventana de tiempo una vez por segundo a través de timeCheckTimer.
-     *   3. Interpolación suave del alfa hacia targetAlpha (velocidad 4x, limitada a ~120Hz).
+     * Per-frame update. Handles:
+     *   1. Switching from preview to gameplay mode when PlayState activates.
+     *   2. Re-evaluating the time window once per second via timeCheckTimer.
+     *   3. Smoothly interpolating alpha towards targetAlpha (4x speed, clamped to ~120Hz).
      */
     override public function onUpdate(event:Dynamic):Void {
         if (apiModule == null) return;
         
-        // Si el juego comenzó mientras la vista previa estaba activa, reconstruir para el juego.
+        // If the game started while preview was active, rebuild for gameplay.
         if (isPlayStateActive() && isPreview) {
             isPreview = false;
             cleanUp();
@@ -309,14 +306,14 @@ class KssetteNight extends Module {
         elapsed = updateTimer;
         updateTimer = 0.0;
 
-        // Reevalúa la ventana de tiempo nocturno una vez por segundo.
+        // Re-evaluate the night time window once per second.
         timeCheckTimer += elapsed;
         if (timeCheckTimer >= 1.0) {
             timeCheckTimer = 0.0;
             applyCalculatedState(evaluateState());
         }
 
-        // Interpola suavemente el alfa de la superposición hacia el objetivo.
+        // Smoothly interpolate the overlay's alpha towards the target.
         if (overlayGame != null && overlayGame.exists && overlayGame.visible) {
             if (Math.abs(overlayGame.alpha - targetAlpha) > 0.001) {
                 overlayGame.alpha += (targetAlpha - overlayGame.alpha) * (elapsed * 4.0);
@@ -327,11 +324,11 @@ class KssetteNight extends Module {
     }
 
     /**
-     * Aplica el estado calculado de activo/inactivo nocturno al sprite de superposición.
-     * Establece targetAlpha a `cachedOpacity` (activo) o ~0 (inactivo),
-     * y asegura que la asignación de la cámara de la superposición coincida con el contexto actual.
+     * Applies the calculated night active/inactive state to the overlay sprite.
+     * Sets targetAlpha to `cachedOpacity` (active) or ~0 (inactive),
+     * and ensures the overlay's camera assignment matches the current context.
      *
-     * @param shouldBeActive Indica si la superposición debería ser opaca.
+     * @param shouldBeActive Indicates if the overlay should be opaque.
      */
     function applyCalculatedState(shouldBeActive:Bool) {
         if (overlayGame == null || !overlayGame.exists) initSprite();

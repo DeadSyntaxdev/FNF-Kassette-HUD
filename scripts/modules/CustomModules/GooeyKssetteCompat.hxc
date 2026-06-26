@@ -3,7 +3,7 @@ import funkin.modding.module.ModuleHandler;
 import funkin.modding.events.UpdateScriptEvent;
 import funkin.ui.options.OptionsState;
 import flixel.FlxG;
-import Reflect;
+
 import Std;
 
 class GooeyKssetteCompat extends Module {
@@ -40,7 +40,7 @@ class GooeyKssetteCompat extends Module {
         try {
             var st:Dynamic = FlxG.state;
             var m1:Dynamic = (st.members != null && st.members.length > 1) ? st.members[1] : null;
-            gooeyMod.active = !(m1 != null && !Reflect.hasField(m1, "members"));
+            gooeyMod.active = !(m1 != null && m1?.members == null);
         } catch(e:Dynamic) {
             gooeyMod.active = false;
         }

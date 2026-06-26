@@ -1,21 +1,36 @@
 package kassettehud.util;
 
 /**
- * KssetteMiddleScroll - Notas del oponente visibles en modo Middle Scroll
+ * KssMiddlescroll
  *
- * Propósito:
- *   Implementa el modo "Middle Scroll" donde las notas del jugador están
- *   centradas. Opcionalmente muestra las notas del oponente en las flechas
- *   del jugador (transparentes/fantasma) o las oculta por completo.
+ * Implements Middle Scroll positioning (player strumline centered on screen)
+ * and provides several opponent note display modes for when the opponent
+ * strumline would overlap with the player lane.
  *
- * Opciones que maneja:
- *   - kssette_middlescroll: "On" | "Off"
- *   - kssette_hide_opponent: "On" | "Off"
- *   - kssette_mobile_opp_notes: "On" | "Off"
- *     Muestra notas del oponente en las flechas del jugador (móvil).
+ * Modes (kssette_middlescroll):
+ *   - "Off"          - Disabled. Strumlines use normal FNF positioning.
+ *   - "On"           - Middle scroll active; opponent notes shown as small
+ *                      ghost notes on the player lane.
+ *   - "P Style"      - Opponent receptors placed at the outer screen edges.
+ *   - "Glass"        - Opponent notes overlaid transparently behind the player.
+ *   - "Hidden Notes" - Opponent notes invisible (no receptors visible).
+ *   - "Like Mobile"  - Opponent notes appear at the top of the screen.
  *
- * Dependencias:
- *   - KssetteApi (para leer opciones y modo de juego)
+ * Additional settings:
+ *   - kssette_hide_opponent:      Hides the entire opponent strumline.
+ *   - kssette_opponent_opacity:   Sets opponent strumline transparency.
+ *   - kssette_opponent_pos:       "Left" | "Right" - compact ghost note side.
+ *   - kssette_opponent_bg:        Show strumline background panel for opponent.
+ *   - kssette_mobile_opp_notes:   Show opponent notes when using Arrows layout.
+ *
+ * Note splash repositioning:
+ *   Since opponent splashes spawn at the opponent's original x, they are
+ *   repositioned every ~33ms (30fps) to follow the compact receptor positions.
+ *
+ * Dependencies:
+ *   - KssetteApi.getKssValue()    - reads option values
+ *   - KssetteApi.gammodPlayerSide - handles Gammod OPPOSITE/BOTH player sides
+ *   - KssetteApi.isMobileMode     - mobile layout detection
  */
 
 import flixel.FlxG;
@@ -31,40 +46,70 @@ import funkin.mobile.input.ControlsHandler;
 import funkin.ui.FullScreenScaleMode;
 import Std;
 import Math;
-import Reflect;
 import StringTools;
 
 class KssMiddlescroll extends Module {
+    /** Currently active mode string ("Off", "On", "P Style", "Glass", etc.). */
     var cachedMode:String = "Off";
+    /** Cached opponent position preference ("Left" | "Right"). */
     var cachedOppPos:String = "Left";
+    /** Whether to show the opponent strumline background panel. */
     var cachedOppBg:Bool = false;
+    /** Whether to show opponent notes in Arrows-layout mobile mode. */
     var cachedMobileOppNotes:Bool = true;
+    /** True after the first frame where we shift strumline positions. */
     var hasShifted:Bool = false;
+    /** Cached reference to KssetteApi module. */
     var apiModule:Dynamic = null;
+    /** Cached reference to the opponent strumline. */
     var cachedOppStrum:Dynamic = null;
+    /** Cached reference to the opponent strumline receptor members array. */
     var cachedReceptors:Dynamic = null;
+    /** Cached reference to the opponent noteSplashes FlxGroup. */
     var cachedSplashes:Dynamic = null;
+    /** Whether the active note style has custom splash offsets. */
     var cachedHasSplashOffsets:Bool = false;
+    /** X offset from the note style's splash offsets (used for repositioning). */
     var cachedSplashOffsetX:Float = 0.0;
+    /** Timer that throttles splash repositioning to ~30fps. */
     var splashUpdateTimer:Float = 0.0;
+    /** Last opponent strumline that received a nudge (prevents double-nudging). */
     var lastNudgedStrum:Dynamic = null;
+    /** True after the player strumline has been positioned (per countdown start). */
     var pHasShifted:Bool = false;
 
+    /** True when using Arrows control scheme on a device without external input. */
     var cachedIsArrows:Bool = false;
+    /** True when the chart uses the "pixel" note style. */
     var cachedIsPixelStyle:Bool = false;
+    /** True when running in mobile-like-PC layout mode. */
     var cachedIsMobPC:Bool = true;
+    /** Cached screen cutout/notch size (computed once, then reused). */
     var cachedCutoutSize:Float = -1.0;
 
     public function new() {
         super('KssMiddlescroll'); 
     }
 
+    /** Returns true if the Dynamic value represents an "on" state. */
     function isOn(val:Dynamic):Bool {
         if (val == true) return true;
         var s = Std.string(val);
         return s == "On" || s == "on" || s == "true";
     }
 
+    /**
+     * Called at song start. Reads all middle scroll settings and performs the
+     * initial strumline repositioning. Also caches the opponent strumline
+     * reference and its note style splash offsets for use in onUpdate.
+     *
+     * Key operations:
+     *   - Centers the player strumline horizontally (if mod is active).
+     *   - Applies opponent mode (hidden/ghost/glass/p-style).
+     *   - Compacts opponent receptors into a small cluster for ghost modes.
+     *   - Adjusts opponent opacity.
+     *   - Applies Arrow-layout nudge offsets for mobile-without-external-input.
+     */
     override function onCountdownStart(event:ScriptEvent):Void {
         hasShifted = false;
         pHasShifted = false;
@@ -290,11 +335,20 @@ class KssMiddlescroll extends Module {
         }
     }
 
+    /** No additional logic needed; onCountdownStart handles retry via song restart. */
     override function onSongRetry(event:ScriptEvent):Void {
-        // onCountdownStart is called on retry anyway, so this is mostly redundant.
         super.onSongRetry(event);
     }
 
+    /**
+     * Called when a note becomes visible on screen. Repositions and styles
+     * opponent notes according to the active mode:
+     *   - "Hidden Notes" / "Like Mobile": hides the note entirely.
+     *   - "P Style": places note at the P-style receptor x (semi-transparent).
+     *   - "Glass": grays the note to 25% alpha.
+     *   - "On" / Arrow layout: scales note down to compact ghost size and
+     *     snaps its x to the matching compact receptor position.
+     */
     override function onNoteIncoming(event:ScriptEvent) {
         super.onNoteIncoming(event);
         
@@ -402,6 +456,15 @@ class KssMiddlescroll extends Module {
         }
     }
 
+    /**
+     * Per-frame update. Handles:
+     *   1. Player background panel x-tracking (follows note positions).
+     *   2. Opponent "Like Mobile" fixed Y positioning.
+     *   3. Opponent background panel x-tracking.
+     *   4. Non-active-mod strumline positioning (Gammod OPPOSITE/BOTH sides).
+     *   5. One-time compact shift for active modes (pHasShifted / hasShifted gates).
+     *   6. Splash repositioning (~30fps) to follow compact receptor positions.
+     */
     override function onUpdate(event:UpdateScriptEvent) {
         
         var applyArrowLogic = cachedIsArrows;

@@ -10,7 +10,7 @@ import flixel.text.FlxTextBorderStyle;
 import funkin.Preferences;
 import StringTools;
 import Std;
-import Reflect;
+
 
 class KssetteSkyCompat extends Module {
     var isSkyActive:Bool = false;
@@ -98,7 +98,7 @@ class KssetteSkyCompat extends Module {
         if (skyHUDModule != null && skyHUDModule.timerBackdrop != null) {
             try {
                 if (state.playerStrumline != null) {
-                    var bg1:Dynamic = Reflect.getProperty(state.playerStrumline, "background");
+                    var bg1:Dynamic = state.playerStrumline?.background;
                     if (bg1 != null) {
                         try { state.playerStrumline.remove(bg1, true); } catch(e:Dynamic) {}
                         bg1.zIndex = 10;
@@ -107,7 +107,7 @@ class KssetteSkyCompat extends Module {
                     }
                 }
                 if (state.opponentStrumline != null) {
-                    var bg2:Dynamic = Reflect.getProperty(state.opponentStrumline, "background");
+                    var bg2:Dynamic = state.opponentStrumline?.background;
                     if (bg2 != null) {
                         try { state.opponentStrumline.remove(bg2, true); } catch(e:Dynamic) {}
                         bg2.zIndex = 10;
@@ -368,7 +368,7 @@ class KssetteSkyCompat extends Module {
         super.onDestroy(event);
 
         var api:Dynamic = ModuleHandler.getModule("KssetteApi");
-        if (api != null && Reflect.hasField(api, "refreshOptionCache")) {
+        if (api != null && api?.refreshOptionCache != null) {
             api.refreshOptionCache();
             
             var kAcc:Dynamic = ModuleHandler.getModule("KssetteAccuracy");

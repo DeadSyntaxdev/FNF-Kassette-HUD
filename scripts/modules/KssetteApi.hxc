@@ -23,7 +23,6 @@ import flixel.FlxSprite;
 import Std;
 import Math;
 import StringTools;
-import Reflect;
 import Type;
 import funkin.util.ReflectUtil;
 import funkin.util.FileUtil;
@@ -38,7 +37,7 @@ import funkin.data.notestyle.NoteStyleRegistry;
 
 class KssetteApi extends Module {
     final optionsID:String = "kassette-hud";
-    public var hudVersion:String = "0.2.4.b1";
+    public var hudVersion:String = "0.2.4";
     public var preview_bf:Dynamic = null;
     public var preview_dad:Dynamic = null;
     public var preview_scoreBopTrigger:Bool = false;
@@ -464,7 +463,7 @@ class KssetteApi extends Module {
     
     public function preCacheIconColor(iconId:String, isPlayer:Bool = false):Void {
         if (iconId == null || iconId == "" || iconId == "generic_p1" || iconId == "generic_p2") return;
-        if (Reflect.hasField(_iconColorCache, iconId)) return;
+        if (ReflectUtil.hasField(_iconColorCache, iconId)) return;
 
         var graphic = null;
         graphic = funkin.Paths.image('icons/' + iconId);
@@ -484,28 +483,24 @@ class KssetteApi extends Module {
         if (state == null) return;
 
         if (state.iconP1 != null) {
-            var prop1 = ReflectUtil.hasField(state.iconP1, "bopEvery") ? Reflect.getProperty(state.iconP1, "bopEvery") : null;
-            if (prop1 == null) prop1 = ReflectUtil.hasField(state.iconP1, "bopEvery") ? Reflect.field(state.iconP1, "bopEvery") : null;
+            var prop1 = state.iconP1?.bopEvery;
             if (prop1 != null) cachedP1Bop = prop1;
             else cachedP1Bop = 4;
 
             var scale1:Float = 1.0;
-            var isPixel1 = ReflectUtil.hasField(state.iconP1, "isPixelIcon") ? Reflect.getProperty(state.iconP1, "isPixelIcon") : null;
-            if (isPixel1 == null) isPixel1 = ReflectUtil.hasField(state.iconP1, "isPixelIcon") ? Reflect.field(state.iconP1, "isPixelIcon") : null;
+            var isPixel1 = state.iconP1?.isPixelIcon;
             if (isPixel1 == true) scale1 = 5.0;
             else if (state.iconP1.antialiasing == false) scale1 = 5.0;
             cachedP1Scale = scale1;
         }
 
         if (state.iconP2 != null) {
-            var prop2 = ReflectUtil.hasField(state.iconP2, "bopEvery") ? Reflect.getProperty(state.iconP2, "bopEvery") : null;
-            if (prop2 == null) prop2 = ReflectUtil.hasField(state.iconP2, "bopEvery") ? Reflect.field(state.iconP2, "bopEvery") : null;
+            var prop2 = state.iconP2?.bopEvery;
             if (prop2 != null) cachedP2Bop = prop2;
             else cachedP2Bop = 4;
 
             var scale2:Float = 1.0;
-            var isPixel2 = ReflectUtil.hasField(state.iconP2, "isPixelIcon") ? Reflect.getProperty(state.iconP2, "isPixelIcon") : null;
-            if (isPixel2 == null) isPixel2 = ReflectUtil.hasField(state.iconP2, "isPixelIcon") ? Reflect.field(state.iconP2, "isPixelIcon") : null;
+            var isPixel2 = state.iconP2?.isPixelIcon;
             if (isPixel2 == true) scale2 = 5.0;
             else if (state.iconP2.antialiasing == false) scale2 = 5.0;
             cachedP2Scale = scale2;
@@ -523,9 +518,9 @@ class KssetteApi extends Module {
 
         var state = PlayState.instance;
         if (state != null && state.isChartingMode && state.isMinimalMode) {
-            Reflect.setField(state, "isMinimalMode", false);
-            Reflect.callMethod(state, Reflect.field(state, "initStage"), []);
-            Reflect.callMethod(state, Reflect.field(state, "initCharacters"), []);
+            state.isMinimalMode = false;
+            if (state.initStage != null) state.initStage();
+            if (state.initCharacters != null) state.initCharacters();
             state.refresh();
         }
 
@@ -562,24 +557,24 @@ class KssetteApi extends Module {
         _hbUpdateTimer = 0.0;
         
         _cColoredHB = getKssValue("kssette_colored_healthbar") == true;
-        if (Reflect.hasField(FlxG, "kssIconColorCache")) {
-            _iconColorCache = Reflect.field(FlxG, "kssIconColorCache");
+        if (ReflectUtil.hasField(FlxG, "kssIconColorCache")) {
+            _iconColorCache = ReflectUtil.field(FlxG, "kssIconColorCache");
         } else {
             _iconColorCache = {};
-            Reflect.setField(FlxG, "kssIconColorCache", _iconColorCache);
+            ReflectUtil.setField(FlxG, "kssIconColorCache", _iconColorCache);
         }
         
         if (state != null && _cColoredHB) {
             if (state.iconP1 != null) {
                 var p1Id = "generic_p1";
                 if (state.iconP1.characterId != null) p1Id = Std.string(state.iconP1.characterId);
-                if (!Reflect.hasField(_iconColorCache, p1Id)) extractIconColor(state.iconP1, true, p1Id);
+                if (!ReflectUtil.hasField(_iconColorCache, p1Id)) extractIconColor(state.iconP1, true, p1Id);
             }
             
             if (state.iconP2 != null) {
                 var p2Id = "generic_p2";
                 if (state.iconP2.characterId != null) p2Id = Std.string(state.iconP2.characterId);
-                if (!Reflect.hasField(_iconColorCache, p2Id)) extractIconColor(state.iconP2, false, p2Id);
+                if (!ReflectUtil.hasField(_iconColorCache, p2Id)) extractIconColor(state.iconP2, false, p2Id);
             }
         }
         
@@ -589,28 +584,28 @@ class KssetteApi extends Module {
             playerNoteTimes = [];
             
             if (state != null && state.currentChart != null) {
-                if (_cColoredHB && Reflect.hasField(state.currentChart, "events")) {
-                    var events:Array<Dynamic> = Reflect.field(state.currentChart, "events");
+                if (_cColoredHB && state.currentChart?.events != null) {
+                    var events:Array<Dynamic> = state.currentChart.events;
                     if (events != null) {
                         for (ev in events) {
                             var evName = "";
-                            if (Reflect.hasField(ev, "id")) evName = Std.string(Reflect.field(ev, "id"));
-                            else if (Reflect.hasField(ev, "name")) evName = Std.string(Reflect.field(ev, "name"));
-                            else if (Reflect.hasField(ev, "e")) evName = Std.string(Reflect.field(ev, "e"));
+                            if (ev?.id != null) evName = Std.string(ev.id);
+                            else if (ev?.name != null) evName = Std.string(ev.name);
+                            else if (ev?.e != null) evName = Std.string(ev.e);
 
                             if (evName == "SetHealthIcon" || evName == "ChangeCharacter") {
                                 var val = null;
-                                if (Reflect.hasField(ev, "value")) val = Reflect.field(ev, "value");
-                                else if (Reflect.hasField(ev, "v")) val = Reflect.field(ev, "v");
+                                if (ev?.value != null) val = ev.value;
+                                else if (ev?.v != null) val = ev.v;
                                 
                                 if (val != null) {
                                     var iconId = "";
-                                    if (Reflect.hasField(val, "id")) iconId = Std.string(Reflect.field(val, "id"));
-                                    else if (Reflect.hasField(val, "character")) iconId = Std.string(Reflect.field(val, "character"));
+                                    if (val?.id != null) iconId = Std.string(val.id);
+                                    else if (val?.character != null) iconId = Std.string(val.character);
                                     
                                     var isPlayerEvent = false;
-                                    if (Reflect.hasField(val, "char")) {
-                                        var charVal = Std.parseInt(Std.string(Reflect.field(val, "char")));
+                                    if (val?.char != null) {
+                                        var charVal = Std.parseInt(Std.string(val.char));
                                         if (charVal == 0) isPlayerEvent = true; 
                                     }
 
@@ -623,7 +618,7 @@ class KssetteApi extends Module {
                     }
                 }
 
-                // Siempre parsear las notas del chart (necesario para breakbar Y ghosttapping "In Breaks")
+                // Always parse chart notes (needed for breakbar AND ghosttapping "In Breaks")
                 if (state.currentChart?.notes != null) {
                     var notesArray:Array<Dynamic> = state.currentChart.notes;
                     var len:Int = notesArray.length;
@@ -635,14 +630,14 @@ class KssetteApi extends Module {
                         var note = notesArray[i];
                         if (note == null) continue;
 
-                        // En V-Slice 0.8.4, SongNoteData.getMustHitNote() retorna true cuando data < 4 (strumline 0)
-                        // Usamos ? para acceso seguro sin try/catch
+                        // In V-Slice 0.8.4, SongNoteData.getMustHitNote() returns true when data < 4 (strumline 0)
+                        // Use ? for safe access without try/catch
                         var isPlayer:Bool = false;
                         var mustHitResult = note?.getMustHitNote();
                         if (mustHitResult != null) {
                             isPlayer = (mustHitResult == true);
                         } else {
-                            // Fallback: data < 4 = jugador, data >= 4 = oponente
+                            // Fallback: data < 4 = player, data >= 4 = opponent
                             var noteData = note?.data;
                             if (noteData != null) isPlayer = (noteData < 4);
                         }
@@ -674,13 +669,13 @@ class KssetteApi extends Module {
         var fallbackColor:Int = isPlayer ? 0xFF66FF33 : 0xFFFF0000;
 
         if (isCacheable) {
-            if (Reflect.hasField(_iconColorCache, iconId)) {
-                return Reflect.field(_iconColorCache, iconId);
+            if (ReflectUtil.hasField(_iconColorCache, iconId)) {
+                return ReflectUtil.field(_iconColorCache, iconId);
             }
         }
 
         if (icon == null) {
-            if (isCacheable) Reflect.setField(_iconColorCache, iconId, fallbackColor);
+            if (isCacheable) ReflectUtil.setField(_iconColorCache, iconId, fallbackColor);
             return fallbackColor;
         }
         
@@ -691,7 +686,7 @@ class KssetteApi extends Module {
         }
         
         if (bitmap == null) {
-            if (isCacheable) Reflect.setField(_iconColorCache, iconId, fallbackColor);
+            if (isCacheable) ReflectUtil.setField(_iconColorCache, iconId, fallbackColor);
             return fallbackColor;
         }
         
@@ -735,14 +730,14 @@ class KssetteApi extends Module {
         }
         
         if (maxFreq == 0) {
-            if (isCacheable) Reflect.setField(_iconColorCache, iconId, fallbackColor);
+            if (isCacheable) ReflectUtil.setField(_iconColorCache, iconId, fallbackColor);
             return fallbackColor;
         }
         
         var finalColor = 0xFF000000 | bestColor;
         
         if (isCacheable) {
-            Reflect.setField(_iconColorCache, iconId, finalColor);
+            ReflectUtil.setField(_iconColorCache, iconId, finalColor);
         }
 
         return finalColor;
@@ -758,6 +753,11 @@ class KssetteApi extends Module {
         }
 
         var currentTime = state.conductorInUse.songPosition;
+
+        // Rewind if time jumped backwards (e.g. restart or seek)
+        while (currentNoteIndex > 0 && playerNoteTimes[currentNoteIndex - 1].start > currentTime) {
+            currentNoteIndex--;
+        }
 
         while (currentNoteIndex < playerNoteTimes.length && playerNoteTimes[currentNoteIndex].start <= currentTime) {
             currentNoteIndex++;
@@ -849,11 +849,11 @@ class KssetteApi extends Module {
         
         var artistStr = "Unknown Artist";
         if (state.currentChart != null) {
-            var cArtist = Reflect.getProperty(state.currentChart, "songArtist");
-            if (cArtist == null) cArtist = Reflect.getProperty(state.currentChart, "artist");
+            var cArtist = state.currentChart?.songArtist;
+            if (cArtist == null) cArtist = state.currentChart?.artist;
             
-            var meta = Reflect.getProperty(state.currentChart, "metadata");
-            if (cArtist == null && meta != null) cArtist = Reflect.getProperty(meta, "artist");
+            var meta = state.currentChart?.metadata;
+            if (cArtist == null && meta != null) cArtist = meta?.artist;
 
             if (cArtist != null && Std.string(cArtist) != "" && Std.string(cArtist) != "null") {
                 _cachedSongArtist = Std.string(cArtist);
@@ -910,10 +910,10 @@ class KssetteApi extends Module {
             try {
                 if (note.getMustHitNote() == true) isPlayer = true;
             } catch(e:Dynamic) {
-                var d = Reflect.getProperty(note, "data");
-                if (d == null) d = Reflect.getProperty(note, "d");
+                var d = note?.data;
+                if (d == null) d = note?.d;
                 if (d != null && Std.parseInt(Std.string(d)) >= 4) isPlayer = true;
-                if (Reflect.getProperty(note, "mustHitNote") == true) isPlayer = true;
+                if (note?.mustHitNote == true) isPlayer = true;
             }
             if (isPlayer) count++;
         }
@@ -996,8 +996,8 @@ class KssetteApi extends Module {
         
         if (Highscore.tallies != null) {
             processed = Highscore.tallies.sick + Highscore.tallies.good + Highscore.tallies.bad + Highscore.tallies.shit + Highscore.tallies.missed;
-            if (Reflect.hasField(Highscore.tallies, "totalNotes")) {
-                var realTotal:Dynamic = Reflect.field(Highscore.tallies, "totalNotes");
+            if (Highscore.tallies?.totalNotes != null) {
+                var realTotal:Dynamic = Highscore.tallies.totalNotes;
                 if (realTotal != null && realTotal > 0) totalPlayerNotes = Std.int(realTotal);
             }
         }
@@ -1044,9 +1044,7 @@ class KssetteApi extends Module {
         var gammodAutoMod = ModuleHandler.getModule("GammodAutoPlay");
         var gAutoPlay = gammodAutoPlay;
         if (gammodAutoMod != null) {
-            var autoRaw:Dynamic = null;
-            autoRaw = Reflect.getProperty(gammodAutoMod, "value");
-            if (autoRaw == null) autoRaw = Reflect.field(gammodAutoMod, "value");
+            var autoRaw:Dynamic = gammodAutoMod?.value;
             if (autoRaw == null) autoRaw = gammodAutoMod.scriptGet("value");
             gAutoPlay = (autoRaw != null && Std.string(autoRaw).toUpperCase() != "DISABLED");
             gammodAutoPlay = gAutoPlay;
@@ -1061,8 +1059,8 @@ class KssetteApi extends Module {
             }
             if (_cachedSongId != null && _cachedSongId.toLowerCase() == "termination") {
                 if (_qtModule == null) _qtModule = ModuleHandler.getModule("QTdodgeModule");
-                if (_qtModule != null && Reflect.hasField(_qtModule, "scriptGet")) {
-                    var scriptGetFn:Dynamic = Reflect.field(_qtModule, "scriptGet");
+                if (_qtModule != null && _qtModule?.scriptGet != null) {
+                    var scriptGetFn:Dynamic = _qtModule.scriptGet;
                     if (scriptGetFn != null && scriptGetFn("qtBotplay") == true) botplay = true;
                 }
             }
@@ -1274,12 +1272,12 @@ class KssetteApi extends Module {
         
         if (PlayState.instance != null) {
             if (PlayState.instance.currentChart != null) {
-                var pData = Reflect.getProperty(PlayState.instance.currentChart, "playData");
+                var pData = PlayState.instance.currentChart?.playData;
                 if (pData != null) {
-                    var nStyle = Reflect.getProperty(pData, "noteStyle");
+                    var nStyle = pData?.noteStyle;
                     if (nStyle != null) styleId = Std.string(nStyle);
                 } else {
-                    var nStyle = Reflect.getProperty(PlayState.instance.currentChart, "noteStyle");
+                    var nStyle = PlayState.instance.currentChart?.noteStyle;
                     if (nStyle != null) styleId = Std.string(nStyle);
                 }
             }
@@ -1295,20 +1293,16 @@ class KssetteApi extends Module {
             var styleEntry = NoteStyleRegistry.instance.fetchEntry(currentStyleId);
             if (styleEntry == null) break;
             
-            var data = Reflect.getProperty(styleEntry, "_data");
-            if (data == null) data = Reflect.field(styleEntry, "_data");
+            var data = styleEntry?._data;
 
             if (data != null) {
-                var assets = Reflect.getProperty(data, "assets");
-                if (assets == null) assets = Reflect.field(data, "assets");
+                var assets = data?.assets;
 
                 if (assets != null) {
-                    var note = Reflect.getProperty(assets, "note");
-                    if (note == null) note = Reflect.field(assets, "note");
+                    var note = assets?.note;
 
                     if (note != null) {
-                        var isPixelVal:Dynamic = Reflect.getProperty(note, "isPixel");
-                        if (isPixelVal == null) isPixelVal = Reflect.field(note, "isPixel");
+                        var isPixelVal:Dynamic = note?.isPixel;
                         
                         if (isPixelVal == true || isPixelVal == "true") {
                             _cachedHudStyleId = styleId;
@@ -1320,8 +1314,7 @@ class KssetteApi extends Module {
                     }
                 }
                 
-                var fallbackStyle = Reflect.getProperty(data, "fallback");
-                if (fallbackStyle == null) fallbackStyle = Reflect.field(data, "fallback");
+                var fallbackStyle = data?.fallback;
 
                 if (fallbackStyle != null && Std.string(fallbackStyle) != "" && Std.string(fallbackStyle) != "null") {
                     currentStyleId = Std.string(fallbackStyle);
@@ -1357,13 +1350,9 @@ class KssetteApi extends Module {
         _gammodCheckTimer = 0.0;
 
         var gammodHandler = _gammodHandler;
-        var modsOnRaw:Dynamic = null;
         if (gammodHandler != null) {
-            modsOnRaw = Reflect.getProperty(gammodHandler, "mods_on");
-            if (modsOnRaw == null) modsOnRaw = Reflect.field(gammodHandler, "mods_on");
-            if (modsOnRaw == null) {
-                modsOnRaw = gammodHandler.scriptGet("mods_on");
-            }
+            var modsOnRaw:Dynamic = gammodHandler?.mods_on;
+            if (modsOnRaw == null) modsOnRaw = gammodHandler.scriptGet("mods_on");
             if (modsOnRaw == null) {
                 var activeArray:Dynamic = gammodHandler.getActive();
                 if (activeArray != null && activeArray.length > 0) modsOnRaw = true;
@@ -1374,26 +1363,21 @@ class KssetteApi extends Module {
         }
 
         var gammodMult = _gammodMult;
-        var unrankedRaw:Dynamic = null;
-        var multRaw:Dynamic = null;
         if (gammodMult != null) {
-            unrankedRaw = Reflect.getProperty(gammodMult, "unranked");
-            if (unrankedRaw == null) unrankedRaw = Reflect.field(gammodMult, "unranked");
+            var unrankedRaw:Dynamic = gammodMult?.unranked;
+            if (unrankedRaw == null) unrankedRaw = gammodMult.scriptGet("unranked");
             if (unrankedRaw == null) {
-                unrankedRaw = gammodMult.scriptGet("unranked");
-            }
-            if (unrankedRaw == null) {
-                unrankedRaw = Reflect.field(gammodMult, "isUnranked")();
+                if (gammodMult?.isUnranked != null) {
+                    unrankedRaw = gammodMult.isUnranked();
+                }
             }
             gammodUnranked = (unrankedRaw == true);
-
-            multRaw = Reflect.getProperty(gammodMult, "score_multiplier");
-            if (multRaw == null) multRaw = Reflect.field(gammodMult, "score_multiplier");
+            var multRaw:Dynamic = gammodMult?.score_multiplier;
+            if (multRaw == null) multRaw = gammodMult.scriptGet("score_multiplier");
             if (multRaw == null) {
-                multRaw = gammodMult.scriptGet("score_multiplier");
-            }
-            if (multRaw == null) {
-                multRaw = Reflect.field(gammodMult, "curMult")();
+                if (gammodMult?.curMult != null) {
+                    multRaw = gammodMult.curMult();
+                }
             }
             if (multRaw != null) gammodMultiplier = multRaw;
             else gammodMultiplier = 1.0;
@@ -1403,13 +1387,9 @@ class KssetteApi extends Module {
         }
 
         var gammodRate = _gammodRate;
-        var rateRaw:Dynamic = null;
         if (gammodRate != null) {
-            rateRaw = Reflect.getProperty(gammodRate, "value");
-            if (rateRaw == null) rateRaw = Reflect.field(gammodRate, "value");
-            if (rateRaw == null) {
-                rateRaw = gammodRate.scriptGet("value");
-            }
+            var rateRaw:Dynamic = gammodRate?.value;
+            if (rateRaw == null) rateRaw = gammodRate.scriptGet("value");
             if (rateRaw != null) gammodPlaybackRate = rateRaw;
             else gammodPlaybackRate = 1.0;
         } else {
@@ -1417,26 +1397,18 @@ class KssetteApi extends Module {
         }
 
         var gammodAutoMod = _gammodAuto;
-        var autoRaw:Dynamic = null;
         if (gammodAutoMod != null) {
-            autoRaw = Reflect.getProperty(gammodAutoMod, "value");
-            if (autoRaw == null) autoRaw = Reflect.field(gammodAutoMod, "value");
-            if (autoRaw == null) {
-                autoRaw = gammodAutoMod.scriptGet("value");
-            }
+            var autoRaw:Dynamic = gammodAutoMod?.value;
+            if (autoRaw == null) autoRaw = gammodAutoMod.scriptGet("value");
             gammodAutoPlay = (autoRaw != null && Std.string(autoRaw).toUpperCase() != "DISABLED");
         } else {
             gammodAutoPlay = false;
         }
 
         var gammodSideMod = _gammodSide;
-        var sideRaw:Dynamic = null;
         if (gammodSideMod != null) {
-            sideRaw = Reflect.getProperty(gammodSideMod, "value");
-            if (sideRaw == null) sideRaw = Reflect.field(gammodSideMod, "value");
-            if (sideRaw == null) {
-                sideRaw = gammodSideMod.scriptGet("value");
-            }
+            var sideRaw:Dynamic = gammodSideMod?.value;
+            if (sideRaw == null) sideRaw = gammodSideMod.scriptGet("value");
             if (sideRaw != null) gammodPlayerSide = Std.string(sideRaw).toUpperCase();
             else gammodPlayerSide = "NORMAL";
         } else {
@@ -1492,13 +1464,15 @@ class KssetteApi extends Module {
                         var isBotting:Bool = (msg != null && (msg.indexOf('Botplay') != -1 || msg.indexOf('AutoPlay') != -1));
                         
                         if (isBotting) {
-                            if (Reflect.hasField(_accModule, "modeText")) {
-                                var modeTxt = Reflect.field(_accModule, "modeText");
-                                if (modeTxt == null || modeTxt.visible == false || modeTxt.alpha < 0.1 || (modeTxt.text.indexOf("Botplay") == -1 && modeTxt.text.indexOf("AutoPlay") == -1)) {
+                            if (_accModule != null) {
+                                if (_accModule?.modeText != null) {
+                                    var modeTxt = _accModule.modeText;
+                                    if (modeTxt != null && modeTxt.visible == false || modeTxt.alpha < 0.1 || (modeTxt.text.indexOf("Botplay") == -1 && modeTxt.text.indexOf("AutoPlay") == -1)) {
+                                        isCompromised = true;
+                                    }
+                                } else {
                                     isCompromised = true;
                                 }
-                            } else {
-                                isCompromised = true;
                             }
                         }
                     }
@@ -1507,7 +1481,7 @@ class KssetteApi extends Module {
         } else {
             heartbeatTimer = 4.0;
             gracePeriod = 3.0;
-            // Si estaba comprometido (asleep), se queda así.
+            // If it was compromised (asleep), keep it that way.
             _integrityTimer = 0.0;
             _accModule = null;
         }

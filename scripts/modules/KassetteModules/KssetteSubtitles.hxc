@@ -1,22 +1,40 @@
 package kassettehud.util;
 
 /**
- * KssetteSubtitles - Sistema de subtítulos/karaoke sincronizados
+ * KssetteSubtitles
  *
- * Propósito:
- *   Renderiza los subtítulos (letras) de la canción en sincronía con
- *   la música. Soporta modo karaoke "inteligente" que destaca las
- *   líneas en el momento correcto según el lado del personaje.
+ * Renders synchronized song lyrics (subtitles) during gameplay and in
+ * the options menu preview. Supports karaoke-style formatting and smart
+ * mode that highlights lines based on who is currently singing.
  *
- * Opciones que maneja:
- *   - kssette_subtitles_anim: "On" | "Off" (animación de entrada/salida)
- *   - kssette_subtitles_pos: "Bottom" | "Top" | "Center"
- *   - kssette_smart_karaoke: "On" | "Off"
- *     Sincroniza el karaoke con quién canta (jugador u oponente).
+ * Subtitle data format:
+ *   The module reads from "data/songs/{songId}/subtitles.json", which
+ *   should contain an array of entries:
+ *     { "text": "...", "time": 1234, "duration": 2000, "character": "bf" }
+ *   HTML color/style tags (e.g. <font color="#FF0000">, <b>, <i>) are
+ *   parsed for karaoke reveal effects.
  *
- * Dependencias:
- *   - KssetteApi (para leer opciones y fuente del HUD)
- *   - Archivos de subtítulos en: data/songs/{songId}/subtitles.json
+ * When no subtitle file is available, the module falls back to a built-in
+ * "trivia" array with fun FNF facts displayed at random intervals.
+ *
+ * Animation modes (kssette_subtitles_anim):
+ *   - "Slide" - Slides in from below (or above) and fades out.
+ *   - "Fade"  - Fades in/out only.
+ *   - "Off"   - Appears/disappears instantly.
+ *
+ * Smart karaoke (kssette_smart_karaoke):
+ *   When enabled, only lines belonging to the currently singing character
+ *   are highlighted; the other side is shown at reduced opacity.
+ *
+ * Settings managed:
+ *   - kssette_subtitles_anim: "Slide" | "Fade" | "Off"
+ *   - kssette_subtitles_pos:  "Bottom" | "Top" | "Center"
+ *   - kssette_smart_karaoke:  "On" | "Off"
+ *
+ * Dependencies:
+ *   - KssetteApi.getKssValue()  - reads option values
+ *   - KssetteApi.getHudFont()   - HUD font string
+ *   - Subtitle JSON files in data/songs/{id}/subtitles.json
  */
 
 import funkin.modding.module.Module;
@@ -32,72 +50,71 @@ import flixel.tweens.FlxEase;
 import funkin.Conductor;
 import Math;
 import Std;
-import Reflect;
 import StringTools;
 import flixel.util.FlxColor;
 
 class KssetteSubtitles extends Module {
     
-    /** Tamaño de fuente por defecto para los subtítulos. */
+    /** Default font size for subtitle text. */
     var defaultFontSize:Int = 24;
-    /** Posición Y para los subtítulos cuando están en la parte superior. */
+    /** Y position of subtitles when placed at the top of the screen. */
     var topY_Normal:Float = 190;
-    /** Desplazamiento Y para los subtítulos cuando están en la parte inferior. */
+    /** Vertical offset from the bottom edge when placed at the bottom. */
     var bottomY_Offset:Float = 190;
 
-    /** Referencia cacheada al módulo KssetteApi. */
+    /** Cached reference to KssetteApi. */
     var apiModule:Dynamic = null;
-    /** Fuente de texto cacheada para la UI. */
+    /** HUD font name read from KssetteApi.getHudFont(). */
     var cachedFont:String = "VCR OSD Mono";
-    /** Tipo de animación para la aparición/desaparición de los subtítulos. */
+    /** Active animation style: "Slide", "Fade", or "Off". */
     var animType:String = "Slide";
-    /** Posición de los subtítulos en la pantalla. */
+    /** Current position mode: "Bottom", "Top", or "Center". */
     var posType:String = "Bottom";
-    /** Indica si el modo de karaoke inteligente está activado. */
+    /** Whether smart karaoke highlighting is active. */
     var smartKaraoke:Bool = false;
     
-    /** Último texto crudo mostrado, para detectar cambios. */
+    /** Last raw subtitle text shown; guards against redundant updates. */
     var lastRawText:String = "";
-    /** Tween de animación actual para la aparición/desaparición. */
+    /** Active FlxTween for the main show/hide animation. */
     var currentTween:FlxTween = null;
-    /** Tween de animación para el efecto de karaoke. */
+    /** Active FlxTween for the karaoke reveal effect. */
     var karaokeTween:FlxTween = null;
-    /** Tween de animación para el efecto de escala/zoom. */
+    /** Active FlxTween for the scale pulse effect. */
     var scaleTween:FlxTween = null;
-    /** Indica si los subtítulos se están mostrando actualmente. */
+    /** Whether subtitles are currently visible on screen. */
     var isShowing:Bool = false;
     
-    /** Objeto de texto principal para los subtítulos. */
+    /** The primary FlxText node that displays subtitle content. */
     var subText:FlxText;
 
-    // Variables para interactuar con el sistema de subtítulos nativo del juego
+    // --- Native subtitle system bridge ---
     var _nativeSubs:Dynamic = null;
     var _nativeBg:Dynamic = null;
     var _nativeTextObj:Dynamic = null;
     
-    /** Referencia al módulo KssttLSubtitles si está presente, para compatibilidad. */
+    /** Reference to the KssttLSubtitles compatibility module, if present. */
     var kssttlModule:Dynamic = null;
-    /** Bandera para evitar comprobar el módulo KssttL repetidamente. */
+    /** True once we have checked for the KssttL module (avoids repeated lookups). */
     var checkedKssttl:Bool = false;
-    /** Última cámara objetivo utilizada para los subtítulos. */
+    /** The camera that subtitles were last assigned to; used to detect camera changes. */
     var lastTargetCam:Dynamic = null;
     
-    /** Verdadero cuando se renderiza una vista previa en el menú de opciones. */
+    /** True when rendering in the options menu preview instead of gameplay. */
     public var isPreview:Bool = false;
-    /** Cámara para renderizar en el modo de vista previa. */
+    /** Camera to render into during preview mode. */
     public var previewCam:flixel.FlxCamera = null;
-    /** Temporizador para el ciclo de la vista previa. */
+    /** Timer for the preview demo cycle (cycles through subtitle in/out states). */
     var previewTimer:Float = 0.0;
-    /** Temporizador para limitar la frecuencia de actualización por frame. */
+    /** Per-frame throttle timer (~120Hz gate). */
     var updateTimer:Float = 0.0;
-    /** Estado actual de la animación en el modo de vista previa. */
+    /** Current animation state index for the preview demo. */
     var previewState:Int = 0;
 
-    /** Texto plano cacheado después de procesar el HTML. */
+    /** Cached plain text after stripping HTML from the current subtitle entry. */
     var cachedPlainText:String = "";
-    /** Formatos de texto (color, estilo) extraídos del HTML. */
+    /** Cached format ranges extracted from HTML tags (color, bold, italic). */
     var cachedFormats:Array<Dynamic> = [];
-    /** Última longitud de texto visible en el karaoke para evitar actualizaciones redundantes. */
+    /** Last karaoke visible-length applied; avoids redundant format re-application. */
     var lastKaraokeLen:Int = -1;
 
 var triviaArray:Array<String> = [
@@ -254,7 +271,8 @@ var triviaArray:Array<String> = [
 
 
     /**
-     * Cancela todos los tweens de animación activos relacionados con los subtítulos.
+     * Cancels all active animation tweens (show/hide, karaoke reveal, scale pulse).
+     * Safe to call even if no tweens are active.
      */
     function cancelAnimTweens() {
         if (currentTween != null) {
@@ -272,7 +290,8 @@ var triviaArray:Array<String> = [
     }
 
     /**
-     * Limpia el estado de los subtítulos, pero no destruye el objeto de texto.
+     * Resets subtitle state without destroying the text object.
+     * Cancels tweens, clears the subText reference, and resets active entry tracking.
      */
     function cleanUp() {
         cancelAnimTweens();
@@ -283,7 +302,8 @@ var triviaArray:Array<String> = [
     }
 
     /**
-     * Destruye completamente el objeto de texto de los subtítulos y lo elimina de la escena.
+     * Fully destroys the subtitle FlxText object and removes it from the scene.
+     * Calls cleanUp() first to cancel tweens and reset state.
      */
     function destroySubText() {
         var oldText = subText;
@@ -297,8 +317,9 @@ var triviaArray:Array<String> = [
     }
 
     /**
-     * Crea el objeto FlxText para los subtítulos y lo añade a la cámara especificada.
-     * @param cam La cámara en la que se renderizarán los subtítulos.
+     * Creates the subtitle FlxText object and adds it to the given camera.
+     * Destroys any existing subText first to avoid duplication.
+     * @param cam  Camera to assign the subtitle text to.
      */
     function createSubText(cam:flixel.FlxCamera) {
         if (subText != null) {
@@ -315,9 +336,10 @@ var triviaArray:Array<String> = [
     }
 
     /**
-     * Procesa un string con formato HTML simple y lo divide en texto plano y un array de formatos.
-     * @param htmlStr El string de entrada con etiquetas como <font>, <i>, <b>.
-     * @param defaultColor El color por defecto a aplicar si no se especifica ninguno.
+     * Parses a simple HTML-formatted string, stripping tags to create plain text
+     * and recording format ranges for color, bold, and italics.
+     * @param htmlStr      Input string with <font>, <i>, <b> tags.
+     * @param defaultColor Fallback text color to apply if no <font color> is active.
      */
     function compileHTML(htmlStr:String, defaultColor:Int) {
         cachedPlainText = "";
@@ -408,8 +430,9 @@ var triviaArray:Array<String> = [
     }
 
     /**
-     * Actualiza el texto y los formatos del objeto FlxText de los subtítulos.
-     * @param visibleLen El número de caracteres del texto plano que deben ser visibles.
+     * Updates the text value and applies cached text formats up to a given character length.
+     * Used heavily by the karaoke effect to selectively format only the revealed characters.
+     * @param visibleLen The number of plain-text characters that should receive formatting.
      */
     function updateTextDisplay(visibleLen:Int) {
         if (subText == null || !subText.exists) return;
@@ -428,8 +451,8 @@ var triviaArray:Array<String> = [
     }
 
     /**
-     * Construye la UI para la vista previa del menú de opciones.
-     * @param cam La cámara de la vista previa.
+     * Prepares the UI for the options menu preview mode.
+     * @param cam The preview camera to render subtitles on.
      */
     public function buildPreview(cam:flixel.FlxCamera) {
         isPreview = true;
@@ -446,7 +469,8 @@ var triviaArray:Array<String> = [
     }
 
     /**
-     * Actualiza la vista previa en el menú de opciones para reflejar los cambios de configuración.
+     * Refreshes the preview state, pulling new settings from KssetteApi.
+     * Resets the preview cycle timer.
      */
     public function updatePreview() {
         if (!isPreview) return;
@@ -465,7 +489,7 @@ var triviaArray:Array<String> = [
     }
 
     /**
-     * Se llama al reintentar la canción. Limpia el estado de los subtítulos.
+     * Clears subtitle state when a song is retried.
      */
     override public function onSongRetry(event:Dynamic) {
         super.onSongRetry(event);
@@ -477,7 +501,8 @@ var triviaArray:Array<String> = [
     }
     
     /**
-     * Se llama al inicio de la cuenta atrás de la canción. Inicializa y cachea los valores necesarios.
+     * Called at song start. Initializes text objects, caches settings,
+     * and resets internal variables/flags.
      */
     override public function onCountdownStart(event:Dynamic) {
         super.onCountdownStart(event);
@@ -517,7 +542,11 @@ var triviaArray:Array<String> = [
     }
     
     /**
-     * Se llama en cada frame. Gestiona la lógica de aparición, desaparición y animación de los subtítulos.
+     * Per-frame update. Manages:
+     *   - Preview mode looping and trivia display.
+     *   - Extracting text/timing data from the native subtitle system (as a fallback).
+     *   - Synchronizing with the song conductor.
+     *   - Calculating and running the karaoke tweens and show/hide animations.
      */
     override public function onUpdate(event:Dynamic) {
         if (subText == null) return;

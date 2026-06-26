@@ -3,27 +3,24 @@ package kassettehud.util;
 /**
  * KssGhostTapping
  *
- * Maneja el comportamiento de "ghost tapping" (pulsaciones fantasma) y
- * "ghost singing" (canto fantasma) durante el juego.
+ * Handles "ghost tapping" and "ghost singing" behaviors during gameplay.
  *
- * Ghost Tapping: Evita que el juego penalice al jugador por presionar
- * las teclas de notas cuando no hay notas activas para golpear. Se puede
- * configurar para permitir siempre las entradas fantasma, desactivarlas o
- * permitirlas solo durante largos silencios en las notas ("breaks")
- * detectados por KssetteApi.getBreakData().
+ * Ghost Tapping: Prevents the game from penalizing the player for pressing
+ * note keys when there are no active notes to hit. It can be configured
+ * to always allow ghost inputs, disable them, or allow them only during
+ * long note gaps ("breaks") detected by KssetteApi.getBreakData().
  *
- * Ghost Sing: Cuando está habilitado, reproduce la animación de canto del
- * personaje del jugador al presionar las teclas, incluso cuando no se está
- * golpeando una nota, proporcionando retroalimentación visual.
+ * Ghost Sing: When enabled, plays the player character's singing animation
+ * upon key presses even when not hitting a note, providing visual feedback.
  *
- * Ajustes que maneja:
+ * Managed settings:
  *   - kssette_ghost_tapping: "Off" | "On" | "In Breaks"
  *   - kssette_ghost_sing:    "On"  | "Off"
  *
  * Dependencies:
- *   - KssetteApi.getKssValue()  - lee los valores de las opciones
- *   - KssetteApi.getBreakData() - comprueba si hay un "break" activo en el chart
- *   - KssetteApi.isGammodMode   - deshabilita el "ghost tap" durante el auto-play de Gammod
+ *   - KssetteApi.getKssValue()  - reads option values
+ *   - KssetteApi.getBreakData() - checks if a break is currently active in the chart
+ *   - KssetteApi.isGammodMode   - disables ghost tap during Gammod auto-play
  */
 
 import funkin.modding.module.Module;
@@ -33,13 +30,13 @@ import flixel.FlxG;
 import Std;
 
 class KssGhostTapping extends Module {
-    /** Modo actual de ghost tapping: "Off", "On", o "In Breaks". */
+    /** Current ghost tapping mode: "Off", "On", or "In Breaks". */
     var _cGhostTappingMode:String = "Off";
 
-    /** Indica si se debe animar al personaje del jugador en pulsaciones fantasma. */
+    /** Indicates whether to animate the player character on ghost taps. */
     var _cGhostSing:Bool = false;
 
-    /** Rastrea si el juego está en pausa para suprimir el canto fantasma. */
+    /** Tracks if the game is paused to suppress ghost singing. */
     var isPaused:Bool = false;
 
     public function new() {
@@ -47,12 +44,12 @@ class KssGhostTapping extends Module {
     }
 
     /**
-     * Se llama cuando comienza la cuenta atrás (la canción está empezando).
-     * Lee los ajustes de ghost tapping y ghost sing desde KssetteApi
-     * y los cachea para la duración de la canción.
+     * Called when the countdown begins (song is starting).
+     * Reads the ghost tapping and ghost sing settings from KssetteApi
+     * and caches them for the duration of the song.
      *
-     * NOTA: El valor de ghost tapping puede ser un booleano (true/false) o el string
-     * "In Breaks", por lo que los tres casos se manejan explícitamente.
+     * NOTE: The ghost tapping value can be a boolean (true/false) or the string
+     * "In Breaks", so all three cases are handled explicitly.
      */
     override public function onCountdownStart(event:Dynamic) {
         super.onCountdownStart(event);
@@ -61,41 +58,41 @@ class KssGhostTapping extends Module {
         var api = ModuleHandler.getModule("KssetteApi");
         if (api == null) return;
 
-            // Normaliza bool/string a un string canónico. Conserva "In Breaks" tal cual.
+            // Normalize bool/string to a canonical string. Preserves "In Breaks" as is.
             var gtVal = api?.getKssValue("kssette_ghost_tapping");
             _cGhostTappingMode = (gtVal == null || gtVal == false) ? "Off"
                                : (gtVal == true)                   ? "On"
                                : Std.string(gtVal);
         
-            // Ghost sing: indica si se debe animar al personaje en pulsaciones fantasma.
+            // Ghost sing: whether to animate character on ghost taps.
             var gsVal = api?.getKssValue("kssette_ghost_sing");
             _cGhostSing = (gsVal == true || Std.string(gsVal) == "On");
 
             trace("[KssGhostTapping] onCountdownStart - mode=" + _cGhostTappingMode + " ghostSing=" + _cGhostSing);
     }
 
-    /** Rastrea el estado de pausa para suprimir las animaciones de canto fantasma. */
+    /** Tracks pause state to suppress ghost singing animations. */
     override function onPause(event:Dynamic) {
         super.onPause(event);
         isPaused = true;
     }
 
-    /** Limpia el estado de pausa al cambiar de estado de juego. */
+    /** Clears the paused state when game state changes. */
     override function onStateChangeEnd(event:Dynamic) {
         super.onStateChangeEnd(event);
         isPaused = false;
     }
 
-    /** Limpia el estado de pausa cuando el jugador reanuda el juego. */
+    /** Clears the paused state when the player resumes gameplay. */
     override function onResume(event:Dynamic) {
         super.onResume(event);
         isPaused = false;
     }
 
     /**
-     * Devuelve verdadero si el modificador Gammod está activo.
-     * El ghost tapping siempre se desactiva durante las sesiones de Gammod para
-     * evitar interferir con la lógica de manejo de notas del propio modificador.
+     * Returns true if the Gammod modifier is active.
+     * Ghost tapping is always disabled during Gammod sessions to avoid
+     * interfering with the modifier's own note handling logic.
      */
     function isGammodActive():Bool {
         var api = ModuleHandler.getModule("KssetteApi");
@@ -103,13 +100,13 @@ class KssGhostTapping extends Module {
     }
 
     /**
-     * Determina si el ghost tapping debería estar permitido en este momento.
+     * Determines whether ghost tapping should be allowed right now.
      *
-     * Reglas (verificadas en orden):
-     *   1. Gammod activo       -> siempre falso (Gammod maneja su propia lógica).
-     *   2. Modo es "On"        -> siempre verdadero.
-     *   3. Modo es "In Breaks" -> verdadero solo si KssetteApi reporta un descanso activo.
-     *   4. De lo contrario     -> falso.
+     * Rules (checked in order):
+     *   1. Gammod active       -> always false (Gammod handles its own logic).
+     *   2. Mode is "On"        -> always true.
+     *   3. Mode is "In Breaks" -> true only if KssetteApi reports an active break.
+     *   4. Otherwise           -> false.
      */
     function canGhostTap():Bool {
         if (isGammodActive()) return false;
@@ -124,9 +121,9 @@ class KssGhostTapping extends Module {
     }
 
     /**
-     * Cancela el evento de fallo fantasma si el ghost tapping está permitido.
-     * Evita penalizaciones por fallo y pérdida de vida en pulsaciones de teclas vacías.
-     * "onGhostMissNote" es el nombre de evento heredado usado en compilaciones antiguas de V-Slice.
+     * Cancels the ghost miss event if ghost tapping is allowed.
+     * Prevents miss penalties and health loss on empty key presses.
+     * "onGhostMissNote" is the legacy event name used in older V-Slice builds.
      */
     override function onGhostMissNote(event:Dynamic) {
         if (!canGhostTap()) return;
@@ -134,8 +131,8 @@ class KssGhostTapping extends Module {
     }
 
     /**
-     * Igual que onGhostMissNote — cancela el fallo fantasma en el nombre de evento actual.
-     * Ambos manejadores se mantienen por compatibilidad con diferentes versiones de V-Slice.
+     * Same as onGhostMissNote — cancels ghost miss on the current event name.
+     * Both handlers are kept for compatibility across V-Slice versions.
      */
     override function onNoteGhostMiss(event:Dynamic) {
         if (!canGhostTap()) return;
@@ -143,14 +140,14 @@ class KssGhostTapping extends Module {
     }
 
     /**
-     * Actualización por frame. Cuando el canto fantasma está habilitado, comprueba si
-     * el jugador está presionando alguna tecla de nota en este frame y activa la
-     * animación de canto correspondiente en el personaje del jugador.
+     * Per-frame update. When ghost singing is enabled, checks if the player
+     * is pressing any note keys this frame and triggers the corresponding
+     * sing animation on the player character.
      *
-     * Solo se ejecuta cuando:
+     * Only executes when:
      *   - _cGhostSing is true
-     *   - PlayState está activo y no en una secuencia de muerte
-     *   - El juego no está en pausa
+     *   - PlayState is active and not in a dying sequence
+     *   - Game is not paused
      */
     override public function onUpdate(event:Dynamic) {
         super.onUpdate(event);
@@ -163,13 +160,13 @@ class KssGhostTapping extends Module {
         var controlsObj = state?.controls;
         if (controlsObj == null) return;
 
-        // Determina qué personaje animar según la configuración del lado del jugador de Gammod.
+        // Determine which character to animate based on Gammod's player side setting.
         var api = ModuleHandler.getModule("KssetteApi");
         var isOpposite = (api?.gammodPlayerSide == "OPPOSITE");
         var player = isOpposite ? state.currentStage?.getDad() : state.currentStage?.getBoyfriend();
         if (player == null) return;
 
-        // Activa la animación de canto para cada dirección presionada en este frame.
+        // Trigger singing animation for each direction pressed this frame.
         if (controlsObj.NOTE_LEFT_P)  { player.playAnimation("singLEFT",  true, false, false); player.holdTimer = 0; }
         if (controlsObj.NOTE_DOWN_P)  { player.playAnimation("singDOWN",  true, false, false); player.holdTimer = 0; }
         if (controlsObj.NOTE_UP_P)    { player.playAnimation("singUP",    true, false, false); player.holdTimer = 0; }

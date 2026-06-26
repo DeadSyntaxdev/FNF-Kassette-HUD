@@ -3,22 +3,20 @@ package kassettehud.util;
 /**
  * KssetteTimeBar
  *
- * Renderiza una barra de progreso de la canción durante el juego. La barra crece
- * del 0% al 100% a medida que avanza la canción y puede posicionarse en varios
- * lugares de la pantalla.
+ * Renders a song progress bar during gameplay. The bar grows from 0% to 100%
+ * as the song progresses and can be positioned in various screen locations.
  *
- * Modos de diseño (kssette_timebar_pos):
- *   - "Top" / "Bottom": Barras de borde de ancho completo (usan una cámara dedicada).
- *   - "Top Left/Right": Mini barras compactas en una esquina.
- *   - "Bottom Left/Right": Mini barras compactas en una esquina.
- *   - "Vertical Left/Right": Barras laterales de altura completa.
- *   - "In Health": Barra delgada posicionada debajo/encima de la barra de vida.
+ * Layout modes (kssette_timebar_pos):
+ *   - "Top" / "Bottom": Full-width edge bars (uses a dedicated camera).
+ *   - "Top Left/Right": Compact mini bars in a corner.
+ *   - "Bottom Left/Right": Compact mini bars in a corner.
+ *   - "Vertical Left/Right": Full-height side bars.
+ *   - "In Health": Thin bar positioned above/below the health bar.
  *
- * Para las posiciones de borde (Top/Bottom/Vertical), se crea una FlxCamera
- * separada para que la barra se renderice por encima de todos los elementos del
- * juego, incluido el subestado de pausa.
+ * For edge positions (Top/Bottom/Vertical), a separate FlxCamera is created
+ * so the bar renders on top of all game elements, including the pause substate.
  *
- * Ajustes que maneja:
+ * Managed settings:
  *   - kssette_show_timebar: "On" | "Off"
  *   - kssette_timebar_pos:  see Layout modes above
  *
@@ -34,38 +32,38 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.FlxCamera;
 import Std;
-import Reflect;
+
 import funkin.Preferences;
 import funkin.modding.events.SubStateScriptEvent;
 import funkin.play.PauseSubState;
 import funkin.ui.FullScreenScaleMode;
 
 class KssetteTimeBar extends Module {
-    /** La barra de primer plano coloreada que representa el progreso de la canción. */
+    /** The colored foreground bar representing song progress. */
     public var timeBar:FlxSprite;
-    /** El fondo oscuro detrás de la barra de primer plano. */
+    /** The dark background behind the foreground bar. */
     public var timeBarBG:FlxSprite;
-    /** Altura/grosor de la barra en píxeles (primer plano). */
+    /** Height/thickness of the bar in pixels (foreground). */
     var barSize:Float = 11;
-    /** Indica si la barra de tiempo está actualmente visible y activa. */
+    /** Indicates if the time bar is currently visible and active. */
     var cachedActive:Bool = false;
-    /** String del ajuste de posición actual (p. ej., "Top", "Bottom Left"). */
+    /** Current position setting string (e.g., "Top", "Bottom Left"). */
     var timeBarPos:String = "Bottom";
-    /** Referencia cacheada al módulo KssetteApi. */
+    /** Cached reference to the KssetteApi module. */
     var apiModule:Dynamic = null;
 
-    /** Referencia a PlayState para consultas de posición de la canción. */
+    /** Reference to PlayState for song position queries. */
     var playState:PlayState = null;
-    /** Duración total de la canción en milisegundos; se usa para calcular la proporción de progreso. */
+    /** Total song duration in milliseconds; used to calculate progress ratio. */
     var songLengthMs:Float = 0.0;
-    /** Temporizador para que la barra solo se actualice a ~120fps en lugar de cada frame. */
+    /** Timer to throttle bar updates to ~120fps instead of every frame. */
     var updateTimer:Float = 0.0;
-    /** Cámara dedicada para las barras en modo borde (renderiza sobre todas las capas del HUD). */
+    /** Dedicated camera for edge mode bars (renders above all HUD layers). */
     var customCam:FlxCamera = null;
 
-    /** Se establece en verdadero durante la vista previa del menú de opciones para usar una cámara personalizada en lugar de camHUD. */
+    /** Set to true during the options menu preview to use a custom camera instead of camHUD. */
     public var isPreview:Bool = false;
-    /** Cámara para renderizar en el modo de vista previa. */
+    /** Camera for rendering in preview mode. */
     public var previewCam:FlxCamera = null;
 
     public function new() {
@@ -73,8 +71,8 @@ class KssetteTimeBar extends Module {
     }
 
     /**
-     * Utilidad: devuelve verdadero si un valor dinámico representa un estado "activado".
-     * Acepta `true` booleano, "On", "on", o "true" como valores verdaderos.
+     * Utility: returns true if a dynamic value represents an "on" state.
+     * Accepts boolean `true`, "On", "on", or "true" as true values.
      */
     function isOn(val:Dynamic):Bool {
         if (val == true) return true;
@@ -82,16 +80,16 @@ class KssetteTimeBar extends Module {
         return s == "On" || s == "on" || s == "true";
     }
 
-    /** Devuelve la cámara del HUD de la instancia de PlayState dada. */
+    /** Returns the HUD camera from the given PlayState instance. */
     function hudCamera(state:PlayState):FlxCamera {
         return state.camHUD;
     }
 
     /**
-     * Crea un único sprite de barra (FlxSprite) y lo añade al estado apropiado.
+     * Creates a single bar sprite (FlxSprite) and adds it to the appropriate state.
      *
-     * @param y Posición vertical en el espacio de la pantalla.
-     * @param h Altura en píxeles.
+     * @param y      Vertical position in screen space.
+     * @param h      Height in pixels.
      * @param color  Fill color (ARGB).
      * @param z      Z-index for draw order sorting.
      * @param cam    Camera to assign the sprite to.
@@ -108,8 +106,8 @@ class KssetteTimeBar extends Module {
     }
 
     /**
-     * Destruye los sprites de barra y la cámara existentes, reseteando todo el estado.
-     * Se llama antes de reconstruir la UI (p. ej., al inicio de la canción o al cambiar de posición).
+     * Destroys existing bar sprites and camera, resetting all state.
+     * Called before rebuilding the UI (e.g., at song start or when changing position).
      */
     public function cleanupUI() {
         playState = null;
@@ -135,11 +133,11 @@ class KssetteTimeBar extends Module {
     }
 
     /**
-     * Crea los sprites de la barra de fondo y de primer plano y los añade a la escena.
-     * Para las posiciones de borde (Top/Bottom/Vertical), se crea una FlxCamera dedicada
-     * para que la barra se dibuje por encima de todos los demás elementos del HUD, incluido el menú de pausa.
+     * Creates the background and foreground bar sprites and adds them to the scene.
+     * For edge positions (Top/Bottom/Vertical), a dedicated FlxCamera is created
+     * so the bar draws above all other HUD elements, including the pause menu.
      *
-     * @param cam La cámara base del HUD a usar para posiciones que no son de borde.
+     * @param cam The base HUD camera to use for non-edge positions.
      */
     public function setupUI(cam:FlxCamera) {
         cleanupUI();
@@ -164,9 +162,9 @@ class KssetteTimeBar extends Module {
     }
 
     /**
-     * Recalcula y aplica la posición de ambos sprites de la barra basándose en
-     * el ajuste actual de `timeBarPos`. Maneja todas las variantes de diseño, incluyendo
-     * mini esquinas, vertical, alineación con la barra de vida y desplazamientos por el notch en móviles.
+     * Recalculates and applies the position of both bar sprites based on the
+     * current `timeBarPos` setting. Handles all layout variants, including
+     * mini corners, vertical, health bar alignment, and mobile notch offsets.
      */
     public function updatePositions() {
         if (timeBarBG == null || timeBar == null) return;
@@ -251,11 +249,11 @@ class KssetteTimeBar extends Module {
     }
 
     /**
-     * Punto de entrada para el sistema de vista previa del menú de opciones.
-     * Configura la barra en modo de vista previa (no requiere PlayState) y
-     * renderiza inmediatamente los ajustes de posición/visibilidad actuales.
+     * Entry point for the options menu preview system.
+     * Sets up the bar in preview mode (no PlayState required) and
+     * immediately renders the current position/visibility settings.
      *
-     * @param cam Cámara en la que se renderizará la vista previa.
+     * @param cam Camera to render the preview on.
      */
     public function buildPreview(cam:FlxCamera) {
         isPreview = true;
@@ -265,9 +263,9 @@ class KssetteTimeBar extends Module {
     }
 
     /**
-     * Refresca la barra de vista previa para reflejar los ajustes actuales.
-     * Vuelve a leer la posición y el estado activo desde KssetteApi y actualiza
-     * la visibilidad y la escala para mostrar un ejemplo de progreso del 50%.
+     * Refreshes the preview bar to reflect the current settings.
+     * Re-reads the position and active state from KssetteApi, and updates
+     * visibility and scaling to show a 50% progress example.
      */
     public function updatePreview() {
         if (!isPreview) return;
@@ -295,8 +293,8 @@ class KssetteTimeBar extends Module {
     }
 
     /**
-     * Se llama al inicio de la canción. Lee los ajustes, construye la UI de la barra e
-     * inicializa el progreso a 0. Resetea el modo de vista previa si está activo.
+     * Called at the start of the song. Reads settings, builds the bar UI, and
+     * initializes progress to 0. Resets preview mode if active.
      */
     override public function onCountdownStart(event) {
         super.onCountdownStart(event);
@@ -332,9 +330,9 @@ class KssetteTimeBar extends Module {
     }
 
     /**
-     * Oculta la barra cuando se abre el subestado de pausa (solo en modo borde).
-     * Las barras de borde usan una cámara separada que de otro modo permanecería visible
-     * sobre la superposición de pausa.
+     * Hides the bar when the pause substate opens (only in edge mode).
+     * Edge bars use a separate camera which would otherwise remain visible
+     * over the pause overlay.
      */
     override public function onSubStateOpenBegin(event:SubStateScriptEvent) {
         super.onSubStateOpenBegin(event);
@@ -347,7 +345,7 @@ class KssetteTimeBar extends Module {
         }
     }
 
-    /** Restaura la visibilidad de la barra cuando se cierra el subestado de pausa (solo en modo borde). */
+    /** Restores bar visibility when the pause substate closes (only in edge mode). */
     override public function onSubStateCloseEnd(event:SubStateScriptEvent) {
         super.onSubStateCloseEnd(event);
         if (event.targetState != null && Std.isOfType(event.targetState, PauseSubState)) {
@@ -360,11 +358,11 @@ class KssetteTimeBar extends Module {
     }
 
     /**
-     * Actualización por frame. Calcula el progreso de la canción como una proporción de la
-     * posición del conductor respecto a la duración total de la canción, y luego lo aplica a la escala de la barra.
+     * Per-frame update. Calculates song progress as a ratio of conductor position
+     * to total song duration, then applies it to the bar's scale.
      *
-     * Limitado a ~120Hz (0.008s) para evitar la regeneración del sprite en cada frame.
-     * También refleja la visibilidad de camHUD en la cámara dedicada para los bordes.
+     * Throttled to ~120Hz (0.008s) to prevent sprite regeneration every frame.
+     * Also mirrors camHUD's visibility to the dedicated edge camera.
      */
     override public function onUpdate(event) {
         if (isPreview) return;
