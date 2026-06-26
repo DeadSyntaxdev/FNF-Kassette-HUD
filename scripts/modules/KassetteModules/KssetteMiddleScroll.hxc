@@ -86,6 +86,8 @@ class KssMiddlescroll extends Module {
     var cachedIsMobPC:Bool = true;
     /** Cached screen cutout/notch size (computed once, then reused). */
     var cachedCutoutSize:Float = -1.0;
+    /** Cached opponent opacity value (0.0 - 1.0). */
+    var cachedOppOpacity:Float = 1.0;
 
     public function new() {
         super('KssMiddlescroll'); 
@@ -143,6 +145,7 @@ class KssMiddlescroll extends Module {
             var valNum = Std.parseFloat(valStr);
             if (!Math.isNaN(valNum)) oppOpacity = valNum / 100.0;
         }
+        cachedOppOpacity = oppOpacity;
 
         cachedOppPos = Std.string(apiModule.getKssValue("kssette_opponent_pos"));
         var rawOppBg:Dynamic = apiModule.getKssValue("kssette_opponent_bg");
@@ -313,8 +316,8 @@ class KssMiddlescroll extends Module {
                 }
             }
 
-            if (oppStrum.visible && oppOpacity < 1.0) {
-                oppStrum.alpha = oppOpacity;
+            if (oppStrum.visible && cachedOppOpacity < 1.0) {
+                oppStrum.alpha = cachedOppOpacity;
             }
         }
 
@@ -430,7 +433,7 @@ class KssMiddlescroll extends Module {
                         note.offset.y -= pixel ? 4 : 15;
                     }
                 }
-                note.alpha = 1.0;
+                note.alpha = cachedOppOpacity;
 
                 if (targetReceptor != null) {
                     var receptorW = targetReceptor.frameWidth * targetReceptor.scale.x;
@@ -449,7 +452,7 @@ class KssMiddlescroll extends Module {
                         
                         holdNote.x = targetReceptor.x + (targetReceptor.width * 0.5) - (holdNote.graphicWidth * 0.5);
                         holdNote.updateClipping();
-                        holdNote.alpha = 0.8;
+                        holdNote.alpha = 0.8 * cachedOppOpacity;
                     }
                 }
             }
@@ -638,7 +641,7 @@ class KssMiddlescroll extends Module {
                 receptors[2].x = targetRightX - Strumline.NOTE_SPACING;
                 
                 for (receptor in receptors) {
-                    if (receptor != null) receptor.alpha = 0.6;
+                    if (receptor != null) receptor.alpha = 0.6 * cachedOppOpacity;
                 }
                 hasShifted = true;
             } 
@@ -664,7 +667,7 @@ class KssMiddlescroll extends Module {
                         var defaultScale:Float = pixel ? 6.0 : 0.7;
                         receptor.scale.set(defaultScale * sizeRatio, defaultScale * sizeRatio);
                         receptor.updateHitbox();
-                        receptor.alpha = 1.0; 
+                        receptor.alpha = cachedOppOpacity;
                     }
                 }
 
@@ -690,6 +693,10 @@ class KssMiddlescroll extends Module {
                 hasShifted = true;
             }
         }
+
+        // Receptors already receive the correct alpha when they are positioned.
+        // This block is kept only to handle the edge case where the strumline is
+        // rebuilt after a song retry without going through onCountdownStart.
 
         if (cachedOppStrum == null) return;
 
