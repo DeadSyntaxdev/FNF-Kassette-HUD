@@ -630,14 +630,14 @@ class KssetteMenuState extends ScriptedMusicBeatState {
             createToggle("SHOW OPPONENT NOTES ON ARROWS", "kssette_mobile_opp_notes", ["On", "Off"], "Forces the opponent's notes to appear and scroll in the background during mobile Arrows gameplay.");
         }
         if (showPCOptions) {
-            createToggle("MIDDLE SCROLL", "kssette_middlescroll", ["Off", "On", "P Style", "Glass", "Hidden Notes", "Like Mobile"], "Moves your notes to the center of the screen for better focus.");
-            createToggle("HIDE OPPONENT", "kssette_hide_opponent", ["Off", "On"], "Hides the opponent's notes completely. Only active when Middle Scroll is Off.");
+            createToggle("MIDDLESCROLL", "kssette_middlescroll", ["Off", "On", "P Style", "Glass", "Hidden Notes", "Like Mobile"], "Moves your notes to the center of the screen for better focus.");
+            createToggle("HIDE OPPONENT NOTES", "kssette_hide_opponent", ["Off", "On"], "Hides the opponent's notes completely. Only active when Middle Scroll is Off.");
             createOpacityOption("OPPONENT OPACITY", "kssette_opponent_opacity", "Adjust the transparency of the opponent's notes.");
-            createToggle("OPPONENT STRUM BG", "kssette_opponent_bg", ["On", "Off"], "Show the dark background behind the opponent's notes. (Disabled on Middle Scroll)");
-            createToggle("GHOST TAPPING", "kssette_ghost_tapping", ["On", "Off", "In Breaks"], "Press keys anytime without penalty. You won't miss if there's no note.");
+            createToggle("OPP STRUMLINE BG", "kssette_opponent_bg", ["On", "Off"], "Show the dark background behind the opponent's notes. (Disabled on Middle Scroll)");
+            createToggle("GHOSTTAPPING", "kssette_ghost_tapping", ["On", "Off", "In Breaks"], "Press keys anytime without penalty. You won't miss if there's no note.");
         }
-        createToggle("GHOST SINGING ANIMATION", "kssette_ghost_sing", ["On", "Off"], "Your character will play singing animations when you press empty keys.");
-        createToggle("UNPAUSE COUNTDOWN", "kssette_resume_countdown", ["On", "Off"], "Adds a 'Ready, Set, Go!' countdown when you unpause the game.");
+        createToggle("GHOSTSING", "kssette_ghost_sing", ["On", "Off"], "Your character will play singing animations when you press empty keys.");
+        createToggle("RESUME COUNTDOWN", "kssette_resume_countdown", ["On", "Off"], "Adds a 'Ready, Set, Go!' countdown when you unpause the game.");
 
         addHeader("HUD Elements");
         createToggle("SCORE DISPLAY", "kssette_show_score", ["On", "Off"], "Show your current score.");
@@ -2086,8 +2086,29 @@ class KssetteMenuState extends ScriptedMusicBeatState {
                     }
 
                     if (isSel) {
+                        if (item.clipped == true) {
+                            if (label != null) { label.fieldWidth = 0; label.wordWrap = false; }
+                            if (value != null) { value.fieldWidth = 0; value.wordWrap = false; }
+                            item.clipped = false;
+                        }
                         updateTextSlide(label, labelMaxWidth, item.slideTimer);
                         if (value != null) updateTextSlide(value, valueMaxWidth, item.slideTimer);
+                    } else {
+                        if (item.clipped != true) {
+                            if (label != null) {
+                                if (label.offset != null && label.offset.x != 0) label.offset.x = 0;
+                                if (label.clipRect != null) label.clipRect = null;
+                                label.fieldWidth = Std.int(labelMaxWidth);
+                                label.wordWrap = false;
+                            }
+                            if (value != null) {
+                                if (value.offset != null && value.offset.x != 0) value.offset.x = 0;
+                                if (value.clipRect != null) value.clipRect = null;
+                                value.fieldWidth = Std.int(valueMaxWidth);
+                                value.wordWrap = false;
+                            }
+                            item.clipped = true;
+                        }
                     }
                 }
             }
