@@ -1,5 +1,29 @@
 package kassettehud.util;
 
+/**
+ * KssetteAccuracy - Sistema de cálculo y visualización de precisión
+ *
+ * Propósito:
+ *   Calcula y muestra la precisión del jugador en tiempo real.
+ *   Soporta múltiples modos de cálculo (Classic, Split, Max300)
+ *   y renderiza el porcentaje, rank y tier en el HUD.
+ *
+ * Opciones que maneja:
+ *   - kssette_acc_mode: "Classic" | "Split" | "Max300" | "Simple"
+ *     Controla el algoritmo de cálculo de precisión.
+ *   - kssette_show_score: "On" | "Off"
+ *   - kssette_show_misses: "On" | "Off"
+ *   - kssette_show_rank: "On" | "Off"
+ *   - kssette_show_tier: "On" | "Off"
+ *   - kssette_smooth_display: "On" | "Off"
+ *     Interpolación suave del número de precisión.
+ *   - kssette_score_pos: posición del panel de score
+ *   - kssette_score_bop: "On" | "Off" (animación de bop al puntuar)
+ *
+ * Dependencias:
+ *   - KssetteApi (para leer opciones, fuente y datos del juego)
+ */
+
 import flixel.FlxG;
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
@@ -18,48 +42,84 @@ import Math;
 import Reflect;
 
 class KssetteAccuracy extends Module {
+    /** Separador de texto utilizado en la interfaz de usuario. */
     var separator:String = " / ";
     
+    /** Objeto de texto principal para mostrar la puntuación, precisión, etc. */
     public var uiText:FlxText;
+    /** Objeto de texto para mostrar información de la canción (título, dificultad). */
     public var infoText:FlxText; 
+    /** Objeto de texto para mostrar el tiempo restante de la canción. */
     public var timeText:FlxText; 
+    /** Objeto de texto para mostrar mensajes de modo de juego (ej. "Botplay"). */
     public var modeText:FlxText; 
+    /** Array de etiquetas de texto para los contadores de juicios (Sick, Good, etc.). */
     public var judgeLabels:Array<FlxText> = [];
+    /** Array de valores de texto para los contadores de juicios. */
     public var judgeValues:Array<FlxText> = [];
+    /** Nombres de los juicios a mostrar. */
     public var judgeNames:Array<String> = ["sick", "good", "bad", "shit", "miss", "maxCombo"];
     
+    /** Último valor de puntuación cacheado para detectar cambios. */
     var lastScore:Int = -1;
+    /** Último valor de fallos cacheado. */
     var lastMisses:Int = -1;
+    /** Último valor de combo máximo cacheado. */
     var lastMaxCombo:Int = -1;
+    /** Último valor de notas acertadas cacheado. */
     var lastNotesHit:Int = -1;
+    /** Último valor de tiempo en segundos cacheado. */
     var lastTimeSeconds:Int = -1;
+    /** Última precisión visual cacheada para la interpolación. */
     var lastVisualAcc:Float = -1;
     
+    /** Último conteo de 'Sick' cacheado. */
     var lastSick:Int = -1;
+    /** Último conteo de 'Good' cacheado. */
     var lastGood:Int = -1;
+    /** Último conteo de 'Bad' cacheado. */
     var lastBad:Int = -1;
+    /** Último conteo de 'Shit' cacheado. */
     var lastShit:Int = -1;
+    /** Último conteo de 'Miss' cacheado para el panel de juicios. */
     var lastMissesJudge:Int = -1;
+    /** Último conteo de combo máximo cacheado para el panel de juicios. */
     var lastMaxComboJudge:Int = -1;
 
+    /** Bandera que se activa si se detecta un comportamiento anómalo (anti-cheat). */
     var securityTriggered:Bool = false;
+    /** Conteo total de notas del jugador en la canción. */
     var cachedTotalNotes:Int = -1;
+    /** Conteo total real de notas, ajustado si es necesario. */
     var cachedActualTotal:Int = -1;
+    /** Valor de precisión actual que se muestra en la pantalla (usado para interpolación). */
     var displayedAcc:Float = 0;
+    /** Temporizador para limitar la frecuencia de actualización de la UI. */
     var uiUpdateTimer:Float = 0.0;
+    /** Bandera para indicar que hay una actualización de texto pendiente. */
     var pendingTextUpdate:Bool = false;
+    /** Temporizador para la animación de precisión en el modo de vista previa. */
     var previewAccTimer:Float = 0.0;
+    /** Temporizador para limitar la frecuencia de actualización por frame. */
     var frameUpdateTimer:Float = 0.0;
     
+    /** Fuente de texto cacheada para la UI. */
     public var cachedFont:String = "";
 
+    /** Formato de texto actual para el rango (ej. color para 'SFC'). */
     var currentTargetFmt:FlxTextFormat = null;
+    /** Longitud del string de rango cacheada. */
     var cachedRankLen:Int = 0;
+    /** Prefijo del texto principal de la UI. */
     var cachedPrefix:String = "";
+    /** Sufijo del texto principal de la UI. */
     var cachedSuffix:String = "";
+    /** Indica si el prefijo necesita un separador antes de la precisión. */
     var prefixNeedsSepForAcc:Bool = false;
+    /** Valor de precisión objetivo hacia el que se interpola. */
     var targetAcc:Float = 0.0;
 
+    // Formatos de texto para diferentes rangos y elementos de la UI
     var _fmtPerfectGold:FlxTextFormat;
     var _fmtPerfect:FlxTextFormat;
     var _fmtExcellent:FlxTextFormat;
@@ -70,8 +130,10 @@ class KssetteAccuracy extends Module {
     var _fmtUnranked:FlxTextFormat;
     var _fmtMult:FlxTextFormat;
     var _fmtHighscore:FlxTextFormat;
+    /** Tono de color actual para el efecto arcoíris del highscore. */
     var _rainbowHue:Float = 0.0;
 
+    // Últimos valores construidos para el texto de la UI, para evitar reconstrucciones innecesarias
     var _lastBuiltScoreInt:Int = -1;
     var _lastBuiltMisses:Int = -1;
     var _lastBuiltAcc:Float = -1;
@@ -80,6 +142,7 @@ class KssetteAccuracy extends Module {
     var _lastBuiltMult:Float = 1.0;
     var _lastBuiltUnranked:Bool = false;
     
+    // Texto cacheado y posiciones de formato para una actualización eficiente
     var _cachedText:String = "";
     var _unrankedStart:Int = -1;
     var _unrankedEnd:Int = -1;
@@ -89,7 +152,9 @@ class KssetteAccuracy extends Module {
     var _scoreEnd:Int = -1;
     var _rankStart:Int = -1;
 
+    /** Referencia cacheada al módulo KssetteApi. */
     var api:Dynamic = null;
+    // Banderas de configuración cacheadas
     var _cShowScore:Bool = true;
     var _cShowMisses:Bool = true;
     var _cShowRank:Bool = true;
@@ -105,17 +170,27 @@ class KssetteAccuracy extends Module {
     var _cScoreBop:Bool = false;
     var _bopTimer:Float = 0.0;
 
+    /** Rango de precisión cacheado como string. */
     var cachedRankStr:String = "?";
+    /** Tier de combo cacheado como string. */
     var cachedTierStr:String = "N/A";
+    /** Mensaje de modo de juego cacheado. */
     var cachedModeMsg:String = "";
 
+    /** Verdadero cuando se renderiza una vista previa en el menú de opciones. */
     public var isPreview:Bool = false;
+    /** Cámara para renderizar en el modo de vista previa. */
     public var previewCam:flixel.FlxCamera = null;
 
     public function new() {
         super("KssetteAccuracy");
     }
 
+    /**
+     * Obtiene el nombre legible para un identificador de juicio.
+     * @param name Identificador del juicio (ej. 'sick', 'maxCombo').
+     * @return El nombre formateado para mostrar (ej. 'Sicks', 'Max Combo').
+     */
     function getJudgeName(name:String):String {
         switch(name) {
             case 'sick': return 'Sicks';
@@ -128,6 +203,11 @@ class KssetteAccuracy extends Module {
         }
     }
 
+    /**
+     * Formatea un ID de rango a su representación corta para la UI.
+     * @param id Identificador del rango (ej. 'PERFECT_GOLD').
+     * @return El string formateado (ej. 'P [GOLD]').
+     */
     function formatRank(id:String):String {
         if (id == null || id == "" || id == "?") return "?";
         switch (id.toUpperCase()) {
@@ -141,6 +221,9 @@ class KssetteAccuracy extends Module {
         }
     }
 
+    /**
+     * Limpia y destruye todos los elementos de la UI creados por este módulo.
+     */
     public function cleanupUI() {
         if (uiText != null) uiText.destroy();
         if (infoText != null) infoText.destroy();
@@ -152,6 +235,18 @@ class KssetteAccuracy extends Module {
         judgeValues = [];
     }
 
+    /**
+     * Crea un nuevo objeto FlxText con formato y lo añade a la escena.
+     * @param x Posición X.
+     * @param y Posición Y.
+     * @param w Ancho del campo de texto.
+     * @param text Texto inicial.
+     * @param size Tamaño de la fuente.
+     * @param align Alineación del texto.
+     * @param z Índice Z para el orden de dibujado.
+     * @param cam Cámara en la que se renderizará.
+     * @return La instancia de FlxText creada.
+     */
     function makeText(x:Float, y:Float, w:Float, text:String, size:Int, align:String, z:Int, cam:flixel.FlxCamera):FlxText {
         var t = new FlxText(x, y, w, text, size);
         t.setFormat(cachedFont, size, FlxColor.WHITE, align, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
@@ -162,6 +257,10 @@ class KssetteAccuracy extends Module {
         return t;
     }
 
+    /**
+     * Inicializa todos los elementos de la UI para la precisión.
+     * @param cam La cámara del HUD a la que se adjuntarán los elementos.
+     */
     public function setupUI(cam:flixel.FlxCamera) {
         cleanupUI();
 
@@ -180,6 +279,11 @@ class KssetteAccuracy extends Module {
         }
     }
 
+    /**
+     * Obtiene el formato de texto (color) para un ID de rango específico.
+     * @param rank El ID del rango (ej. 'PERFECT').
+     * @return Un objeto FlxTextFormat con el color apropiado.
+     */
     function getRankFormat(rank:String):FlxTextFormat {
         var fmt:FlxTextFormat = null;
         switch(rank.toUpperCase()) {
@@ -212,6 +316,9 @@ class KssetteAccuracy extends Module {
         return fmt;
     }
 
+    /**
+     * Se llama al inicio de la cuenta atrás de la canción. Inicializa y cachea todos los valores necesarios.
+     */
     override function onCountdownStart(event) {
         api = ModuleHandler.getModule("KssetteApi");
         if (api == null) return;
@@ -293,11 +400,18 @@ class KssetteAccuracy extends Module {
             state.refresh();
     }
 
+    /**
+     * Se llama al reanudar el juego. Actualiza las configuraciones y posiciones.
+     */
     override public function onResume(event) {
         updateSettings();
         updatePositions();
     }
 
+    /**
+     * Construye la UI para la vista previa del menú de opciones.
+     * @param cam La cámara de la vista previa.
+     */
     public function buildPreview(cam:flixel.FlxCamera) {
         isPreview = true;
         previewCam = cam;
@@ -311,6 +425,9 @@ class KssetteAccuracy extends Module {
         updatePreview();
     }
 
+    /**
+     * Actualiza la vista previa en el menú de opciones para reflejar los cambios de configuración.
+     */
     public function updatePreview() {
         if (!isPreview || uiText == null) return;
         
@@ -339,6 +456,9 @@ class KssetteAccuracy extends Module {
         }
     }
 
+    /**
+     * Lee y cachea todos los ajustes relevantes desde KssetteApi.
+     */
     function updateSettings() {
         if (api == null) return;
         
@@ -418,6 +538,9 @@ class KssetteAccuracy extends Module {
         }
     }
 
+    /**
+     * Actualiza las posiciones de todos los elementos de la UI según la configuración actual.
+     */
     public function updatePositions() {
         if (uiText == null || api == null) return;
         
@@ -564,6 +687,14 @@ class KssetteAccuracy extends Module {
         }
     }
 
+    /**
+     * Construye y actualiza el string de texto principal de la UI con la información actual.
+     * @param scoreInt Puntuación actual.
+     * @param misses Número de fallos.
+     * @param acc Porcentaje de precisión.
+     * @param rankStr String del rango actual (ej. 'PERFECT_GOLD').
+     * @param tierStr String del tier de combo actual (ej. 'SFC').
+     */
     public function updateAccuracyText(scoreInt:Int, misses:Int, acc:Float, rankStr:String, tierStr:String) {
         if (uiText == null || !uiText.exists) return;
 
@@ -722,6 +853,9 @@ class KssetteAccuracy extends Module {
         }
     }
     
+    /**
+     * Se llama cuando se acierta una nota. Activa la animación de "bop" si está habilitada.
+     */
     override function onNoteHit(event) {
         super.onNoteHit(event);
         if (isPreview) return;
@@ -744,6 +878,9 @@ class KssetteAccuracy extends Module {
         }
     }
 
+    /**
+     * Se llama en cada frame. Gestiona la actualización de la UI y la lógica de anti-cheat.
+     */
     override public function onUpdate(event) {
         var elapsed = event.elapsed;
         
@@ -1005,8 +1142,5 @@ class KssetteAccuracy extends Module {
 
             updateAccuracyText(lastScore, m, visualAcc, cachedRankStr, cachedTierStr);
         }
-    }
-
-    function onStepHit(event:StepHitScriptEvent) {
     }
 }

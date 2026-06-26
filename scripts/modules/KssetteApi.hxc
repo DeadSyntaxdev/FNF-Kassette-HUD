@@ -623,87 +623,50 @@ class KssetteApi extends Module {
                     }
                 }
 
-                if (state.currentChart.notes != null) {
+                // Siempre parsear las notas del chart (necesario para breakbar Y ghosttapping "In Breaks")
+                if (state.currentChart?.notes != null) {
                     var notesArray:Array<Dynamic> = state.currentChart.notes;
                     var len:Int = notesArray.length;
-                    
-                    if (len > 0) {
-                        var firstNote = notesArray[0];
-                        var hasMustHitMethod = false;
-                        var hasMustHitProp = false;
-                        var hasDataProp = false;
-                        var hasDProp = false;
-                        
-                        try { var dummy = firstNote.getMustHitNote(); hasMustHitMethod = true; } catch(e:Dynamic) {}
-                        if (!hasMustHitMethod) {
-                            try { var dummy = firstNote.mustHitNote; hasMustHitProp = true; } catch(e:Dynamic) {}
+                    currentNoteIndex = 0;
+
+                    trace("[KssetteApi] Parsing chart notes for break detection. Total notes: " + len);
+
+                    for (i in 0...len) {
+                        var note = notesArray[i];
+                        if (note == null) continue;
+
+                        // En V-Slice 0.8.4, SongNoteData.getMustHitNote() retorna true cuando data < 4 (strumline 0)
+                        // Usamos ? para acceso seguro sin try/catch
+                        var isPlayer:Bool = false;
+                        var mustHitResult = note?.getMustHitNote();
+                        if (mustHitResult != null) {
+                            isPlayer = (mustHitResult == true);
+                        } else {
+                            // Fallback: data < 4 = jugador, data >= 4 = oponente
+                            var noteData = note?.data;
+                            if (noteData != null) isPlayer = (noteData < 4);
                         }
-                        if (!hasMustHitMethod && !hasMustHitProp) {
-                            try { var dummy = firstNote.data; hasDataProp = true; } catch(e:Dynamic) {}
-                            if (!hasDataProp) try { var dummy = firstNote.d; hasDProp = true; } catch(e:Dynamic) {}
-                        }
-                        
-                        var hasTimeProp = false;
-                        var hasTProp = false;
-                        try { var dummy = firstNote.time; hasTimeProp = true; } catch(e:Dynamic) {}
-                        if (!hasTimeProp) try { var dummy = firstNote.t; hasTProp = true; } catch(e:Dynamic) {}
-                        
-                        var hasLengthProp = false;
-                        var hasLProp = false;
-                        var hasSustainProp = false;
-                        try { var dummy = firstNote.length; hasLengthProp = true; } catch(e:Dynamic) {}
-                        if (!hasLengthProp) try { var dummy = firstNote.l; hasLProp = true; } catch(e:Dynamic) {}
-                        if (!hasLengthProp && !hasLProp) try { var dummy = firstNote.sustainLength; hasSustainProp = true; } catch(e:Dynamic) {}
-                        
-                        for (i in 0...len) {
-                            var note = notesArray[i];
-                            var isPlayer = false;
-                            
-                            if (hasMustHitMethod) {
-                                if (note.getMustHitNote() == true) isPlayer = true;
-                            } else if (hasMustHitProp) {
-                                if (note.mustHitNote == true) isPlayer = true;
-                            } else if (hasDataProp) {
-                                var d = note.data;
-                                if (d != null && d >= 4) isPlayer = true;
-                            } else if (hasDProp) {
-                                var d = note.d;
-                                if (d != null && d >= 4) isPlayer = true;
-                            }
-                            
-                            if (isPlayer) {
-                                var noteTime:Float = -1;
-                                var noteLen:Float = 0;
-                                
-                                if (hasTimeProp) {
-                                    noteTime = note.time;
-                                } else if (hasTProp) {
-                                    noteTime = note.t;
-                                }
-                                
-                                if (hasLengthProp) {
-                                    noteLen = note.length;
-                                } else if (hasLProp) {
-                                    noteLen = note.l;
-                                } else if (hasSustainProp) {
-                                    noteLen = note.sustainLength;
-                                }
-                                
-                                if (noteTime != -1) playerNoteTimes.push({start: noteTime, end: noteTime + noteLen});
-                            }
+
+                        if (isPlayer) {
+                            var rawTime = note?.time;
+                            var rawLen = note?.length;
+                            var noteTime:Float = (rawTime != null) ? rawTime : -1.0;
+                            var noteLen:Float = (rawLen != null) ? rawLen : 0.0;
+                            if (noteTime >= 0) playerNoteTimes.push({start: noteTime, end: noteTime + noteLen});
                         }
                     }
+
                     playerNoteTimes.sort(function(a, b) {
                         if (a.start < b.start) return -1;
                         if (a.start > b.start) return 1;
                         return 0;
                     });
+
+                    trace("[KssetteApi] Break detection: found " + playerNoteTimes.length + " player notes.");
                 }
             }
             _lastParsedChartId = currentChartId;
         }
-
-        currentNoteIndex = 0;
     }
 
     public function extractIconColor(icon:Dynamic, isPlayer:Bool = false, iconId:String = null):Int {

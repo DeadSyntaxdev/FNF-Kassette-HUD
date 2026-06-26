@@ -1,21 +1,59 @@
 package kassettehud.util;
 
+/**
+ * KssGhostTapping
+ *
+ * Maneja el comportamiento de "ghost tapping" (pulsaciones fantasma) y
+ * "ghost singing" (canto fantasma) durante el juego.
+ *
+ * Ghost Tapping: Evita que el juego penalice al jugador por presionar
+ * las teclas de notas cuando no hay notas activas para golpear. Se puede
+ * configurar para permitir siempre las entradas fantasma, desactivarlas o
+ * permitirlas solo durante largos silencios en las notas ("breaks")
+ * detectados por KssetteApi.getBreakData().
+ *
+ * Ghost Sing: Cuando está habilitado, reproduce la animación de canto del
+ * personaje del jugador al presionar las teclas, incluso cuando no se está
+ * golpeando una nota, proporcionando retroalimentación visual.
+ *
+ * Ajustes que maneja:
+ *   - kssette_ghost_tapping: "Off" | "On" | "In Breaks"
+ *   - kssette_ghost_sing:    "On"  | "Off"
+ *
+ * Dependencies:
+ *   - KssetteApi.getKssValue()  - lee los valores de las opciones
+ *   - KssetteApi.getBreakData() - comprueba si hay un "break" activo en el chart
+ *   - KssetteApi.isGammodMode   - deshabilita el "ghost tap" durante el auto-play de Gammod
+ */
+
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
 import flixel.FlxG;
 import Std;
-import Reflect;
 
 class KssGhostTapping extends Module {
+    /** Modo actual de ghost tapping: "Off", "On", o "In Breaks". */
     var _cGhostTappingMode:String = "Off";
+
+    /** Indica si se debe animar al personaje del jugador en pulsaciones fantasma. */
     var _cGhostSing:Bool = false;
+
+    /** Rastrea si el juego está en pausa para suprimir el canto fantasma. */
     var isPaused:Bool = false;
 
     public function new() {
         super('KssGhostTapping', 1);
     }
 
+    /**
+     * Se llama cuando comienza la cuenta atrás (la canción está empezando).
+     * Lee los ajustes de ghost tapping y ghost sing desde KssetteApi
+     * y los cachea para la duración de la canción.
+     *
+     * NOTA: El valor de ghost tapping puede ser un booleano (true/false) o el string
+     * "In Breaks", por lo que los tres casos se manejan explícitamente.
+     */
     override public function onCountdownStart(event:Dynamic) {
         super.onCountdownStart(event);
         isPaused = false;
@@ -23,85 +61,118 @@ class KssGhostTapping extends Module {
         var api = ModuleHandler.getModule("KssetteApi");
         if (api == null) return;
 
-        var gtVal = api.getKssValue("kssette_ghost_tapping");
-        _cGhostTappingMode = Std.string(gtVal);
-        if (gtVal == true) _cGhostTappingMode = "On";
-        if (gtVal == false) _cGhostTappingMode = "Off";
+            // Normaliza bool/string a un string canónico. Conserva "In Breaks" tal cual.
+            var gtVal = api?.getKssValue("kssette_ghost_tapping");
+            _cGhostTappingMode = (gtVal == null || gtVal == false) ? "Off"
+                               : (gtVal == true)                   ? "On"
+                               : Std.string(gtVal);
         
-        var gsVal = api.getKssValue("kssette_ghost_sing");
-        _cGhostSing = (gsVal == true || gsVal == "On");
+            // Ghost sing: indica si se debe animar al personaje en pulsaciones fantasma.
+            var gsVal = api?.getKssValue("kssette_ghost_sing");
+            _cGhostSing = (gsVal == true || Std.string(gsVal) == "On");
+
+            trace("[KssGhostTapping] onCountdownStart - mode=" + _cGhostTappingMode + " ghostSing=" + _cGhostSing);
     }
 
+    /** Rastrea el estado de pausa para suprimir las animaciones de canto fantasma. */
     override function onPause(event:Dynamic) {
         super.onPause(event);
         isPaused = true;
     }
 
+    /** Limpia el estado de pausa al cambiar de estado de juego. */
     override function onStateChangeEnd(event:Dynamic) {
         super.onStateChangeEnd(event);
         isPaused = false;
     }
 
+    /** Limpia el estado de pausa cuando el jugador reanuda el juego. */
     override function onResume(event:Dynamic) {
         super.onResume(event);
         isPaused = false;
     }
 
+    /**
+     * Devuelve verdadero si el modificador Gammod está activo.
+     * El ghost tapping siempre se desactiva durante las sesiones de Gammod para
+     * evitar interferir con la lógica de manejo de notas del propio modificador.
+     */
     function isGammodActive():Bool {
         var api = ModuleHandler.getModule("KssetteApi");
-        var isActive = false;
-        if (api != null) {
-            isActive = (api.isGammodMode == true);
-        }
-        
-        return isActive;
+        return (api?.isGammodMode == true);
     }
 
+    /**
+     * Determina si el ghost tapping debería estar permitido en este momento.
+     *
+     * Reglas (verificadas en orden):
+     *   1. Gammod activo       -> siempre falso (Gammod maneja su propia lógica).
+     *   2. Modo es "On"        -> siempre verdadero.
+     *   3. Modo es "In Breaks" -> verdadero solo si KssetteApi reporta un descanso activo.
+     *   4. De lo contrario     -> falso.
+     */
     function canGhostTap():Bool {
         if (isGammodActive()) return false;
         if (_cGhostTappingMode == "On") return true;
         
         if (_cGhostTappingMode == "In Breaks") {
-            var api:Dynamic = ModuleHandler.getModule("KssetteApi");
-            if (api != null) {
-                var breakData = api.getBreakData();
-                if (breakData != null && breakData.active == true) {
-                    return true;
-                }
-            }
+            var api = ModuleHandler.getModule("KssetteApi");
+            var breakData = api?.getBreakData();
+            return (breakData?.active == true);
         }
         return false;
     }
 
-function handleGhostSing(dir:Int) {
-        if (!_cGhostSing) return;
-        var state = PlayState.instance;
-        if (state == null || state.isPlayerDying || isPaused) return;
-
-        var isOpposite = false;
-        var api = ModuleHandler.getModule("KssetteApi");
-        if (api != null && api.gammodPlayerSide == "OPPOSITE") isOpposite = true;
-        
-        var player = state.currentStage != null ? (isOpposite ? state.currentStage.getDad() : state.currentStage.getBoyfriend()) : null;
-        if (player == null) return;
-
-        // forcing animation lol
-        var anims = ["singLEFT", "singDOWN", "singUP", "singRIGHT"];
-        player.playAnimation(anims[dir], true, false, false);
-        player.holdTimer = 0;
-        
-        trace("[KssGhostTapping] Forced animation: " + anims[dir]);
-    }
-
+    /**
+     * Cancela el evento de fallo fantasma si el ghost tapping está permitido.
+     * Evita penalizaciones por fallo y pérdida de vida en pulsaciones de teclas vacías.
+     * "onGhostMissNote" es el nombre de evento heredado usado en compilaciones antiguas de V-Slice.
+     */
     override function onGhostMissNote(event:Dynamic) {
         if (!canGhostTap()) return;
         event.cancel();
-        if (event.dir != null) handleGhostSing(event.dir);
     }
 
+    /**
+     * Igual que onGhostMissNote — cancela el fallo fantasma en el nombre de evento actual.
+     * Ambos manejadores se mantienen por compatibilidad con diferentes versiones de V-Slice.
+     */
     override function onNoteGhostMiss(event:Dynamic) {
         if (!canGhostTap()) return;
         event.cancel();
-        if (event.dir != null) handleGhostSing(event.dir);
+    }
+
+    /**
+     * Actualización por frame. Cuando el canto fantasma está habilitado, comprueba si
+     * el jugador está presionando alguna tecla de nota en este frame y activa la
+     * animación de canto correspondiente en el personaje del jugador.
+     *
+     * Solo se ejecuta cuando:
+     *   - _cGhostSing is true
+     *   - PlayState está activo y no en una secuencia de muerte
+     *   - El juego no está en pausa
+     */
+    override public function onUpdate(event:Dynamic) {
+        super.onUpdate(event);
+
+        if (!_cGhostSing) return;
+
+        var state = PlayState.instance;
+        if (state == null || state.isPlayerDying || isPaused) return;
+
+        var controlsObj = state?.controls;
+        if (controlsObj == null) return;
+
+        // Determina qué personaje animar según la configuración del lado del jugador de Gammod.
+        var api = ModuleHandler.getModule("KssetteApi");
+        var isOpposite = (api?.gammodPlayerSide == "OPPOSITE");
+        var player = isOpposite ? state.currentStage?.getDad() : state.currentStage?.getBoyfriend();
+        if (player == null) return;
+
+        // Activa la animación de canto para cada dirección presionada en este frame.
+        if (controlsObj.NOTE_LEFT_P)  { player.playAnimation("singLEFT",  true, false, false); player.holdTimer = 0; }
+        if (controlsObj.NOTE_DOWN_P)  { player.playAnimation("singDOWN",  true, false, false); player.holdTimer = 0; }
+        if (controlsObj.NOTE_UP_P)    { player.playAnimation("singUP",    true, false, false); player.holdTimer = 0; }
+        if (controlsObj.NOTE_RIGHT_P) { player.playAnimation("singRIGHT", true, false, false); player.holdTimer = 0; }
     }
 }

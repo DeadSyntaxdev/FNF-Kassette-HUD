@@ -1,5 +1,34 @@
 package kassettehud.util;
 
+/**
+ * KssetteResumeCount
+ *
+ * Muestra una cuenta atrás animada (3 → 2 → 1 → GO!) cuando el jugador
+ * reanuda el juego desde la pausa.
+ *
+ * Mientras la cuenta atrás está en curso:
+ *   - Music and vocals are paused and silenced.
+ *   - Note hits, misses, and ghost misses are cancelled so the player
+ *     isn't penalized for inputs during the countdown animation.
+ *   - The score is locked to prevent incremental drift from engine updates.
+ *   - La música y las voces se pausan y silencian.
+ *   - Los aciertos, fallos y fallos fantasma de notas se cancelan para que el jugador
+ *     no sea penalizado por entradas durante la animación de la cuenta atrás.
+ *   - La puntuación se bloquea para evitar desviaciones incrementales por actualizaciones del motor.
+ *
+ * Los recursos de la cuenta atrás se resuelven desde la carpeta del NoteStyle activo
+ * (p. ej., gameplay/countdown/{style}/introTHREE.ogg) con un fallback automático
+ * al estilo base "pixel" o "funkin" si no se encuentran los recursos personalizados.
+ *
+ * Ajuste que maneja:
+ *   - kssette_resume_countdown: "On" | "Off"
+ *
+ * Dependencies:
+ *   - KssetteApi.getKssValue() - reads option values
+ *   - Funkin Paths API          - resolves sound/image assets
+ *   - FlxTimer, FlxTween        - countdown timing and sprite animation
+ */
+
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
@@ -16,34 +45,61 @@ import funkin.modding.events.ScriptEvent;
 import funkin.data.notestyle.NoteStyleRegistry;
 
 class KssetteResumeCount extends Module {
+    /** Indica si la función de cuenta atrás al reanudar está activa. */
     var cachedActive:Bool = false;
+    /** Verdadero si la animación de cuenta atrás está actualmente en curso. */
     var isCounting:Bool = false;
+    /** Verdadero durante el breve período entre que se reanuda y comienza la cuenta atrás. */
     var isResuming:Bool = false;
+    /** Temporizador para los pasos de la cuenta atrás (3, 2, 1). */
     var currentTimer:FlxTimer;
+    /** Temporizador para diferir el inicio de la cuenta atrás y verificar la estabilidad del estado. */
     var resumeTimer:FlxTimer;
+    /** Volumen de la música almacenado antes de silenciarla para la cuenta atrás. */
     var storedVolume:Float = 1.0;
+    /** Volumen de las vocales (mono) almacenado. */
     var storedVocalsVolume:Float = 1.0;
+    /** Volumen de las vocales del jugador (multipista) almacenado. */
     var storedPlayerVol:Float = 1.0;
+    /** Volumen de las vocales del oponente (multipista) almacenado. */
     var storedOpponentVol:Float = 1.0;
+    /** Puntuación almacenada para evitar que cambie durante la cuenta atrás. */
     var storedScore:Int = 0;
+    /** Referencia cacheada al módulo KssetteApi. */
     var apiModule:Dynamic = null;
 
+    /** ID del NoteStyle cacheado para resolver los recursos correctos. */
     var cachedStyle:String = "funkin";
+    /** Indica si el estilo actual es de tipo pixel. */
     var cachedPixel:Bool = false;
+    /** Factor de escala para los sprites de la cuenta atrás. */
     var cachedScale:Float = 1.0;
+    /** Nombres de los archivos de sonido de la cuenta atrás (formato de texto). */
     var soundNames:Array<String> = ["GO", "ONE", "TWO", "THREE"];
+    /** Nombres de los archivos de sonido de la cuenta atrás (formato numérico). */
     var soundNamesNum:Array<String> = ["Go", "1", "2", "3"];
+    /** Nombres de los archivos de imagen de la cuenta atrás. */
     var imageNames:Array<String> = ["go", "set", "ready", ""];
+    /** Array de recursos de sonido cacheados. */
     var cachedSounds:Array<Dynamic> = [null, null, null, null];
+    /** Array de recursos de imagen cacheados. */
     var cachedImages:Array<Dynamic> = [null, null, null, null];
+    /** Array que indica si cada imagen cacheada es de estilo pixel. */
     var cachedImagePixel:Array<Bool> = [false, false, false, false];
+    /** Array de factores de escala para cada imagen cacheada. */
     var cachedImageScale:Array<Float> = [1.0, 1.0, 1.0, 1.0];
+    /** El ID del estilo para el cual los recursos están actualmente cacheados. */
     var cachedAssetsStyle:String = "";
 
     public function new() {
         super("KssetteResumeCount");
     }
 
+    /**
+     * Cancela cualquier temporizador de cuenta atrás activo (currentTimer y resumeTimer).
+     * Se llama cuando el estado de la canción cambia inesperadamente (el jugador muere, sale del estado)
+     * para asegurar que no queden temporizadores huérfanos disparándose.
+     */
     function cancelTimers() {
         if (currentTimer != null) currentTimer.cancel();
         if (resumeTimer != null) resumeTimer.cancel();
@@ -51,10 +107,15 @@ class KssetteResumeCount extends Module {
         resumeTimer = null;
     }
 
+    /**
+     * Restaura los volúmenes de la música y las vocales a sus valores previos a la cuenta atrás.
+     * Usa acceso seguro `?` para verificar la disponibilidad de playerVolume/opponentVolume
+     * (vocales multipista de V-Slice) antes de recurrir al campo de volumen mono.
+     */
     function restoreAudio(state:PlayState) {
         if (FlxG.sound.music != null) FlxG.sound.music.volume = storedVolume;
         if (state != null && state.vocals != null) {
-            if (state.vocals.playerVolume != null) {
+            if (state.vocals?.playerVolume != null) {
                 state.vocals.playerVolume = storedPlayerVol;
                 state.vocals.opponentVolume = storedOpponentVol;
             } else {
@@ -64,8 +125,17 @@ class KssetteResumeCount extends Module {
         isResuming = false;
     }
 
+    /**
+     * Cancela el evento dado si una secuencia de cuenta atrás o reanudación está en progreso.
+     * Se usa para bloquear aciertos/fallos/fallos fantasma de notas y la pausa durante la cuenta atrás.
+     */
     function cancelIfLocked(event:Dynamic) { if (isCounting || isResuming) event.cancel(); }
 
+    /**
+     * Se llama cuando comienza la cuenta atrás de la canción. Lee el ajuste de la cuenta atrás al reanudar,
+     * detecta el NoteStyle activo y pre-cachea todos los recursos de la cuenta atrás para que
+     * estén listos cuando el jugador pause y reanude por primera vez.
+     */
     override public function onCountdownStart(event) {
         super.onCountdownStart(event);
         cachedActive = false;
@@ -77,17 +147,26 @@ class KssetteResumeCount extends Module {
         isCounting = false;
         isResuming = false;
 
+        trace("[KssetteResumeCount] onCountdownStart - active=" + cachedActive);
+
         var state = PlayState.instance;
         if (cachedActive && state != null) {
             cacheStyle(state);
             cacheCountdownAssets();
+            trace("[KssetteResumeCount] NoteStyle detected: " + cachedStyle);
         }
     }
 
+    /**
+     * Actualización por frame. Mientras una cuenta atrás está activa, monitorea el estado en busca de
+     * condiciones de terminación anormales (fin de la canción, muerte del jugador, cambio de estado)
+     * y aborta la cuenta atrás. También bloquea la puntuación de la canción para evitar desviaciones.
+     */
     override public function onUpdate(event) {
         if (isCounting) {
             var state = PlayState.instance;
-            if (state == null || state.startingSong || state.isPlayerDying || (state.conductorInUse != null && state.conductorInUse.songPosition <= 0)) {
+            if (state == null || state.startingSong || state.isPlayerDying
+                || (state.conductorInUse != null && state.conductorInUse.songPosition <= 0)) {
                 isCounting = false;
                 isResuming = false;
                 cancelTimers();
@@ -95,27 +174,41 @@ class KssetteResumeCount extends Module {
         }
     }
 
+    /** Evita que se registren aciertos de nota mientras la cuenta atrás está activa. */
     override public function onNoteHit(event) { cancelIfLocked(event); }
+    /** Evita que se registren fallos de nota mientras la cuenta atrás está activa. */
     override public function onNoteMiss(event) { cancelIfLocked(event); }
+    /** Evita que se registren fallos fantasma mientras la cuenta atrás está activa. */
     override public function onNoteGhostMiss(event) { cancelIfLocked(event); }
+    /** Evita que el jugador pueda pausar de nuevo mientras la cuenta atrás está activa. */
     override public function onPause(event:ScriptEvent) { cancelIfLocked(event); }
 
+    /**
+     * Se llama cuando el jugador reanuda desde la pausa.
+     * Silencia el audio inmediatamente para evitar que suene algo durante la cuenta atrás,
+     * luego programa una breve comprobación diferida (0.001s) para confirmar que el estado
+     * sigue siendo válido antes de iniciar la animación de la cuenta atrás.
+     *
+     * La comprobación diferida protege contra casos extremos donde el estado cambia
+     * entre el evento de reanudación y el primer frame de ejecución de la cuenta atrás.
+     */
     override public function onResume(event) {
         super.onResume(event);
         var state = PlayState.instance;
 
         if (!cachedActive || isCounting || isResuming || state == null) return;
-        if (state.startingSong || state.isPlayerDying || state.conductorInUse.songPosition <= 0) return;
+        if (state.startingSong || state.isPlayerDying || state?.conductorInUse?.songPosition <= 0) return;
 
         isResuming = true;
         storedScore = state.songScore;
 
+        // Silencia el audio inmediatamente para evitar reproducir música durante la cuenta atrás.
         if (FlxG.sound.music != null) {
             storedVolume = FlxG.sound.music.volume;
             FlxG.sound.music.volume = 0;
         }
         if (state.vocals != null) {
-            if (state.vocals.playerVolume != null) {
+            if (state.vocals?.playerVolume != null) {
                 storedPlayerVol = state.vocals.playerVolume;
                 storedOpponentVol = state.vocals.opponentVolume;
                 state.vocals.playerVolume = 0;
@@ -127,20 +220,25 @@ class KssetteResumeCount extends Module {
         }
 
         var originalState = state;
+        // Difiere el inicio de la cuenta atrás un tick para verificar la estabilidad del estado.
         resumeTimer = new FlxTimer().start(0.001, function(tmr:FlxTimer) {
             var checkState = PlayState.instance;
             
             if (checkState != originalState) { restoreAudio(checkState); return; }
             if (checkState == null || !checkState.exists || !checkState.active) { isResuming = false; return; }
             if (checkState.startingSong || checkState.isPlayerDying) { restoreAudio(checkState); return; }
-            if (checkState.conductorInUse != null && checkState.conductorInUse.songPosition <= 0) { restoreAudio(checkState); return; }
-            
-            if (checkState._exiting == true || checkState.isEndingSong == true) { restoreAudio(checkState); return; }
+            if (checkState?.conductorInUse?.songPosition <= 0) { restoreAudio(checkState); return; }
+            if (checkState?._exiting == true || checkState?.isEndingSong == true) { restoreAudio(checkState); return; }
 
             startCustomCountdown();
         });
     }
 
+    /**
+     * Comienza la cuenta atrás personalizada 3-2-1-GO.
+     * Pausa la música y las vocales, vuelve a cachear los recursos si el NoteStyle cambió
+     * desde la última cuenta atrás, y luego inicia la secuencia recursiva doCount().
+     */
     function startCustomCountdown() {
         var state = PlayState.instance;
         if (state == null || isCounting) {
@@ -157,7 +255,7 @@ class KssetteResumeCount extends Module {
         }
         if (state.vocals != null) {
             state.vocals.pause();
-            if (state.vocals.playerVolume != null) {
+            if (state.vocals?.playerVolume != null) {
                 state.vocals.playerVolume = storedPlayerVol;
                 state.vocals.opponentVolume = storedOpponentVol;
             } else {
@@ -168,30 +266,50 @@ class KssetteResumeCount extends Module {
         cacheStyle(state);
         cacheCountdownAssets();
 
+        trace("[KssetteResumeCount] startCustomCountdown - style=" + cachedStyle);
         doCount(3);
     }
 
+    /**
+     * Lee el ID del NoteStyle activo desde la strumline del jugador y lo almacena
+     * en cachedStyle. Se usa para resolver las rutas de los recursos de la cuenta atrás específicos del estilo.
+     * Por defecto es "funkin" si no hay un NoteStyle disponible.
+     */
     function cacheStyle(state:PlayState) {
         cachedStyle = "funkin";
         cachedPixel = false;
         cachedScale = 1.0;
 
-        if (state != null && state.playerStrumline != null && state.playerStrumline.noteStyle != null) {
-            var ns = state.playerStrumline.noteStyle;
-            if (ns.id != null) cachedStyle = Std.string(ns.id);
-        }
+        var nsId = state?.playerStrumline?.noteStyle?.id;
+        if (nsId != null) cachedStyle = Std.string(nsId);
     }
 
+    /**
+     * Pre-carga los recursos de sonido e imagen de la cuenta atrás para el NoteStyle actual.
+     * Los resultados se almacenan en cachedSounds[] y cachedImages[] indexados por
+     * paso de la cuenta atrás: [0]=GO, [1]=ONE, [2]=TWO, [3]=THREE.
+     *
+     * Orden de resolución de recursos:
+     *   1. Style folder (gameplay/countdown/{style}/introXXX)
+     *   2. Pixel fallback if style name contains "pixel"
+     *   3. Funkin base fallback (gameplay/countdown/funkin/introXXX)
+     *   1. Carpeta de estilo (gameplay/countdown/{style}/introXXX)
+     *   2. Fallback a pixel si el nombre del estilo contiene "pixel"
+     *   3. Fallback base a funkin (gameplay/countdown/funkin/introXXX)
+     *
+     * Retorna temprano sin reconstruir si cachedAssetsStyle coincide con
+     * el cachedStyle actual (evita la recarga redundante de recursos).
+     */
     function cacheCountdownAssets() {
         if (cachedAssetsStyle == cachedStyle) return;
         cachedAssetsStyle = cachedStyle;
 
-        var fallbackStyle:String = "funkin";
-        if (cachedStyle.indexOf("pixel") != -1) fallbackStyle = "pixel";
+        // Determine which style folder to use as primary fallback.
+        var fallbackStyle:String = (cachedStyle.indexOf("pixel") != -1) ? "pixel" : "funkin";
 
         for (num in 0...4) {
-            var soundAsset:Dynamic = null;
-            soundAsset = Paths.sound('gameplay/countdown/' + fallbackStyle + '/intro' + soundNames[num]);
+            // Intenta cargar el sonido desde la carpeta de fallback, luego un fallback duro a funkin.
+            var soundAsset:Dynamic = Paths.sound('gameplay/countdown/' + fallbackStyle + '/intro' + soundNames[num]);
             if (soundAsset == null) soundAsset = Paths.sound('gameplay/countdown/' + fallbackStyle + '/intro' + soundNamesNum[num]);
             if (soundAsset == null && fallbackStyle != "funkin") soundAsset = Paths.sound('gameplay/countdown/funkin/intro' + soundNames[num]);
             cachedSounds[num] = soundAsset;
@@ -206,6 +324,7 @@ class KssetteResumeCount extends Module {
                     usePixel = true;
                     drawScale = 6.0;
                 }
+                // Fallback duro a funkin si la imagen de estilo pixel/personalizado no se encuentra.
                 if (imageAsset == null && fallbackStyle != "funkin") {
                     imageAsset = Paths.image('ui/countdown/funkin/' + imageNames[num]);
                     usePixel = false;
@@ -218,11 +337,22 @@ class KssetteResumeCount extends Module {
         }
     }
 
+    /**
+     * Recursive countdown function. Plays sound and displays a sprite for the
+     * given step (3=THREE, 2=TWO, 1=ONE, 0=GO), then schedules the next step
+     * after one beat length via FlxTimer.
+     *
+     * When num reaches 0 (GO), resumes music/vocals playback and clears
+     * the isCounting flag to re-enable normal gameplay input handling.
+     *
+     * @param num  The current countdown step (3 to 0).
+     */
     function doCount(num:Int) {
         var state = PlayState.instance;
         if (state == null || !isCounting) return;
         if (state.startingSong || state.isPlayerDying) return;
 
+        // Use live conductor beat length so the countdown syncs to the song's BPM.
         var beatTime:Float = (Conductor.instance != null) ? Conductor.instance.beatLengthMs / 1000 : 0.6;
         var soundAsset:Dynamic = cachedSounds[num];
         var imageAsset:Dynamic = cachedImages[num];
@@ -241,6 +371,7 @@ class KssetteResumeCount extends Module {
             if (state.camHUD != null) sprite.cameras = [state.camHUD];
             state.add(sprite);
 
+            // El paso "GO" obtiene una animación de "pop" con aumento de escala; los otros pasos se desvanecen.
             var tweenParams:Dynamic = {alpha: 0};
             var tweenDuration:Float = beatTime * 0.8;
             var tweenEase:Dynamic = FlxEase.cubeInOut;
@@ -258,8 +389,10 @@ class KssetteResumeCount extends Module {
         }
 
         if (num > 0) {
+            // Programa el siguiente paso de la cuenta atrás después de un beat.
             currentTimer = new FlxTimer().start(beatTime, function(tmr:FlxTimer) { doCount(num - 1); });
         } else {
+            // Cuenta atrás finalizada — reanuda la música y las vocales.
             if (FlxG.sound.music != null) FlxG.sound.music.play();
             if (state.vocals != null) state.vocals.play();
             isCounting = false;

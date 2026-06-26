@@ -1,5 +1,23 @@
 package kassettehud.util;
 
+/**
+ * KssetteBreakBar - Barra de pausa/descanso en el gameplay
+ *
+ * Propósito:
+ *   Muestra una barra de progreso cuando hay una pausa larga en el mapa
+ *   (más de 2.5 segundos sin notas del jugador), indicando cuánto tiempo
+ *   falta para la próxima nota. Disponible en varios estilos visuales.
+ *
+ * Opciones que maneja:
+ *   - kssette_show_breakbar: "On" | "Off"
+ *   - kssette_breakbar_style: "Default" | "Classic" | "Pie"
+ *   - kssette_breakbar_pos: "Center" | "Strumline"
+ *
+ * Dependencias:
+ *   - KssetteApi (getBreakData() para saber si hay un break activo)
+ *   - playerNoteTimes en KssetteApi (se parsea al inicio de cada canción)
+ */
+
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
@@ -15,46 +33,72 @@ import flixel.math.FlxRect;
 import flixel.util.FlxSpriteUtil;
 
 class KssetteBreakBar extends Module {
+    /** Desplazamiento horizontal para los estilos 'Default' y 'Pie'. */
     var offsetX:Float = 12;
+    /** Desplazamiento vertical para los estilos 'Default' y 'Pie'. */
     var offsetY:Float = 0;
     
+    /** Desplazamiento horizontal del ícono en el estilo 'Default'. */
     var iconOffsetX:Float = 10;
+    /** Desplazamiento vertical del ícono en el estilo 'Default'. */
     var iconOffsetY:Float = -7;
 
-    // Default style
+    /** Sprite del borde para los estilos 'Default' y 'Pie'. */
     var border:FlxSprite;
+    /** Sprite del ícono de descanso para los estilos 'Default' y 'Pie'. */
     var breakIcon:FlxSprite;
     
-    // Classic style
+    /** Array de sprites para los bordes del estilo 'Classic'. */
     var borders:Array<FlxSprite> = [];
+    /** Texto "BREAK" para el estilo 'Classic'. */
     var breakText:FlxText;
 
-    // Shared
+    /** Sprite de relleno que indica el progreso del descanso. */
     var barFill:FlxSprite;
+    /** Ancho base de la barra. */
     var barWidth:Float = 260;
+    /** Alto base de la barra. */
     var barHeight:Float = 20;
+    /** Valor alfa objetivo para las animaciones de aparición/desaparición. */
     var alphaTarget:Float = 0;
+    /** Valor alfa actual, interpolado hacia `alphaTarget`. */
     var currentAlpha:Float = 0;
+    /** Referencia cacheada al módulo KssetteApi. */
     var apiModule:Dynamic = null;
+    /** Bandera cacheada que indica si la barra de descanso está activa. */
     var cachedActive:Bool = false;
+    /** Rectángulo de recorte para el sprite de relleno en el estilo 'Default'. */
     var fillClip:flixel.math.FlxRect = null;
+    /** Último ancho de relleno aplicado para evitar actualizaciones redundantes. */
     var lastFillW:Int = -1;
+    /** Temporizador para limitar la frecuencia de actualización por frame. */
     var updateTimer:Float = 0.0;
+    /** Fuente de texto cacheada para la UI. */
     var cachedFont:String = "VCR OSD Mono";
+    /** Estilo actual de la barra ('Default', 'Classic', 'Pie'). */
     var currentStyle:String = "Default";
+    /** Posición actual de la barra ('Center', 'Strumline'). */
     var currentPos:String = "Center";
     
+    /** Tiempos de las notas del jugador cacheados para calcular los descansos. */
     var cachedNoteTimes:Array<Dynamic> = [];
+    /** Índice de la próxima nota a procesar en `cachedNoteTimes`. */
     var localNoteIndex:Int = 0;
 
+    /** Verdadero cuando se renderiza una vista previa en el menú de opciones. */
     public var isPreview:Bool = false;
+    /** Cámara para renderizar en el modo de vista previa. */
     public var previewCam:flixel.FlxCamera = null;
+    /** Temporizador para simular un descanso en el modo de vista previa. */
     var previewBreakTimer:Float = 0.0;
     
     public function new() {
         super("KssetteBreakBar");
     }
 
+    /**
+     * Limpia y destruye todos los elementos de la UI creados por este módulo.
+     */
     public function cleanupUI() {
         if (border != null) border.destroy();
         if (barFill != null) barFill.destroy();
@@ -74,12 +118,25 @@ class KssetteBreakBar extends Module {
         lastFillW = -1;
     }
 
+    /**
+     * Se llama cuando el estado del juego cambia. Limpia la UI.
+     */
     override public function onStateChangeStart(event) {
         super.onStateChangeStart(event);
         isPreview = false;
         cleanupUI();
     }
 
+    /**
+     * Dibuja un rectángulo con bordes redondeados en un sprite.
+     * @param sprite El FlxSprite en el que se dibujará.
+     * @param w Ancho del rectángulo.
+     * @param h Alto del rectángulo.
+     * @param rad Radio de las esquinas.
+     * @param color Color del rectángulo.
+     * @param hollow Si es verdadero, dibuja solo el borde.
+     * @param thick Grosor del borde si es hueco.
+     */
     function drawRoundedRect(sprite:FlxSprite, w:Int, h:Int, rad:Int, color:Int, hollow:Bool = false, thick:Int = 2) {
         sprite.makeGraphic(w, h, 0x00000000);
         var b = sprite.graphic.bitmap;
@@ -121,6 +178,10 @@ class KssetteBreakBar extends Module {
         }
     }
 
+    /**
+     * Configura e inicializa todos los elementos de la UI para la barra de descanso.
+     * @param cam La cámara del HUD a la que se adjuntarán los elementos.
+     */
     public function setupUI(cam:flixel.FlxCamera) {
         cleanupUI();
 
@@ -305,6 +366,10 @@ class KssetteBreakBar extends Module {
         alphaTarget = 0;
     }
 
+    /**
+     * Establece el ancho del sprite de relleno para la barra de estilo 'Default'.
+     * @param fillW El nuevo ancho en píxeles.
+     */
     function setFillWidth(fillW:Int):Void {
         if (barFill == null || !barFill.exists) return;
         if (currentStyle == "Classic" || currentStyle == "Pie") return; 
@@ -319,8 +384,13 @@ class KssetteBreakBar extends Module {
         barFill.clipRect = fillClip;
     }
 
+    /** Último grado aplicado al relleno del estilo 'Pie'. */
     var lastPieDegree:Int = -1;
 
+    /**
+     * Dibuja y actualiza el relleno del estilo 'Pie' según el progreso.
+     * @param prog El progreso del descanso (0.0 a 1.0).
+     */
     function setPieFill(prog:Float):Void {
         if (barFill == null || !barFill.exists) return;
         if (currentStyle != "Pie") return;
@@ -367,6 +437,9 @@ class KssetteBreakBar extends Module {
         }
     }
     
+    /**
+     * Se llama al inicio de la cuenta atrás de la canción. Inicializa y cachea los valores necesarios.
+     */
     override public function onCountdownStart(event) {
         super.onCountdownStart(event);
         
@@ -389,6 +462,10 @@ class KssetteBreakBar extends Module {
         }
     }
 
+    /**
+     * Construye la UI para la vista previa del menú de opciones.
+     * @param cam La cámara de la vista previa.
+     */
     public function buildPreview(cam:flixel.FlxCamera) {
         isPreview = true;
         previewCam = cam;
@@ -401,6 +478,9 @@ class KssetteBreakBar extends Module {
         updatePreview();
     }
 
+    /**
+     * Actualiza la vista previa en el menú de opciones para reflejar los cambios de configuración.
+     */
     public function updatePreview() {
         if (!isPreview) return;
         if (currentStyle == "Classic") {
@@ -425,6 +505,9 @@ class KssetteBreakBar extends Module {
         }
     }
     
+    /**
+     * Se llama en cada frame. Gestiona la lógica de progreso y la visibilidad de la barra.
+     */
     override public function onUpdate(event) {
         if (barFill == null || !barFill.exists) {
             alphaTarget = 0;
@@ -454,9 +537,14 @@ class KssetteBreakBar extends Module {
         if (isPreview) {
             alphaTarget = 0;
             if (cachedActive && apiModule != null) {
-                var isP:Bool = apiModule?.preview_playerTurn ?? true;
-                var prog:Float = apiModule?.preview_turnProgress ?? 0.0;
+                var isP:Bool = true;
+                var prog:Float = 0.0;
+                
+                var tempIsP = Reflect.field(apiModule, "preview_playerTurn");
+                if (tempIsP != null) isP = tempIsP;
 
+                var tempProg = Reflect.field(apiModule, "preview_turnProgress");
+                if (tempProg != null) prog = tempProg;
                 if (!isP) {
                     alphaTarget = 1;
                     breakProgress = 1.0 - prog;

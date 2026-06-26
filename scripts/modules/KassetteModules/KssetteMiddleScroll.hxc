@@ -1,5 +1,23 @@
 package kassettehud.util;
 
+/**
+ * KssetteMiddleScroll - Notas del oponente visibles en modo Middle Scroll
+ *
+ * Propósito:
+ *   Implementa el modo "Middle Scroll" donde las notas del jugador están
+ *   centradas. Opcionalmente muestra las notas del oponente en las flechas
+ *   del jugador (transparentes/fantasma) o las oculta por completo.
+ *
+ * Opciones que maneja:
+ *   - kssette_middlescroll: "On" | "Off"
+ *   - kssette_hide_opponent: "On" | "Off"
+ *   - kssette_mobile_opp_notes: "On" | "Off"
+ *     Muestra notas del oponente en las flechas del jugador (móvil).
+ *
+ * Dependencias:
+ *   - KssetteApi (para leer opciones y modo de juego)
+ */
+
 import flixel.FlxG;
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;

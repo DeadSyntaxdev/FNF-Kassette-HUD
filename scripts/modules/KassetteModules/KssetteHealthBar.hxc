@@ -1,24 +1,59 @@
 package kassettehud.util;
 
+/**
+ * KssetteHealthBar
+ *
+ * Gestiona la coloración de la barra de vida, el posicionamiento de los íconos y la detección del modo solo.
+ *
+ * Coloración de la Barra de Vida: Cuando está habilitado, toma el color dominante del
+ * sprite del ícono de vida de cada jugador y lo aplica a las dos mitades de la
+ * barra de vida. Los colores se cachean por ID de ícono y solo se vuelven a muestrear
+ * cuando el personaje activo cambia.
+ *
+ * Modo Solo: Detecta cuando el escenario no tiene oponente (o el oponente
+ * comparte el mismo ícono que el jugador) y cambia la barra de vida a
+ * una pantalla completa de un solo color, ocultando el ícono del oponente.
+ *
+ * Posicionamiento de Íconos: Cuando el modo "Corners" está activo, posiciona manualmente
+ * los íconos de vida en los extremos de la barra de vida con una interpolación suave
+ * de escala y una animación de "bop" sincronizada con el ritmo.
+ *
+ * Ajustes que maneja:
+ *   - kssette_colored_healthbar: "On" | "Off"
+ *   - kssette_icon_pos:          "Default" | "Corners"
+ *
+ * Dependencies:
+ *   - KssetteApi.extractIconColor() - samples dominant color from icon sprite
+ *   - KssetteApi.cachedP1Scale/P2Scale/P1Bop/P2Bop - icon scale and bop data
+ */
+
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
 import flixel.FlxG;
 import flixel.math.FlxMath;
 import Std;
-import Reflect;
 import flixel.util.FlxColor;
 
 class KssetteHealthBar extends Module {
+    /** Último ID de personaje del ícono P1 conocido; se usa para detectar cambios de ícono. */
     var _lastP1Id:String = "";
+    /** Último ID de personaje del ícono P2 conocido; se usa para detectar cambios de ícono. */
     var _lastP2Id:String = "";
+    /** Color dominante cacheado para la mitad de la barra de vida de P1 (jugador). */
     var _p1Color:Int = 0xFF66FF33;
+    /** Color dominante cacheado para la mitad de la barra de vida de P2 (oponente). */
     var _p2Color:Int = 0xFFFF0000;
 
     public function new() {
         super("KssetteHealthBar");
     }
 
+    /**
+     * Se llama al inicio de la canción. Registra este módulo con KssetteApi y
+     * asegura que la barra de vida y los sprites de los íconos se dibujen encima
+     * de otros elementos del HUD, volviéndolos a añadir al final de la lista de dibujado.
+     */
     override function onCountdownStart(event) {
         var api = ModuleHandler.getModule("KssetteApi");
         if (api == null) return;
@@ -31,28 +66,19 @@ class KssetteHealthBar extends Module {
         var state = PlayState.instance;
         if (state == null) return;
 
-        if (state.healthBarBG != null) {
-            state.healthBarBG.zIndex = 110;
-            state.remove(state.healthBarBG, true);
-            state.add(state.healthBarBG);
-        }
-        if (state.healthBar != null) {
-            state.healthBar.zIndex = 111;
-            state.remove(state.healthBar, true);
-            state.add(state.healthBar);
-        }
-        if (state.iconP1 != null) {
-            state.iconP1.zIndex = 112;
-            state.remove(state.iconP1, true);
-            state.add(state.iconP1);
-        }
-        if (state.iconP2 != null) {
-            state.iconP2.zIndex = 112;
-            state.remove(state.iconP2, true);
-            state.add(state.iconP2);
-        }
+        // Vuelve a añadir los componentes de la barra de vida al final para asegurar el orden de dibujado correcto.
+        if (state.healthBarBG != null) { state.healthBarBG.zIndex = 110; state.remove(state.healthBarBG, true); state.add(state.healthBarBG); }
+        if (state.healthBar   != null) { state.healthBar.zIndex   = 111; state.remove(state.healthBar,   true); state.add(state.healthBar);   }
+        if (state.iconP1      != null) { state.iconP1.zIndex      = 112; state.remove(state.iconP1,      true); state.add(state.iconP1);      }
+        if (state.iconP2      != null) { state.iconP2.zIndex      = 112; state.remove(state.iconP2,      true); state.add(state.iconP2);      }
     }
 
+    /**
+     * Actualización por frame. Maneja tres responsabilidades:
+     *   1. Coloración de la barra de vida — vuelve a colorear la barra cuando los IDs de los íconos cambian.
+     *   2. Modo solo — oculta el ícono P2 e invierte la barra si no hay oponente.
+     *   3. Posicionamiento de íconos — gestiona la colocación en modo "Corners" y la interpolación de escala.
+     */
     override function onUpdate(event) {
         var elapsed = event.elapsed;
         var state = PlayState.instance;
@@ -63,30 +89,22 @@ class KssetteHealthBar extends Module {
         var p2 = state.iconP2;
         var curP1:String = "none1";
         var curP2:String = "none2";
-        
-        if (p1 != null) {
-            var id1 = Reflect.getProperty(p1, "characterId");
-            if (id1 == null) id1 = Reflect.getProperty(p1, "iconId");
-            if (id1 != null) curP1 = Std.string(id1);
-        }
-        if (p2 != null) {
-            var id2 = Reflect.getProperty(p2, "characterId");
-            if (id2 == null) id2 = Reflect.getProperty(p2, "iconId");
-            if (id2 != null) curP2 = Std.string(id2);
-        }
 
-        // --- HEALTH BAR COLORING LOGIC ---
-        var gammodPlayerSide = "NORMAL";
-        if (api.gammodPlayerSide != null) gammodPlayerSide = api.gammodPlayerSide;
+        // Lee los IDs de personaje de los íconos actuales usando acceso seguro `?` (no se necesita Reflect).
+        var id1 = p1?.characterId;
+        if (id1 == null) id1 = p1?.iconId;
+        if (id1 != null) curP1 = Std.string(id1);
+
+        var id2 = p2?.characterId;
+        if (id2 == null) id2 = p2?.iconId;
+        if (id2 != null) curP2 = Std.string(id2);
+
+        // --- LÓGICA DE COLORACIÓN DE LA BARRA DE VIDA ---
+        var gammodPlayerSide:String = (api.gammodPlayerSide != null) ? api.gammodPlayerSide : "NORMAL";
         
-        var dadObj = null;
-        if (state.currentStage != null) {
-            try { dadObj = state.currentStage.getDad(); } catch(e:Dynamic) {}
-        }
-        var isSolo:Bool = (dadObj == null);
-        if (dadObj != null) {
-            try { if (dadObj.characterId == "none") isSolo = true; } catch(e:Dynamic) {}
-        }
+        // Determina el modo solo: no hay oponente, el oponente es "none", o P1 y P2 comparten el mismo ícono.
+        var dadObj = state.currentStage?.getDad();
+        var isSolo:Bool = (dadObj == null) || (dadObj?.characterId == "none");
         if (curP1 == curP2 && curP1 != "none1" && curP1 != "") isSolo = true;
 
         if (state.iconP2 != null) {
@@ -104,39 +122,34 @@ class KssetteHealthBar extends Module {
         }
 
         if (api.getKssValue("kssette_colored_healthbar") == true) {
+            // Deshabilita la sobreescritura de la barra de vida de Gammod para que nuestros colores tengan prioridad.
             var _gammodPlay = ModuleHandler.getModule("GammodPlayModule");
-            if (_gammodPlay != null) {
-                try { _gammodPlay.scriptSet("healthBarOverride", false); } catch(e:Dynamic) {}
-                try { Reflect.setProperty(_gammodPlay, "healthBarOverride", false); } catch(e:Dynamic) {}
-            }
+            _gammodPlay?.scriptSet("healthBarOverride", false);
             
-            if (p1 != null && p2 != null) {
-                if (hb != null) {
+            if (p1 != null && p2 != null && hb != null) {
+                // Solo vuelve a muestrear los colores cuando los íconos activos cambian.
+                if (curP1 != _lastP1Id || curP2 != _lastP2Id) {
+                    _lastP1Id = curP1;
+                    _lastP2Id = curP2;
                     
-                    if (curP1 != _lastP1Id || curP2 != _lastP2Id) {
-                        _lastP1Id = curP1;
-                        _lastP2Id = curP2;
-                        
-                        _p1Color = api.extractIconColor(p1, true, curP1);
-                        _p2Color = api.extractIconColor(p2, false, curP2);
-                        
-                        if (isSolo) {
-                            hb.createFilledBar(FlxColor.BLACK, _p1Color);
-                        } else if (gammodPlayerSide == "OPPOSITE") {
-                            hb.createFilledBar(_p1Color, _p2Color);
-                        } else {
-                            hb.createFilledBar(_p2Color, _p1Color);
-                        }
-                        hb.updateBar();
+                    _p1Color = api.extractIconColor(p1, true, curP1);
+                    _p2Color = api.extractIconColor(p2, false, curP2);
+                    
+                    // Aplica colores: solo = negro a p1, opuesto = p1 a la izquierda, normal = p2 a la izquierda.
+                    if (isSolo) {
+                        hb.createFilledBar(FlxColor.BLACK, _p1Color);
+                    } else if (gammodPlayerSide == "OPPOSITE") {
+                        hb.createFilledBar(_p1Color, _p2Color);
+                    } else {
+                        hb.createFilledBar(_p2Color, _p1Color);
                     }
+                    hb.updateBar();
                 }
             }
-        } else if (api.getKssValue("kssette_colored_healthbar") != true && _lastP1Id != "") {
+        } else if (_lastP1Id != "") {
+            // La función fue desactivada — restaura los colores verde/rojo por defecto.
             var _gammodPlay = ModuleHandler.getModule("GammodPlayModule");
-            if (_gammodPlay != null) {
-                try { _gammodPlay.scriptSet("healthBarOverride", true); } catch(e:Dynamic) {}
-                try { Reflect.setProperty(_gammodPlay, "healthBarOverride", true); } catch(e:Dynamic) {}
-            }
+            _gammodPlay?.scriptSet("healthBarOverride", true);
 
             _lastP1Id = "";
             _lastP2Id = "";
@@ -152,7 +165,7 @@ class KssetteHealthBar extends Module {
             }
         }
 
-        // --- ICON POSITIONS LOGIC ---
+        // --- LÓGICA DE POSICIONES DE ÍCONOS ---
         var isCorners = api.getKssValue("kssette_icon_pos") == "Corners";
         
         if ((isCorners || isSolo) && state.healthBarBG != null && state.healthBar != null && state.iconP1 != null) {
@@ -207,11 +220,9 @@ class KssetteHealthBar extends Module {
             state.iconP1.y = centerY - (state.iconP1.height / 2);
             
             if (isSolo && hp1 < 0.4) {
-                try {
-                    if (state.iconP1.animation.curAnim != null) {
-                        state.iconP1.animation.curAnim.curFrame = 1;
-                    }
-                } catch(e:Dynamic) {}
+                // Muestra el frame de animación de pérdida cuando la vida es crítica en modo solo.
+                var curAnim = state.iconP1?.animation?.curAnim;
+                if (curAnim != null) curAnim.curFrame = 1;
             }
         } else if (state.iconP1 != null && state.iconP2 != null) {
             if (state.iconP1.autoUpdate == false) state.iconP1.autoUpdate = true;
@@ -221,6 +232,13 @@ class KssetteHealthBar extends Module {
         }
     }
 
+    /**
+     * Se llama en cada paso musical. Activa un breve aumento de escala ("bop") en cada
+     * ícono de vida cuando el paso coincide con el intervalo de bop configurado para el ícono.
+     * Solo está activo cuando el modo de posicionamiento de íconos "Corners" está habilitado.
+     *
+     * @param event Evento de script que lleva el número de paso actual.
+     */
     override function onStepHit(event) {
         var state = PlayState.instance;
         var api = ModuleHandler.getModule("KssetteApi");
@@ -230,6 +248,7 @@ class KssetteHealthBar extends Module {
             var bop1 = api.cachedP1Bop;
             var bop2 = api.cachedP2Bop;
             
+            // Aumenta la escala en un 20% en el intervalo de bop; interpola de vuelta a la normalidad en onUpdate.
             if (bop1 > 0 && event.step % bop1 == 0) {
                 var p1Scale:Float = api.cachedP1Scale;
                 state.iconP1.scale.set(p1Scale * 1.2, p1Scale * 1.2);

@@ -1,5 +1,24 @@
 package kassettehud.util;
 
+/**
+ * KssetteShowTitle - Mostrar título e info de la canción al iniciar
+ *
+ * Propósito:
+ *   Muestra el título, artista y dificultad de la canción como una
+ *   animación de texto al inicio del gameplay, con opciones de fuente
+ *   y posición personalizables.
+ *
+ * Opciones que maneja:
+ *   - kssette_show_song_title: "On" | "Off"
+ *   - kssette_show_song_diff: "On" | "Off"
+ *   - kssette_intro_text: texto personalizado para el intro
+ *   - kssette_intro_font_title: fuente para el título
+ *   - kssette_intro_font_artist: fuente para el artista
+ *
+ * Dependencias:
+ *   - KssetteApi (para leer opciones y datos de la canción)
+ */
+
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
