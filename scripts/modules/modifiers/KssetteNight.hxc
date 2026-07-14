@@ -37,7 +37,7 @@ import Date;
 import Math;
 import StringTools;
 
-class KssetteNight extends Module {
+class KssetteNight extends KHUDModifier {
     /** The full-screen dark overlay sprite. */
     var overlayGame:FunkinSprite;
     /** Indicates if the overlay is currently in the "should be visible" state. */
@@ -47,8 +47,6 @@ class KssetteNight extends Module {
     var timeCheckTimer:Float = 0.0;
     /** Target alpha the overlay interpolates towards (either `cachedOpacity` or ~0). */
     var targetAlpha:Float = 0.01;
-    /** Cached reference to KssetteApi. */
-    var apiModule:Dynamic = null;
     /** Current night mode setting: "Off", "On", or "Scheduled". */
     var cachedMode:String = "Off";
     /** Desired opacity of the overlay (0.0-1.0) when night mode is active. */
@@ -61,12 +59,13 @@ class KssetteNight extends Module {
     var updateTimer:Float = 0.0;
     
     /** True when rendering a preview in the options menu rather than in-game. */
-    public var isPreview:Bool = false;
+
     /** Camera for rendering in preview mode. */
-    public var previewCam:flixel.FlxCamera = null;
+    public var previewCam:FlxCamera = null;
 
     public function new() {
         super('KssetteNight');
+        elementType = "modifier";
     }
 
     /**
@@ -97,7 +96,7 @@ class KssetteNight extends Module {
      *
      * @param cam Camera to render the preview on.
      */
-    public function buildPreview(cam:flixel.FlxCamera) {
+    public function buildPreview(cam:FlxCamera) {
         isPreview = true;
         previewCam = cam;
         cleanUp();
@@ -118,8 +117,7 @@ class KssetteNight extends Module {
      * @return "On" | "Off" | raw setting string (e.g. "Scheduled")
      */
     function getMode():String {
-        if (apiModule == null) return "Off";
-        var rawMode = Std.string(apiModule?.getKssValue("kssette_night_mode"));
+        var rawMode = getSetting("kssette_night_mode");
         if (rawMode == "true"  || rawMode == "On")  return "On";
         if (rawMode == "false" || rawMode == "Off") return "Off";
         return rawMode;
@@ -149,7 +147,7 @@ class KssetteNight extends Module {
      * Opacity values accept both percentage strings ("65%") and decimals ("0.65").
      */
     function refreshSettings():Void {
-        apiModule = ModuleHandler.getModule("KssetteApi");
+
         cachedMode = getMode();
         cachedOpacity = 0.65;
         if (apiModule != null) {
@@ -222,7 +220,7 @@ class KssetteNight extends Module {
             st.refresh();
         } else {
             var state = PlayState.instance;
-            var targetCam:flixel.FlxCamera = null;
+            var targetCam:FlxCamera = null;
             if (isPlayStateActive()) {
                 targetCam = state?.camHUD;
             }
@@ -255,8 +253,7 @@ class KssetteNight extends Module {
         if (isPlayStateActive()) isPreview = false;
         if (isPreview) return;
 
-        apiModule = ModuleHandler.getModule("KssetteApi");
-        if (apiModule == null) return;
+
         
         cleanUp();
         timeCheckTimer = 0.0;
@@ -287,8 +284,9 @@ class KssetteNight extends Module {
      *   2. Re-evaluating the time window once per second via timeCheckTimer.
      *   3. Smoothly interpolating alpha towards targetAlpha (4x speed, clamped to ~120Hz).
      */
-    override public function onUpdate(event:Dynamic):Void {
-        if (apiModule == null) return;
+    override public function onUpdate(event:Dynamic) {
+        var elapsed:Float = (Std.isOfType(event, Float)) ? event : (event != null ? event.elapsed : 0);
+
         
         // If the game started while preview was active, rebuild for gameplay.
         if (isPlayStateActive() && isPreview) {
@@ -338,7 +336,7 @@ class KssetteNight extends Module {
                 overlayGame.cameras = [previewCam];
             }
         } else if (isPlayStateActive()) {
-            var currentCam:flixel.FlxCamera = PlayState.instance?.camHUD;
+            var currentCam:FlxCamera = PlayState.instance?.camHUD;
             if (currentCam == null) currentCam = FlxG.camera;
             if (overlayGame.cameras == null || overlayGame.cameras.length == 0 || overlayGame.cameras[0] != currentCam) {
                 overlayGame.cameras = [currentCam];

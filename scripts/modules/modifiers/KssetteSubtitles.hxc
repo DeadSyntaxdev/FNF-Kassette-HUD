@@ -53,7 +53,7 @@ import Std;
 import StringTools;
 import flixel.util.FlxColor;
 
-class KssetteSubtitles extends Module {
+class KssetteSubtitles extends KHUDModifier {
     
     /** Default font size for subtitle text. */
     var defaultFontSize:Int = 24;
@@ -62,8 +62,7 @@ class KssetteSubtitles extends Module {
     /** Vertical offset from the bottom edge when placed at the bottom. */
     var bottomY_Offset:Float = 190;
 
-    /** Cached reference to KssetteApi. */
-    var apiModule:Dynamic = null;
+    var subtitleGroup:flixel.group.FlxSpriteGroup;
     /** HUD font name read from KssetteApi.getHudFont(). */
     var cachedFont:String = "VCR OSD Mono";
     /** Active animation style: "Slide", "Fade", or "Off". */
@@ -100,9 +99,9 @@ class KssetteSubtitles extends Module {
     var lastTargetCam:Dynamic = null;
     
     /** True when rendering in the options menu preview instead of gameplay. */
-    public var isPreview:Bool = false;
+
     /** Camera to render into during preview mode. */
-    public var previewCam:flixel.FlxCamera = null;
+    public var previewCam:FlxCamera = null;
     /** Timer for the preview demo cycle (cycles through subtitle in/out states). */
     var previewTimer:Float = 0.0;
     /** Per-frame throttle timer (~120Hz gate). */
@@ -266,6 +265,7 @@ var triviaArray:Array<String> = [
 
     public function new() {
         super("KssetteSubtitles");
+        elementType = "modifier";
     }
 
 
@@ -321,7 +321,7 @@ var triviaArray:Array<String> = [
      * Destroys any existing subText first to avoid duplication.
      * @param cam  Camera to assign the subtitle text to.
      */
-    function createSubText(cam:flixel.FlxCamera) {
+    function createSubText(cam:FlxCamera) {
         if (subText != null) {
             destroySubText();
         }
@@ -454,7 +454,7 @@ var triviaArray:Array<String> = [
      * Prepares the UI for the options menu preview mode.
      * @param cam The preview camera to render subtitles on.
      */
-    public function buildPreview(cam:flixel.FlxCamera) {
+    public function buildPreview(cam:FlxCamera) {
         isPreview = true;
         previewCam = cam;
         apiModule = ModuleHandler.getModule("KssetteApi");
@@ -477,10 +477,10 @@ var triviaArray:Array<String> = [
         if (apiModule != null) {
             cachedFont = apiModule.getHudFont();
             if (cachedFont == null || cachedFont == "null" || cachedFont == "") cachedFont = "VCR OSD Mono";
-            animType = Std.string(apiModule.getKssValue("kssette_subtitles_anim"));
+            animType = Std.string(getSetting("kssette_subtitles_anim"));
             if (animType == "Karaoke") animType = "Fade"; 
-            posType = Std.string(apiModule.getKssValue("kssette_subtitles_pos"));
-            smartKaraoke = apiModule.getKssValue("kssette_smart_karaoke") == true;
+            posType = Std.string(getSetting("kssette_subtitles_pos"));
+            smartKaraoke = getSetting("kssette_smart_karaoke") == true;
         }
         
         previewTimer = 0.5;
@@ -508,16 +508,15 @@ var triviaArray:Array<String> = [
         super.onCountdownStart(event);
         isPreview = false;
         
-        apiModule = ModuleHandler.getModule("KssetteApi");
-        if (apiModule == null) return;
+
         
         cachedFont = apiModule.getHudFont();
         if (cachedFont == null || cachedFont == "null" || cachedFont == "") cachedFont = "VCR OSD Mono";
-        animType = Std.string(apiModule.getKssValue("kssette_subtitles_anim"));
+        animType = Std.string(getSetting("kssette_subtitles_anim"));
         if (animType == "Karaoke") animType = "Fade"; 
         
-        posType = Std.string(apiModule.getKssValue("kssette_subtitles_pos"));
-        smartKaraoke = apiModule.getKssValue("kssette_smart_karaoke") == true;
+        posType = Std.string(getSetting("kssette_subtitles_pos"));
+        smartKaraoke = getSetting("kssette_smart_karaoke") == true;
         
         var state = PlayState.instance;
         if (state == null) return;
@@ -549,6 +548,7 @@ var triviaArray:Array<String> = [
      *   - Calculating and running the karaoke tweens and show/hide animations.
      */
     override public function onUpdate(event:Dynamic) {
+        var elapsed:Float = (Std.isOfType(event, Float)) ? event : (event != null ? event.elapsed : 0);
         if (subText == null) return;
 
         if (!subText.exists || !subText.active) {
@@ -682,10 +682,10 @@ var triviaArray:Array<String> = [
                 
                 if (fallbackText != null && Std.string(fallbackText) != "" && Std.string(fallbackText) != "null") {
                     rawTargetText = Std.string(fallbackText);
-                    if (rawTargetText != lastRawText && apiModule != null && apiModule?.khudDebug == true) trace("[KssetteSubtitles] Using text fallback: " + rawTargetText);
+
                 } else if (fallbackHtml != null && Std.string(fallbackHtml) != "" && Std.string(fallbackHtml) != "null") {
                     rawTargetText = Std.string(fallbackHtml);
-                    if (rawTargetText != lastRawText && apiModule != null && apiModule?.khudDebug == true) trace("[KssetteSubtitles] Using HTML fallback: " + rawTargetText);
+
                 }
             }
         }
@@ -760,7 +760,7 @@ var triviaArray:Array<String> = [
                         durK = Math.min(endIdx * (stepSecs * 0.3), stepSecs * 12);
                     }
                 
-                if (apiModule != null && apiModule?.khudDebug == true) trace("[KssetteSubtitles] Subtitle Display: " + (cachedPlainText == "" ? "(Empty)" : cachedPlainText) + " | Font: " + displayFont + " | Size: " + displaySize + " | Karaoke dur: " + durK);
+
 
                 updateTextDisplay(startIdx);
                 
@@ -927,5 +927,20 @@ var triviaArray:Array<String> = [
                     }});
                 }
         }
+    }
+    
+    override public function destroy() {
+        if (subText != null) subText.destroy();
+        subText = null;
+
+        if (subTween != null) subTween.cancel();
+        subTween = null;
+        
+        if (karaokeTween != null) karaokeTween.cancel();
+        karaokeTween = null;
+
+        cachedFormats = [];
+        
+        super.destroy();
     }
 }

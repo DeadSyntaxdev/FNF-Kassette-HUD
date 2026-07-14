@@ -1,0 +1,264 @@
+package kassettehud.util;
+
+import kassettehud.util.KassetteHUDElement;
+
+import funkin.modding.module.Module;
+import funkin.save.Save;
+import funkin.ui.options.OptionsState;
+import funkin.modding.events.StateChangeScriptEvent;
+import funkin.modding.base.ScriptedMusicBeatState;
+import flixel.FlxG;
+import flixel.util.FlxColor;
+import Std;
+
+class KssetteOptionsManager extends Module {
+    public var _kssCache:Map<String, Dynamic> = null;
+    public var _kssCacheReady:Bool = false;
+    public var _mobileLikePc:Bool = true;
+    public var isMobileMode:Bool = false;
+
+
+    var optionKeys:Array<String> = [
+        "kssette_show_score", "kssette_show_misses",
+        "kssette_acc_mode", "kssette_show_rank", "kssette_show_tier",
+        "kssette_middlescroll", "kssette_hide_opponent", "kssette_opponent_opacity", "kssette_opponent_pos", "kssette_opponent_bg", "kssette_ghost_tapping",
+        "kssette_ghost_sing", "kssette_show_timebar", "kssette_info_pos",
+        "kssette_show_song_title", "kssette_show_song_diff",
+        "kssette_show_song_time", "kssette_judge_pos", "kssette_mobile_keyboard", "kssette_mobile_opp_notes",
+        "kssette_timebar_pos", "kssette_show_breakbar", "kssette_resume_countdown",
+        "kssette_smooth_display", "kssette_custom_font",
+        "kssette_custom_pixel_font",
+        "kssette_intro_text", "kssette_intro_font_title", "kssette_intro_font_artist",
+        "kssette_subtitles_anim", "kssette_subtitles_pos", "kssette_smart_karaoke",
+        "kssette_colored_healthbar", "kssette_night_mode", "kssette_night_start", "kssette_night_end", "kssette_night_opacity",
+        "kssette_hitsound", "kssette_hitsound_volume", "kssette_icon_pos", "kssette_score_pos", "kssette_score_bop", "kssette_breakbar_style", "kssette_breakbar_pos"
+    ];
+
+    public function new() {
+        super("KssetteOptionsManager");
+        this.active = true;
+        isMobileMode = FlxG.onMobile;
+        KassetteHUDElement.globalOptionsManager = this;
+    }
+
+    public function initSettings() {
+        var changed:Bool = false;
+
+        for (opt in optionKeys) {
+            if (!Save.instance.modOptions.exists(opt)) {
+                var defaultVal:Dynamic = "On";
+                switch (opt) {
+                    case "kssette_middlescroll", "kssette_hide_opponent", "kssette_opponent_bg", "kssette_ghost_sing", "kssette_judge_pos", "kssette_smart_karaoke", "kssette_night_mode", "kssette_hitsound", "kssette_mobile_keyboard", "kssette_score_bop":
+                        defaultVal = "Off";
+                    case "kssette_mobile_opp_notes":
+                        defaultVal = "On";
+                    case "kssette_opponent_pos":
+                        defaultVal = "Left";
+                    case "kssette_acc_mode":
+                        defaultVal = "Classic";
+                    case "kssette_info_pos":
+                        defaultVal = "Below Score";
+                    case "kssette_timebar_pos":
+                        defaultVal = "Bottom";
+                    case "kssette_custom_font", "kssette_intro_font_title", "kssette_intro_font_artist":
+                        defaultVal = "vcr.ttf";
+                    case "kssette_custom_pixel_font":
+                        defaultVal = "pixel.otf";
+                    case "kssette_opponent_opacity":
+                        defaultVal = "100%";
+                    case "kssette_night_start":
+                        defaultVal = "20:00";
+                    case "kssette_night_end":
+                        defaultVal = "06:00";
+                    case "kssette_night_opacity":
+                        defaultVal = "65%";
+                    case "kssette_hitsound_volume":
+                        defaultVal = "100%";
+                    case "kssette_icon_pos":
+                        defaultVal = "Default";
+                    case "kssette_ghost_tapping":
+                        defaultVal = isMobileMode ? "Off" : "On";
+                    case "kssette_breakbar_style":
+                        defaultVal = "Default";
+                    case "kssette_breakbar_pos":
+                        defaultVal = "Center";
+                }
+
+                Save.instance.modOptions.set(opt, defaultVal);
+                changed = true;
+            }
+        }
+        if (changed) Save.instance.flush();
+    }
+
+    public function refreshOptionCache():Void {
+        _kssCache = ["__dummy__" => null];
+        _kssCache.remove("__dummy__");
+
+        _mobileLikePc = true;
+        if (FlxG.onMobile) {
+            var mobileVal:Dynamic = Save.instance.modOptions.get("kssette_mobile_keyboard");
+            _mobileLikePc = (mobileVal == "On" || mobileVal == true);
+        }
+
+        for (key in optionKeys) {
+            var kssVal = normalizeKssValue(key, Save.instance.modOptions.get(key));
+            _kssCache.set(key, kssVal);
+        }
+
+        _kssCacheReady = true;
+    }
+
+    public function normalizeKssValue(key:String, val:Dynamic):Dynamic {
+        if (FlxG.onMobile && !_mobileLikePc) {
+            if (key == "kssette_middlescroll") return "Off";
+            if (key == "kssette_opponent_pos") return "Left";
+            if (key == "kssette_opponent_bg") return "Off";
+            if (key == "kssette_hide_opponent") return "Off";
+        }
+
+        if (key == "kssette_intro_text") {
+            if (val == true) return "Classic";
+            if (val == false) return "Off";
+            var valStr = Std.string(val);
+            if (valStr == "On" || valStr == "on" || valStr == "true") return "Classic";
+            if (valStr == "Off" || valStr == "off" || valStr == "false") return "Off";
+            return val;
+        }
+
+        if (key == "kssette_hitsound") {
+            if (val == true) return "On Note Hit";
+            if (val == false) return "Off";
+            var valStr = Std.string(val);
+            if (valStr == "On" || valStr == "on" || valStr == "true") return "On Note Hit";
+            if (valStr == "Off" || valStr == "off" || valStr == "false") return "Off";
+            return val;
+        }
+
+        if (val == true) return true;
+        if (val == false) return false;
+        var valStr = Std.string(val);
+        if (valStr == "On" || valStr == "on" || valStr == "true") return true;
+        if (valStr == "Off" || valStr == "off" || valStr == "false") return false;
+        return val;
+    }
+
+    public function invalidateCache():Void {
+        refreshOptionCache();
+    }
+
+    public function isOptionLocked(key:String):Bool {
+        var ms = Save.instance.modOptions.get("kssette_middlescroll");
+        if (ms == null) ms = "Off";
+
+        var hideOpp = Save.instance.modOptions.get("kssette_hide_opponent");
+        if (hideOpp == null) hideOpp = "Off";
+
+        if (key == "kssette_opponent_bg" && (ms != "Off" || Std.string(hideOpp) == "On" || Std.string(hideOpp) == "true")) return true;
+        if (key == "kssette_opponent_opacity") {
+            if (ms == "Off" && (Std.string(hideOpp) == "On" || Std.string(hideOpp) == "true")) return true;
+            if (ms == "Hidden Notes" || ms == "Like Mobile" || ms == "Glass") return true;
+            if (isMobileMode) {
+                var mobPc = Save.instance.modOptions.get("kssette_mobile_keyboard");
+                if (mobPc != "On" && mobPc != true) {
+                    var mobOpp = Save.instance.modOptions.get("kssette_mobile_opp_notes");
+                    if (mobOpp == null) mobOpp = "On";
+                    if (Std.string(mobOpp) == "Off" || Std.string(mobOpp) == "false") return true;
+                }
+            }
+        }
+        if (key == "kssette_hide_opponent" && ms != "Off") return true;
+        if (key == "kssette_opponent_pos" && ms == "Off") return true;
+        if (key == "kssette_breakbar_pos" && ms != "Off") return true;
+
+        var gt = Save.instance.modOptions.get("kssette_ghost_tapping");
+        if (gt == null) gt = isMobileMode ? "Off" : "On";
+        if (key == "kssette_ghost_sing" && gt == "Off") return true;
+
+        var jp = Save.instance.modOptions.get("kssette_judge_pos");
+        if (jp == null) jp = "Off";
+        if (key == "kssette_show_misses" && jp != "Off") return true;
+
+        var intro = Save.instance.modOptions.get("kssette_intro_text");
+        if (intro == null) intro = "Classic";
+        if (key == "kssette_intro_pos" && (intro == "Off" || intro == false || intro == "Clap")) return true;
+        if (key == "kssette_intro_album" && (intro == "Off" || intro == false)) return true;
+
+        return false;
+    }
+
+    public function getKssValue(key:String):Dynamic { 
+        if (!_kssCacheReady) refreshOptionCache();
+        
+        var val:Dynamic = null;
+        if (_kssCache != null && _kssCache.exists(key)) val = _kssCache.get(key);
+        else val = normalizeKssValue(key, Save.instance.modOptions.get(key));
+        
+        if (isOptionLocked(key)) {
+            if (key == "kssette_opponent_bg" || key == "kssette_ghost_sing" || key == "kssette_show_misses") return false;
+            if (key == "kssette_breakbar_pos") return "Center";
+        }
+
+        return val;
+    }
+
+    public function isMobileLikePC():Bool {
+        if (!FlxG.onMobile) return true;
+        if (!_kssCacheReady) refreshOptionCache();
+        return _mobileLikePc;
+    }
+
+    public function isForcedDownscroll():Bool {
+        return isMobileMode && !_mobileLikePc;
+    }
+
+
+    public function getHudStyleId():String {
+        return getKssValue("kssette_acc_mode");
+    }
+
+    override public function onStateChangeEnd(event:StateChangeScriptEvent):Void {
+        super.onStateChangeEnd(event);
+        var target = event.targetState;
+        
+        refreshOptionCache();
+
+        if (target != null && Std.isOfType(target, OptionsState)) {
+            addSettingsCategory(target);
+        }
+    }
+
+    public function addSettingsCategory(state:OptionsState) {
+        var codex = state.optionsCodex;
+        var mainPage = codex.pages.get('options');
+        if (mainPage == null) return;
+
+        var label = isMobileMode ? "KASSETTE HUD MOBILE" : "KASSETTE HUD";
+        
+        var i:Int = mainPage.items.members.length - 1;
+        while (i >= 0) {
+            var item = mainPage.items.members[i];
+            if (item != null && (item.label == "KASSETTE HUD" || item.label == "KASSETTE HUD MOBILE")) {
+                mainPage.items.remove(item, true); 
+                item.destroy();
+            }
+            i--;
+        }
+
+        var item = mainPage.createItem(label, function() { 
+            FlxG.camera.fade(FlxColor.BLACK, 0.4, false, function() {
+                FlxG.switchState(ScriptedMusicBeatState.init("KssetteMenuState"));
+            });
+        });
+        
+        var pref = mainPage.items.getItem("PREFERENCES");
+        if (pref != null) {
+            mainPage.items.members.remove(item);
+            mainPage.items.members.insert(mainPage.items.members.indexOf(pref) + 1, item);
+        }
+        
+        for (i in 0...mainPage.items.length) { 
+            if (mainPage.items.members[i] != null) mainPage.items.members[i].y = 100 * (i + 1); 
+        }
+    }
+}

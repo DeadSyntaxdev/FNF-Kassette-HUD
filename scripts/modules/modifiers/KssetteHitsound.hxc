@@ -35,16 +35,15 @@ import Std;
 import Math;
 import StringTools;
 
-class KssetteHitsound extends Module {
+class KssetteHitsound extends KHUDModifier {
     /** Indicates if the game is paused; suppresses hitsound playback. */
     var isPaused:Bool = false;
     /** Cached reference to the hitsound audio asset. */
     var hitSound:Dynamic = null;
-    /** Cached reference to the KssetteApi module. */
-    var apiModule:Dynamic = null;
 
     public function new() {
         super('KssetteHitsound');
+        elementType = "modifier";
     }
 
     /**
@@ -54,9 +53,9 @@ class KssetteHitsound extends Module {
      * @return "On Note Hit" | "Anytime" | "Off"
      */
     function getMode():String {
-        if (apiModule == null) apiModule = ModuleHandler.getModule("KssetteApi");
-        if (apiModule == null) return "Off";
-        var val = apiModule?.getKssValue("kssette_hitsound");
+
+
+        var val = getSetting("kssette_hitsound");
         if (val == null) return "Off";
         var s = Std.string(val);
         if (s == "On" || s == "on" || s == "true" || val == true || s == "On Note Hit") return "On Note Hit";
@@ -70,8 +69,8 @@ class KssetteHitsound extends Module {
      * Reads from KssetteApi if available, otherwise falls back directly to Save.
      */
     function readVolume():Float {
-        if (apiModule == null) apiModule = ModuleHandler.getModule("KssetteApi");
-        var v:Dynamic = apiModule?.getKssValue("kssette_hitsound_volume");
+
+        var v:Dynamic = getSetting("kssette_hitsound_volume");
         if (v == null && Save.instance?.modOptions?.exists("kssette_hitsound_volume") == true) {
             v = Save.instance.modOptions.get("kssette_hitsound_volume");
         }
@@ -125,7 +124,8 @@ class KssetteHitsound extends Module {
      * whenever a note key is pressed, regardless of whether a note exists.
      * Only executes when mode is "Anytime" and the game is not paused or dying.
      */
-    override public function onUpdate(event:UpdateScriptEvent) {
+    override public function onUpdate(event:Dynamic) {
+        var elapsed:Float = (Std.isOfType(event, Float)) ? event : (event != null ? event.elapsed : 0);
         super.onUpdate(event);
 
         if (isPaused) return;

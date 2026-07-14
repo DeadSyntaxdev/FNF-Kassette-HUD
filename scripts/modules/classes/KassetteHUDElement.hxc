@@ -1,0 +1,160 @@
+package kassettehud.util;
+
+import funkin.play.PlayState;
+import funkin.modding.module.ModuleHandler;
+import flixel.FlxG;
+import flixel.text.FlxText;
+import flixel.text.FlxTextBorderStyle;
+
+
+class KassetteHUDElement {
+    public var name:String = "Element";
+    public var elementType:String = "visual";
+    public var skinId:String = "default";
+    public var active:Bool = true;
+
+    // Static references to Datahunters (set by KssetteApi) to avoid heavy ModuleHandler usage
+    public static var globalApi:Dynamic = null;
+    public static var globalGammodHunter:Dynamic = null;
+    public static var globalBreakHunter:Dynamic = null;
+    public static var globalIconHunter:Dynamic = null;
+    public static var globalSongHunter:Dynamic = null;
+    public static var globalAssetHunter:Dynamic = null;
+    public static var globalScoreHunter:Dynamic = null;
+    public static var globalOptionsManager:Dynamic = null;
+    public static var globalFontManager:Dynamic = null;
+    public static var globalUpdateManager:Dynamic = null;
+    public static var globalSecurityManager:Dynamic = null;
+    public var isMobile:Bool = false;
+    public var isPreview:Bool = false;
+    
+    public var breakHunter:Dynamic;
+    public var gammodHunter:Dynamic;
+    public var iconHunter:Dynamic;
+    public var assetHunter:Dynamic;
+    public var scoreHunter:Dynamic;
+    public var songHunter:Dynamic;
+    public var apiModule:Dynamic;
+
+    public function new(name:String) {
+        this.name = name;
+        this.isMobile = KassetteHUDElement.globalOptionsManager != null ? KassetteHUDElement.globalOptionsManager.isMobileMode : FlxG.onMobile;
+        this.apiModule = globalApi;
+        this.breakHunter = globalBreakHunter;
+        this.gammodHunter = globalGammodHunter;
+        this.iconHunter = globalIconHunter;
+        this.assetHunter = globalAssetHunter;
+        this.scoreHunter = globalScoreHunter;
+        this.songHunter = globalSongHunter;
+    }
+
+    /** Helper shortcut to fetch Kssette settings safely */
+    public function getSetting(key:String):Dynamic {
+        if (globalOptionsManager != null) return globalOptionsManager.getKssValue(key);
+        if (globalApi != null) return globalApi.getKssValue(key);
+        return null;
+    }
+
+    // Getters have been replaced with standard instance variables initialized in the constructor to improve HScript compatibility.
+
+    public function onCountdownStart(event:Dynamic) {}
+    public function onUpdate(event:Dynamic) {}
+
+    /** Logic executed exclusively when inside PlayState */
+    public function inGameplay(event:Dynamic) {}
+    
+    /** Logic executed exclusively when inside the KssetteMenuState Preview */
+    public function inPreview(event:Dynamic) {}
+
+    public function onStepHit(event:Dynamic) {}
+    public function onBeatHit(event:Dynamic) {}
+    public function onSongStart(event:Dynamic) {}
+    public function onSongRetry(event:Dynamic) {}
+    public function onSongEnd(event:Dynamic) {}
+    public function onResume(event:Dynamic) {}
+    public function onPause(event:Dynamic) {}
+    public function onStateChangeStart(event:Dynamic) {}
+    public function onStateChangeEnd(event:Dynamic) {}
+    public function onGhostMissNote(event:Dynamic) {}
+    public function onNoteGhostMiss(event:Dynamic) {}
+    public function onSubStateOpenBegin(event:Dynamic) {}
+    public function onSubStateCloseEnd(event:Dynamic) {}
+    public function onNoteHit(event:Dynamic) {}
+    public function onNoteMiss(event:Dynamic) {}
+    public function onNoteIncoming(event:Dynamic) {}
+    public function onEvent(event:Dynamic) {}
+
+    // ==========================================
+    // STANDARDIZED UTILITY FUNCTIONS
+    // ==========================================
+
+    /** Adds an element safely to PlayState or FlxG.state, optionally assigning a camera. */
+    public function safeAdd(obj:Dynamic, ?cam:Dynamic) {
+        if (obj == null) return;
+        if (cam != null) obj.cameras = [cam];
+        var state = PlayState.instance;
+        if (state != null && !isPreview) state.add(obj);
+        else if (FlxG.state != null) FlxG.state.add(obj);
+    }
+
+    /** Removes an element safely from PlayState and FlxG.state. */
+    public function safeRemove(obj:Dynamic) {
+        if (obj == null) return;
+        var state = PlayState.instance;
+        if (state != null && !isPreview) state.remove(obj, true);
+        if (FlxG.state != null) FlxG.state.remove(obj, true);
+    }
+
+    /** Safely removes and destroys an element. */
+    public function safeDestroy(obj:Dynamic) {
+        if (obj != null) {
+            safeRemove(obj);
+            obj.destroy();
+        }
+    }
+
+    /** Helper shortcut to get the current HUD font from KssetteApi. */
+    public function getHudFont():String {
+        if (globalApi != null) {
+            var f = globalApi.getHudFont();
+            if (f != null && f != "null" && f != "") return f;
+        }
+        return "VCR OSD Mono";
+    }
+
+    /** Creates and formats a FlxText object automatically. */
+    public function createText(x:Float, y:Float, w:Float, text:String, size:Int, color:Int = 0xFFFFFFFF, align:String = "left"):FlxText {
+        var t = new FlxText(x, y, w, text, size);
+        t.setFormat(getHudFont(), size, color, align, FlxTextBorderStyle.OUTLINE, 0xFF000000);
+        return t;
+    }
+
+    /** Returns the display label for a judgement identifier. */
+    public function getJudgeName(name:String):String {
+        switch(name) {
+            case 'sick': return 'Sicks';
+            case 'good': return "Goods";
+            case 'bad': return "Bads";
+            case 'shit': return "Shits";
+            case 'miss': return "Misses";
+            case 'maxCombo': return "Max Combo";
+            default: return "???";
+        }
+    }
+
+    /** Formats a rank ID to its abbreviated display form. */
+    public function formatRank(id:String):String {
+        if (id == null || id == "" || id == "?") return "?";
+        switch(id) {
+            case "PERFECT_GOLD": return "P [GOLD]";
+            case "PERFECT": return "P";
+            case "EXCELLENT": return "E";
+            case "GREAT": return "G";
+            case "GOOD": return "Gd";
+            case "LOSS": return "L";
+            default: return "?";
+        }
+    }
+
+    public function destroy() {}
+}

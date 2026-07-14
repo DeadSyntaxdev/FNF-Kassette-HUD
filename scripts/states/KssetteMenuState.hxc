@@ -342,7 +342,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         var scorePos = Save.instance.modOptions.get("kssette_score_pos");
         if (scorePos == null) scorePos = "Vanilla";
         var isDownscroll = false;
-        if (apiRef != null && apiRef.getDownscroll != null) isDownscroll = apiRef.getDownscroll();
+        if (apiRef != null && apiRef.songHunter != null) isDownscroll = apiRef.songHunter.getDownscroll();
         else isDownscroll = Preferences.downscroll;
         
         var newInfoLabel = "";
@@ -678,7 +678,7 @@ class KssetteMenuState extends ScriptedMusicBeatState {
         createToggle("SCORE TEXT POSITION", "kssette_score_pos", ["Vanilla", "Inverted"], "Choose where the score text is placed relative to the health bar.");
         
         var isDownscroll = false;
-        if (apiRef != null && apiRef.getDownscroll != null) isDownscroll = apiRef.getDownscroll();
+        if (apiRef != null && apiRef.songHunter != null) isDownscroll = apiRef.songHunter.getDownscroll();
         else isDownscroll = Preferences.downscroll;
 
         var scorePosInit = Save.instance.modOptions.get("kssette_score_pos");

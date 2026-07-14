@@ -1,0 +1,111 @@
+package kassettehud.util;
+
+import kassettehud.util.KassetteHUDElement;
+
+import funkin.play.PlayState;
+import Std;
+import Math;
+import funkin.modding.events.ScriptEvent;
+import funkin.modding.events.UpdateScriptEvent;
+
+class BreakDatahunter extends KassetteHUDDatahunter {
+    public var playerNoteTimes:Array<Dynamic> = [];
+    public var currentNoteIndex:Int = 0;
+    
+    // { active:Bool, progress:Float, timeLeft:Float }
+    public var currentBreakData:Dynamic = { active: false, progress: 0.0, timeLeft: 0.0 };
+
+    public function new() {
+        super("BreakDatahunter");
+        KassetteHUDElement.globalBreakHunter = this;
+    }
+
+
+    override public function onCountdownStart(event:ScriptEvent) {
+        playerNoteTimes = [];
+        currentNoteIndex = 0;
+        currentBreakData = { active: false, progress: 0.0, timeLeft: 0.0 };
+
+        var state = PlayState.instance;
+        if (state != null && state.currentChart != null && state.currentChart.notes != null) {
+            var notesArray:Array<Dynamic> = state.currentChart.notes;
+            var len:Int = notesArray.length;
+
+            for (i in 0...len) {
+                var note = notesArray[i];
+                if (note == null) continue;
+
+                var isPlayer:Bool = false;
+                var mustHitResult = note.getMustHitNote();
+                if (mustHitResult != null) {
+                    isPlayer = (mustHitResult == true);
+                } else {
+                    var noteData = note.data;
+                    if (noteData != null) isPlayer = (Std.parseInt(Std.string(noteData)) < 4);
+                }
+
+                if (isPlayer) {
+                    var noteTime:Float = (note.time != null) ? note.time : -1.0;
+                    var noteLen:Float = (note.length != null) ? note.length : 0.0;
+                    if (noteTime >= 0) playerNoteTimes.push({start: noteTime, end: noteTime + noteLen});
+                }
+            }
+
+            playerNoteTimes.sort(function(a, b) {
+                if (a.start < b.start) return -1;
+                if (a.start > b.start) return 1;
+                return 0;
+            });
+        }
+    }
+
+    override public function onUpdate(event:UpdateScriptEvent) {
+        var elapsed = event.elapsed;
+        var state = PlayState.instance;
+        if (state == null || state.conductorInUse == null || playerNoteTimes.length == 0) {
+            currentBreakData.active = false;
+            currentBreakData.progress = 0.0;
+            currentBreakData.timeLeft = 0.0;
+            return;
+        }
+
+        var currentTime = state.conductorInUse.songPosition;
+
+        while (currentNoteIndex > 0 && playerNoteTimes[currentNoteIndex - 1].start > currentTime) {
+            currentNoteIndex--;
+        }
+        while (currentNoteIndex < playerNoteTimes.length && playerNoteTimes[currentNoteIndex].start <= currentTime) {
+            currentNoteIndex++;
+        }
+
+        if (currentNoteIndex >= playerNoteTimes.length) {
+            currentBreakData.active = false;
+            currentBreakData.progress = 0.0;
+            currentBreakData.timeLeft = 0.0;
+            return;
+        }
+
+        var nextTime = playerNoteTimes[currentNoteIndex].start;
+        var prevTime:Float = 0;
+        if (currentNoteIndex > 0) prevTime = playerNoteTimes[currentNoteIndex - 1].end;
+        
+        var gap = nextTime - prevTime;
+        if (gap >= 2500) {
+            var timeSincePrev = currentTime - prevTime;
+            var timeUntilNext = nextTime - currentTime;
+
+            if (timeSincePrev > 400 && timeUntilNext > 400) {
+                var totalVisibleTime = gap - 800; 
+                var currentVisibleTime = timeSincePrev - 400;
+                var progress = currentVisibleTime / totalVisibleTime;
+                currentBreakData.active = true;
+                currentBreakData.progress = progress;
+                currentBreakData.timeLeft = timeUntilNext;
+                return;
+            }
+        }
+        currentBreakData.active = false;
+        currentBreakData.progress = 0.0;
+        currentBreakData.timeLeft = 0.0;
+    }
+}

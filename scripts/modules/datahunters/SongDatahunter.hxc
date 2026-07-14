@@ -1,0 +1,237 @@
+package kassettehud.util;
+
+import kassettehud.util.KassetteHUDElement;
+import funkin.play.PlayState;
+import funkin.modding.events.ScriptEvent;
+import funkin.modding.events.UpdateScriptEvent;
+import funkin.Preferences;
+import funkin.save.Save;
+import funkin.modding.module.ModuleHandler;
+import flixel.util.FlxStringUtil;
+import Std;
+import Math;
+import flixel.FlxG;
+
+class SongDatahunter extends KassetteHUDDatahunter {
+    public var gammodAutoPlay:Bool = false;
+    
+    var _checkedSongName:Bool = false;
+    var _cachedSongName:String = "Unknown";
+    
+    var _checkedSongArtist:Bool = false;
+    var _cachedSongArtist:String = "Unknown Artist";
+    
+    var _checkedSongId:Bool = false;
+    var _cachedSongId:String = "";
+    var _qtModule:Dynamic = null;
+    
+    var _cachedModeMsg:String = null;
+    var _cachedBotplay:Bool = false;
+    var _cachedGammodAuto:Bool = false;
+
+    public function new() {
+        super("SongDatahunter");
+        KassetteHUDElement.globalSongHunter = this;
+    }
+
+
+
+
+    override public function onUpdate(event:UpdateScriptEvent) {
+        var elapsed = event.elapsed;
+    }
+
+    override public function onCountdownStart(event:ScriptEvent) {
+        var state = PlayState.instance;
+        if (state != null && state.isChartingMode && state.isMinimalMode) {
+            state.isMinimalMode = false;
+            if (state.initStage != null) state.initStage();
+            if (state.initCharacters != null) state.initCharacters();
+            state.refresh();
+        }
+        
+        _checkedSongName = false;
+        _cachedSongName = "Unknown";
+        _checkedSongArtist = false;
+        _cachedSongArtist = "Unknown Artist";
+        _checkedSongId = false;
+        _cachedSongId = "";
+        _qtModule = null;
+        _cachedModeMsg = null;
+        _cachedBotplay = false;
+        _cachedGammodAuto = false;
+        
+        gammodAutoPlay = false;
+    }
+
+    public function getDownscroll():Bool {
+        var forced:Bool = false;
+        if (KassetteHUDElement.globalApi != null) forced = KassetteHUDElement.globalApi.isForcedDownscroll();
+        return Preferences.downscroll || forced;
+    }
+
+    public function getSongTitle():String {
+        if (_checkedSongName) return _cachedSongName;
+        
+        _checkedSongName = true;
+        _cachedSongName = "Unknown";
+        
+        var state = PlayState.instance;
+        if (state == null) return "Unknown";
+        
+        var titleStr = "Unknown";
+        if (state.currentChart != null && state.currentChart.songName != null) {
+            var s = Std.string(state.currentChart.songName);
+            if (s != "" && s != "null") titleStr = s;
+        }
+
+        if (titleStr == "Unknown" || titleStr == "null") {
+            if (state.currentSong != null && state.currentSong.songName != null) {
+                var s = Std.string(state.currentSong.songName);
+                if (s != "" && s != "null") titleStr = s;
+            } else if (state.currentSong != null && state.currentSong.id != null) {
+                var s = Std.string(state.currentSong.id);
+                if (s != "" && s != "null") titleStr = s;
+            }
+        }
+        
+        if (titleStr != "Unknown" && titleStr != "null") _cachedSongName = titleStr;
+        return _cachedSongName;
+    }
+
+    public function getSongArtist():String {
+        if (_checkedSongArtist) return _cachedSongArtist;
+        
+        _checkedSongArtist = true;
+        _cachedSongArtist = "Unknown Artist";
+        
+        var state = PlayState.instance;
+        if (state == null) return "Unknown Artist";
+        
+        var artistStr = "Unknown Artist";
+        if (state.currentChart != null) {
+            var cArtist = state.currentChart?.songArtist;
+            if (cArtist == null) cArtist = state.currentChart?.artist;
+            
+            var meta = state.currentChart?.metadata;
+            if (cArtist == null && meta != null) cArtist = meta?.artist;
+
+            if (cArtist != null && Std.string(cArtist) != "" && Std.string(cArtist) != "null") {
+                _cachedSongArtist = Std.string(cArtist);
+                return _cachedSongArtist;
+            }
+        }
+
+        if (artistStr == "Unknown Artist" || artistStr == "null") {
+            if (state.currentSong != null) {
+                var sArtist = Std.string(state.currentSong.artist);
+                if (sArtist != "" && sArtist != "null") {
+                    artistStr = sArtist;
+                } else if (state.currentSong.metadata != null && state.currentSong.metadata.artist != null) {
+                    var mArtist = Std.string(state.currentSong.metadata.artist);
+                    if (mArtist != "" && mArtist != "null") artistStr = mArtist;
+                }
+            }
+        }
+        
+        if (artistStr != "Unknown Artist" && artistStr != "null") _cachedSongArtist = artistStr;
+        return _cachedSongArtist;
+    }
+
+    public function getDifficulty():String {
+        if (KassetteHUDElement.globalApi != null && KassetteHUDElement.globalApi.getKssValue("kssette_show_song_diff") != true) return "";
+        var state = PlayState.instance;
+        if (state == null) return "NORMAL";
+        var diff:String = Std.string(state.currentDifficulty);
+        return (diff == null || diff == "" || diff == "null") ? "NORMAL" : diff.toUpperCase();
+    }
+
+    public function getTimeRemaining():String {
+        if (KassetteHUDElement.globalApi != null && KassetteHUDElement.globalApi.getKssValue("kssette_show_song_time") != true) return "";
+        var state = PlayState.instance;
+        if (state == null || state.conductorInUse == null) return "0:00";
+        var remaining:Float = (state.currentSongLengthMs - state.conductorInUse.songPosition) / 1000;
+        if (remaining < 0) remaining = 0;
+        return FlxStringUtil.formatTime(remaining, false);
+    }
+
+    public function getSongProgress():Float {
+        var state = PlayState.instance;
+        if (state == null || state.currentSongLengthMs <= 0) return 0.0;
+        return Math.min(1.0, Math.max(0.0, state.conductorInUse.songPosition / state.currentSongLengthMs));
+    }
+
+    public function getNoteCount():Int {
+        if (KassetteHUDElement.globalApi != null && KassetteHUDElement.globalApi.getKssValue("kssette_acc_mode") != "Ascending") return 0;
+        var state = PlayState.instance;
+        if (state == null || state.currentChart == null || state.currentChart.notes == null) return 0;
+        var count:Int = 0;
+        for (note in state.currentChart.notes) {
+            var isPlayer = false;
+            try {
+                if (note.getMustHitNote() == true) isPlayer = true;
+            } catch(e:Dynamic) {
+                var d = note?.data;
+                if (d == null) d = note?.d;
+                if (d != null && Std.parseInt(Std.string(d)) >= 4) isPlayer = true;
+                if (note?.mustHitNote == true) isPlayer = true;
+            }
+            if (isPlayer) count++;
+        }
+        return (count == 0) ? Std.int(state.currentChart.notes.length / 2) : count;
+    }
+
+    public function getNoteStyle():String {
+        var state = PlayState.instance;
+        if (state == null) return "funkin";
+        if (state.currentChart != null && state.currentChart.playData != null && state.currentChart.playData.noteStyle != null) {
+            return state.currentChart.playData.noteStyle;
+        }
+        return "funkin";
+    }
+
+    public function getModeMessage():String {
+        var state = PlayState.instance;
+        if (state == null) return "";
+        
+        var gammodAutoMod = ModuleHandler.getModule("GammodAutoPlay");
+        var gAutoPlay = gammodAutoPlay;
+        if (gammodAutoMod != null) {
+            var autoRaw:Dynamic = gammodAutoMod?.value;
+            if (autoRaw == null) autoRaw = gammodAutoMod.scriptGet("value");
+            gAutoPlay = (autoRaw != null && Std.string(autoRaw).toUpperCase() != "DISABLED");
+            gammodAutoPlay = gAutoPlay;
+        }
+
+        var botplay:Bool = state.isBotPlayMode || (Save.instance.modOptions.get("BotMode") == true) || gAutoPlay;
+        
+        if (!botplay) {
+            if (!_checkedSongId) {
+                _checkedSongId = true;
+                _cachedSongId = (state.currentSong != null && state.currentSong.id != null) ? state.currentSong.id : ((state.currentChart != null && state.currentChart.songName != null) ? state.currentChart.songName : "");
+            }
+            if (_cachedSongId != null && _cachedSongId.toLowerCase() == "termination") {
+                if (_qtModule == null) _qtModule = ModuleHandler.getModule("QTdodgeModule");
+                if (_qtModule != null && _qtModule?.scriptGet != null) {
+                    var scriptGetFn:Dynamic = _qtModule.scriptGet;
+                    if (scriptGetFn != null && scriptGetFn("qtBotplay") == true) botplay = true;
+                }
+            }
+        }
+        
+        if (_cachedModeMsg != null && botplay == _cachedBotplay && gAutoPlay == _cachedGammodAuto) return _cachedModeMsg;
+        
+        _cachedBotplay = botplay;
+        _cachedGammodAuto = gAutoPlay;
+        var songName:String = getSongTitle();
+
+        if (botplay) {
+            if (gammodAutoPlay) _cachedModeMsg = 'Watching "' + songName + '" with AutoPlay';
+            else _cachedModeMsg = 'Watching "' + songName + '" with Botplay';
+        } else {
+            _cachedModeMsg = "";
+        }
+        
+        return _cachedModeMsg; 
+    }
+}

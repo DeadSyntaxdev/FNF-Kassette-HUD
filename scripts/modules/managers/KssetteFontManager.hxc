@@ -1,0 +1,121 @@
+package kassettehud.util;
+
+import kassettehud.util.KassetteHUDElement;
+
+import funkin.modding.module.Module;
+import funkin.modding.module.ModuleHandler;
+import funkin.play.PlayState;
+import funkin.data.notestyle.NoteStyleRegistry;
+import Std;
+
+class KssetteFontManager extends Module {
+    public var _cachedHudFont:String = "";
+    public var _cachedHudStyleId:String = "";
+    public var lastFontKey:String = "";
+    public var cachedCustomFontPath:String = "";
+    public var lastPixelFontKey:String = "";
+    public var cachedCustomPixelFontPath:String = "";
+
+    public function new() {
+        super("KssetteFontManager");
+        this.active = true;
+        KassetteHUDElement.globalFontManager = this;
+    }
+
+    public function getHudFont():String {
+        var styleId:String = "funkin";
+        
+        if (PlayState.instance != null) {
+            if (PlayState.instance.currentChart != null) {
+                var pData = PlayState.instance.currentChart?.playData;
+                if (pData != null) {
+                    var nStyle = pData?.noteStyle;
+                    if (nStyle != null) styleId = Std.string(nStyle);
+                } else {
+                    var nStyle = PlayState.instance.currentChart?.noteStyle;
+                    if (nStyle != null) styleId = Std.string(nStyle);
+                }
+            }
+        }
+
+        if (_cachedHudFont != "" && _cachedHudStyleId == styleId) return _cachedHudFont;
+
+        var currentStyleId:String = styleId;
+        var depth:Int = 0;
+        var maxDepth:Int = 5;
+        
+        while (currentStyleId != null && depth < maxDepth) {
+            var styleEntry = NoteStyleRegistry.instance.fetchEntry(currentStyleId);
+            if (styleEntry == null) break;
+            
+            var data = styleEntry?._data;
+
+            if (data != null) {
+                var assets = data?.assets;
+
+                if (assets != null) {
+                    var note = assets?.note;
+
+                    if (note != null) {
+                        var isPixelVal:Dynamic = note?.isPixel;
+                        
+                        if (isPixelVal == true || isPixelVal == "true") {
+                            _cachedHudStyleId = styleId;
+                            _cachedHudFont = getCustomPixelFont();
+                            return _cachedHudFont;
+                        } else if (isPixelVal == false || isPixelVal == "false") {
+                            break;
+                        }
+                    }
+                }
+                
+                var fallbackStyle = data?.fallback;
+
+                if (fallbackStyle != null && Std.string(fallbackStyle) != "" && Std.string(fallbackStyle) != "null") {
+                    currentStyleId = Std.string(fallbackStyle);
+                } else {
+                    currentStyleId = null;
+                }
+            } else {
+                currentStyleId = null;
+            }
+            depth++;
+        }
+        
+        _cachedHudStyleId = styleId;
+        _cachedHudFont = getCustomFont();
+        return _cachedHudFont;
+    }
+
+    public function resolveCustomFont(fontKey:String):String {
+        var assetHunter = KassetteHUDElement.globalAssetHunter;
+        if (assetHunter != null) return assetHunter.resolveCustomFont(fontKey);
+        return "VCR OSD Mono";
+    }
+
+    public function getCustomFont():String {
+        var optionsManager = KassetteHUDElement.globalOptionsManager;
+        var fontKey:String = "None";
+        if (optionsManager != null) {
+            fontKey = Std.string(optionsManager.getKssValue("kssette_custom_font"));
+        }
+        if (fontKey == lastFontKey && cachedCustomFontPath != "") return cachedCustomFontPath;
+        var resolved = resolveCustomFont(fontKey);
+        lastFontKey = fontKey;
+        cachedCustomFontPath = resolved;
+        return resolved;
+    }
+
+    public function getCustomPixelFont():String {
+        var optionsManager = KassetteHUDElement.globalOptionsManager;
+        var fontKey:String = "None";
+        if (optionsManager != null) {
+            fontKey = Std.string(optionsManager.getKssValue("kssette_custom_pixel_font"));
+        }
+        if (fontKey == lastPixelFontKey && cachedCustomPixelFontPath != "") return cachedCustomPixelFontPath;
+        var resolved = resolveCustomFont(fontKey);
+        lastPixelFontKey = fontKey;
+        cachedCustomPixelFontPath = resolved;
+        return resolved;
+    }
+}

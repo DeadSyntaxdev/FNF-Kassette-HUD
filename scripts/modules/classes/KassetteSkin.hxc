@@ -1,0 +1,184 @@
+package kassettehud.util;
+
+import openfl.utils.Assets;
+import haxe.Json;
+import Type;
+import Std;
+
+class KassetteSkin {
+    public var elements:Array<KassetteHUDElement> = [];
+    public var skinId:String = "default";
+    public var name:String = "default";
+    public var apiModule:Dynamic = null;
+
+    public function new(skinId:String = "default") {
+        this.skinId = skinId;
+        this.name = skinId;
+        loadDefaultElements();
+    }
+
+    public function initialize() {
+        for (element in elements) {
+            element.skinId = this.skinId;
+        }
+    }
+
+    function loadDefaultElements() {
+        addElement(new KssetteHealthBar());
+        addElement(new KssetteTimeBar());
+        addElement(new KssetteAccuracy());
+        addElement(new KssetteShowTitle());
+        addElement(new KssetteBreakBar());
+    }
+
+    function instantiateElement(className:String):KassetteHUDElement {
+        switch (className) {
+            case "KssetteHealthBar": return new KssetteHealthBar();
+            case "KssetteTimeBar": return new KssetteTimeBar();
+            case "KssetteAccuracy": return new KssetteAccuracy();
+            case "KssetteShowTitle": return new KssetteShowTitle();
+            case "KssetteBreakBar": return new KssetteBreakBar();
+            default: 
+                try {
+                    var cls = Type.resolveClass(className);
+                    if (cls == null) cls = Type.resolveClass("kassettehud.util." + className);
+                    if (cls != null) return Type.createInstance(cls, []);
+                } catch(e:Dynamic) {}
+                trace("[KassetteSkin] Could not instantiate custom element: " + className);
+                return null;
+        }
+    }
+
+    public function addElement(element:KassetteHUDElement) {
+        if (element != null) {
+            elements.push(element);
+        }
+    }
+
+    public function getElement(elementName:String):KassetteHUDElement {
+        for (element in elements) {
+            if (element.name == elementName) return element;
+        }
+        return null;
+    }
+
+    public function onCountdownStart(event:Dynamic) {
+        for (element in elements) {
+            if (element.active) element.onCountdownStart(event);
+        }
+    }
+
+    public function onUpdate(elapsed:Float) {
+        for (element in elements) {
+            if (element.active) element.onUpdate(elapsed);
+        }
+    }
+
+    public function onStepHit(event:Dynamic) {
+        for (element in elements) {
+            if (element.active) element.onStepHit(event);
+        }
+    }
+
+    public function onBeatHit(event:Dynamic) {
+        for (element in elements) {
+            if (element.active) element.onBeatHit(event);
+        }
+    }
+
+    public function onSongStart(event:Dynamic) {
+        for (element in elements) {
+            if (element.active) element.onSongStart(event);
+        }
+    }
+
+    public function onSongRetry(event:Dynamic) {
+        for (element in elements) {
+            if (element.active) element.onSongRetry(event);
+        }
+    }
+
+    public function onSongEnd(event:Dynamic) {
+        for (element in elements) {
+            if (element.active) element.onSongEnd(event);
+        }
+    }
+
+    public function onResume(event:Dynamic) {
+        for (element in elements) {
+            if (element.active) element.onResume(event);
+        }
+    }
+
+    public function onPause(event:Dynamic) {
+        for (element in elements) {
+            if (element.active) element.onPause(event);
+        }
+    }
+
+    public function onStateChangeStart(event:Dynamic) {
+        for (element in elements) {
+            if (element.active) element.onStateChangeStart(event);
+        }
+    }
+
+    public function onStateChangeEnd(event:Dynamic) {
+        for (element in elements) {
+            if (element.active) element.onStateChangeEnd(event);
+        }
+    }
+
+    public function onNoteMiss(event:Dynamic) {
+        for (element in elements) {
+            if (element.active) element.onNoteMiss(event);
+        }
+    }
+    public function onNoteIncoming(event:Dynamic) {
+        for (element in elements) {
+            if (element.active) element.onNoteIncoming(event);
+        }
+    }
+
+    public function onEvent(event:Dynamic) {
+        for (element in elements) {
+            if (element.active) element.onEvent(event);
+        }
+    }
+
+    public function onGhostMissNote(event:Dynamic) {
+        for (element in elements) {
+            if (element.active) element.onGhostMissNote(event);
+        }
+    }
+
+    public function onNoteGhostMiss(event:Dynamic) {
+        for (element in elements) {
+            if (element.active) element.onNoteGhostMiss(event);
+        }
+    }
+
+    public function onSubStateOpenBegin(event:Dynamic) {
+        for (element in elements) {
+            if (element.active) element.onSubStateOpenBegin(event);
+        }
+    }
+
+    public function onSubStateCloseEnd(event:Dynamic) {
+        for (element in elements) {
+            if (element.active) element.onSubStateCloseEnd(event);
+        }
+    }
+
+    public function onNoteHit(event:Dynamic) {
+        for (element in elements) {
+            if (element.active) element.onNoteHit(event);
+        }
+    }
+
+    public function destroy() {
+        for (element in elements) {
+            element.destroy();
+        }
+        elements = [];
+    }
+}

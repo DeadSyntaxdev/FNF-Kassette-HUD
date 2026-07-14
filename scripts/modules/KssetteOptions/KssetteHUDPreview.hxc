@@ -3,6 +3,7 @@ package kassettehud.util;
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
+import kassettehud.util.KassetteHUDElement;
 import funkin.Preferences;
 import funkin.Paths;
 import funkin.data.notestyle.NoteStyleRegistry;
@@ -14,6 +15,7 @@ import flixel.FlxSprite;
 import flixel.FlxCamera;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
+import flixel.util.FlxTimer;
 import Std;
 import Math;
 
@@ -194,9 +196,10 @@ class KssetteHUDPreview extends Module {
         var isMob = false;
         var isMobPC = false;
         try {
-            if (apiModule != null) {
-                isMob = apiModule.isMobileMode == true;
-                isMobPC = apiModule.isMobileLikePC() == true;
+            var optManager = KassetteHUDElement.globalOptionsManager;
+            if (optManager != null) {
+                isMob = optManager.isMobileMode == true;
+                isMobPC = optManager.isMobileLikePC() == true;
             }
         } catch(e:Dynamic) {}
 
@@ -215,17 +218,17 @@ class KssetteHUDPreview extends Module {
         }
 
         var downscroll = false;
-        if (apiModule != null && apiModule.getDownscroll != null) downscroll = apiModule.getDownscroll();
+        if (KassetteHUDElement.globalSongHunter != null) downscroll = KassetteHUDElement.globalSongHunter.getDownscroll();
         else downscroll = Preferences.downscroll;
         
-        var rawMs:Dynamic = apiModule.getKssValue("kssette_middlescroll");
+        var rawMs:Dynamic = apiModule != null ? apiModule.getKssValue("kssette_middlescroll") : null;
         var ms:String = "";
         if (rawMs == true) ms = "On";
         else if (rawMs == false) ms = "Off";
         else ms = Std.string(rawMs);
         
-        var oppPos = Std.string(apiModule.getKssValue("kssette_opponent_pos"));
-        var coloredHB = apiModule.getKssValue("kssette_colored_healthbar") == true;
+        var oppPos = Std.string(apiModule != null ? apiModule.getKssValue("kssette_opponent_pos") : null);
+        var coloredHB = apiModule != null && apiModule.getKssValue("kssette_colored_healthbar") == true;
 
         var strumYOffset = 50.0;
         try { strumYOffset = Constants.STRUMLINE_Y_OFFSET; } catch(e:Dynamic) {}
@@ -247,7 +250,7 @@ class KssetteHUDPreview extends Module {
 
         var noteStyle = NoteStyleRegistry.instance.fetchDefault();
 
-        var hideOpp = Std.string(apiModule.getKssValue("kssette_hide_opponent")) == "On" || Std.string(apiModule.getKssValue("kssette_hide_opponent")) == "true";
+        var hideOpp = apiModule != null && (Std.string(apiModule.getKssValue("kssette_hide_opponent")) == "On" || Std.string(apiModule.getKssValue("kssette_hide_opponent")) == "true");
         var showOpp = (ms != "Hidden Notes") && !(ms == "Off" && hideOpp);
         if (showOpp) {
             opponentStrumPreview = new Strumline(noteStyle, false);
@@ -257,7 +260,7 @@ class KssetteHUDPreview extends Module {
             var obg = opponentStrumPreview?.background; if (obg != null) obg.visible = false;
             
             var oppAlphaVal = 1.0;
-            var rawOppOp:Dynamic = apiModule.getKssValue("kssette_opponent_opacity");
+            var rawOppOp:Dynamic = apiModule != null ? apiModule.getKssValue("kssette_opponent_opacity") : null;
             if (rawOppOp != null) {
                 var valStr = StringTools.replace(Std.string(rawOppOp), "%", "");
                 var valNum = Std.parseFloat(valStr);
@@ -283,7 +286,7 @@ class KssetteHUDPreview extends Module {
         var isGlass = (ms == "Glass");
         var sxOff = Constants.STRUMLINE_X_OFFSET != null ? Constants.STRUMLINE_X_OFFSET : 50.0;
         
-        var oppNotesActive = apiModule.getKssValue("kssette_mobile_opp_notes") == true;
+        var oppNotesActive = apiModule != null && apiModule.getKssValue("kssette_mobile_opp_notes") == true;
 
         if (isArrowsScheme) {
             playerStrumPreview.x = 0;
@@ -434,7 +437,7 @@ class KssetteHUDPreview extends Module {
             previewOutTween = FlxTween.tween(opponentStrumPreview, {y: oppTargetY}, 0.3, {ease: FlxEase.cubeOut});
         }
 
-        cachedActive = apiModule.getKssValue("kssette_show_hud") == true;
+        cachedActive = apiModule != null && apiModule.getKssValue("kssette_show_hud") == true;
         healthBarBG.visible = cachedActive;
         if (healthBarFillP1 != null && healthBarFillP1.exists) healthBarFillP1.visible = cachedActive;
         if (healthBarFillP2 != null && healthBarFillP2.exists) healthBarFillP2.visible = cachedActive;
@@ -467,14 +470,17 @@ class KssetteHUDPreview extends Module {
         var isMobPC = false;
         try {
             if (apiModule != null) {
-                var rawMs:Dynamic = apiModule.getKssValue("kssette_middlescroll");
+                var rawMs:Dynamic = apiModule != null ? apiModule.getKssValue("kssette_middlescroll") : null;
                 if (rawMs == true) ms = "On";
                 else if (rawMs == false) ms = "Off";
                 else ms = Std.string(rawMs);
                 
-                oppNotesActive = apiModule.getKssValue("kssette_mobile_opp_notes") == true;
-                isMob = apiModule.isMobileMode == true;
-                isMobPC = apiModule.isMobileLikePC() == true;
+                oppNotesActive = apiModule != null && apiModule.getKssValue("kssette_mobile_opp_notes") == true;
+                var optManager = KassetteHUDElement.globalOptionsManager;
+                if (optManager != null) {
+                    isMob = optManager.isMobileMode == true;
+                    isMobPC = optManager.isMobileLikePC() == true;
+                }
             }
         } catch(e:Dynamic) {}
 
@@ -504,7 +510,7 @@ class KssetteHUDPreview extends Module {
         if (rec == null || !rec.exists) return;
         
         var downscroll = false;
-        if (apiModule != null && apiModule.getDownscroll != null) downscroll = apiModule.getDownscroll();
+        if (KassetteHUDElement.globalSongHunter != null) downscroll = KassetteHUDElement.globalSongHunter.getDownscroll();
         
         var style = NoteStyleRegistry.instance.fetchDefault();
         var fake = new funkin.play.notes.NoteSprite(style, dir);
@@ -525,7 +531,7 @@ class KssetteHUDPreview extends Module {
         fake.health = isPlayer ? 1 : 0;
         fake.alpha = 0.8;
         
-        var ms = Std.string(apiModule.getKssValue("kssette_middlescroll"));
+        var ms = Std.string(apiModule != null ? apiModule.getKssValue("kssette_middlescroll") : null);
         if (!isPlayer && ms == "Glass") {
             fake.alpha = 0.25;
             fake.color = 0xFF666666;
@@ -543,7 +549,7 @@ class KssetteHUDPreview extends Module {
             if (strum != null && strum.exists && fake.visible) {
                 try {
                     strum.playConfirm(dir);
-                    new flixel.util.FlxTimer().start(0.15, function(tmr) {
+                    new FlxTimer().start(0.15, function(tmr) {
                         if (strum != null && strum.exists) strum.playStatic(dir);
                     });
                 } catch(e:Dynamic) {}
@@ -595,8 +601,8 @@ class KssetteHUDPreview extends Module {
         var char = apiModule.preview_bf;
         var dir = Std.random(4);
         
-        var ghostTapping = Std.string(apiModule.getKssValue("kssette_ghost_tapping"));
-        var ghostSing = Std.string(apiModule.getKssValue("kssette_ghost_sing"));
+        var ghostTapping = Std.string(apiModule != null ? apiModule.getKssValue("kssette_ghost_tapping") : null);
+        var ghostSing = Std.string(apiModule != null ? apiModule.getKssValue("kssette_ghost_sing") : null);
         
         if (playerStrumPreview != null && playerStrumPreview.exists) {
             try {
@@ -736,7 +742,7 @@ class KssetteHUDPreview extends Module {
             iconP2.y = healthBarBG.y - (iconP2.height / 2) + 10;
             
             var hw = Std.int((healthBarBG.width - 8) / 2);
-            var iconPos = Std.string(apiModule.getKssValue("kssette_icon_pos"));
+            var iconPos = Std.string(apiModule != null ? apiModule.getKssValue("kssette_icon_pos") : null);
             if (iconPos == "Corners") {
                 var centerY = healthBarBG.y + (healthBarBG.height / 2);
                 iconP1.x = healthBarBG.x + healthBarBG.width + 75 - iconP1.width;

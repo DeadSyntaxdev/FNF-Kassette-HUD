@@ -40,8 +40,8 @@ package kassettehud.util;
  */
 
 import flixel.FlxG;
-import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
+import kassettehud.util.KassetteHUDElement;
 import funkin.play.PlayState;
 import funkin.Preferences;
 import flixel.text.FlxText;
@@ -55,7 +55,7 @@ import flixel.FlxG;
 import Std;
 import Math;
 
-class KssetteAccuracy extends Module {
+class KssetteAccuracy extends KassetteHUDElement {
     /** Text separator used between score, accuracy, rank, etc. */
     var separator:String = " / ";
     
@@ -192,47 +192,12 @@ class KssetteAccuracy extends Module {
     var cachedModeMsg:String = "";
 
     /** True when rendering in the options menu preview instead of gameplay. */
-    public var isPreview:Bool = false;
+
     /** Camera to render into during preview mode. */
-    public var previewCam:flixel.FlxCamera = null;
+    public var previewCam:FlxCamera = null;
 
     public function new() {
         super("KssetteAccuracy");
-    }
-
-    /**
-     * Returns the display label for a judgement identifier.
-     * @param name  Judgement ID ("sick", "good", "bad", "shit", "miss", "maxCombo").
-     * @return      Human-readable label for the UI panel.
-     */
-    function getJudgeName(name:String):String {
-        switch(name) {
-            case 'sick': return 'Sicks';
-            case 'good': return "Goods";
-            case 'bad': return "Bads";
-            case 'shit': return "Shits";
-            case 'miss': return "Misses";
-            case 'maxCombo': return "Max Combo";
-            default: return "???";
-        }
-    }
-
-    /**
-     * Formats a rank ID to its abbreviated display form.
-     * @param id  Rank identifier (e.g. "PERFECT_GOLD", "EXCELLENT").
-     * @return    Short display string (e.g. "P [GOLD]", "E").
-     */
-    function formatRank(id:String):String {
-        if (id == null || id == "" || id == "?") return "?";
-        switch (id.toUpperCase()) {
-            case "PERFECT_GOLD": return "P [GOLD]";
-            case "PERFECT": return "P";
-            case "EXCELLENT": return "E";
-            case "GREAT": return "G";
-            case "GOOD": return "Go";
-            case "SHIT": return "L";
-            default: return id;
-        }
     }
 
     /**
@@ -240,12 +205,12 @@ class KssetteAccuracy extends Module {
      * Called before rebuilding the UI or when leaving PlayState.
      */
     public function cleanupUI() {
-        if (uiText != null) uiText.destroy();
-        if (infoText != null) infoText.destroy();
-        if (timeText != null) timeText.destroy();
-        if (modeText != null) modeText.destroy();
-        for (t in judgeLabels) if (t != null) t.destroy();
-        for (t in judgeValues) if (t != null) t.destroy();
+        safeDestroy(uiText);
+        safeDestroy(infoText);
+        safeDestroy(timeText);
+        safeDestroy(modeText);
+        for (t in judgeLabels) safeDestroy(t);
+        for (t in judgeValues) safeDestroy(t);
         judgeLabels = [];
         judgeValues = [];
     }
@@ -263,13 +228,10 @@ class KssetteAccuracy extends Module {
      * @param cam    Camera to assign the text to.
      * @return       The created FlxText instance.
      */
-    function makeText(x:Float, y:Float, w:Float, text:String, size:Int, align:String, z:Int, cam:flixel.FlxCamera):FlxText {
-        var t = new FlxText(x, y, w, text, size);
-        t.setFormat(cachedFont, size, FlxColor.WHITE, align, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+    function makeText(x:Float, y:Float, w:Float, text:String, size:Int, align:String, z:Int, cam:FlxCamera):FlxText {
+        var t = createText(x, y, w, text, size, FlxColor.WHITE, align);
         t.zIndex = z;
-        t.cameras = [cam];
-        if (PlayState.instance != null && !isPreview) PlayState.instance.add(t);
-        else FlxG.state.add(t);
+        safeAdd(t, cam);
         return t;
     }
 
@@ -278,7 +240,7 @@ class KssetteAccuracy extends Module {
      * Destroys any existing UI first via cleanupUI().
      * @param cam  The HUD camera to assign all text nodes to.
      */
-    public function setupUI(cam:flixel.FlxCamera) {
+    public function setupUI(cam:FlxCamera) {
         cleanupUI();
 
         uiText = makeText(0, 0, 0, "", 18, "center", 100, cam);
@@ -348,13 +310,17 @@ class KssetteAccuracy extends Module {
         api = ModuleHandler.getModule("KssetteApi");
         if (api == null) return;
         
+        scoreHunter = KassetteHUDElement.globalScoreHunter;
+        songHunter = KassetteHUDElement.globalSongHunter;
+        gammodHunter = KassetteHUDElement.globalGammodHunter;
+        iconHunter = KassetteHUDElement.globalIconHunter;
+
         api.invalidateCache();
         
         var state = PlayState.instance;
         if (state == null) return;
         
-        api.registerModule("KssetteAccuracy", this);
-        cachedTotalNotes = api.getNoteCount();
+        cachedTotalNotes = songHunter != null ? songHunter.getNoteCount() : 0;
         cachedActualTotal = -1;
         
         cachedRankStr = "?";
@@ -436,7 +402,7 @@ class KssetteAccuracy extends Module {
      * mode and renders a static example (score=123456, acc=100%, rank=P[GOLD]).
      * @param cam  The preview camera to render into.
      */
-    public function buildPreview(cam:flixel.FlxCamera) {
+    public function buildPreview(cam:FlxCamera) {
         isPreview = true;
         previewCam = cam;
         api = ModuleHandler.getModule("KssetteApi");
@@ -501,7 +467,12 @@ class KssetteAccuracy extends Module {
         _cShowDiff = api.getKssValue("kssette_show_song_diff") == true;
         _cScoreBop = api.getKssValue("kssette_score_bop") == true;
         
-        cachedModeMsg = Std.string(api.getModeMessage());
+        var songHunter = KassetteHUDElement.globalSongHunter;
+        if (songHunter != null) {
+            cachedModeMsg = Std.string(songHunter.getModeMessage());
+        } else {
+            cachedModeMsg = null;
+        }
         
         _cIsBotplay = (cachedModeMsg != null && (cachedModeMsg.indexOf("Botplay") != -1 || cachedModeMsg.indexOf("AutoPlay") != -1));
         _cJudgesVisible = (_cJudgePos != "Off" && _cJudgePos != "false");
@@ -527,12 +498,12 @@ class KssetteAccuracy extends Module {
                     }
                 } else {
                     if (_cShowTitle) {
-                        var sTitle = Std.string(api.getSongTitle());
+                        var sTitle = Std.string(songHunter.getSongTitle());
                         if (sTitle != "" && sTitle != "null") infoTextStr += sTitle;
                     }
                     if (_cShowDiff) {
                         if (infoTextStr != "") infoTextStr += " - ";
-                        var sDiff = Std.string(api.getDifficulty());
+                        var sDiff = Std.string(songHunter.getDifficulty());
                         if (sDiff != "" && sDiff != "null") infoTextStr += sDiff;
                     }
                 }
@@ -574,14 +545,15 @@ class KssetteAccuracy extends Module {
         if (uiText == null || api == null) return;
         
         var downscroll = false;
-        if (api != null && api.getDownscroll != null) downscroll = api.getDownscroll();
+        if (songHunter != null) downscroll = songHunter.getDownscroll();
         else downscroll = Preferences.downscroll;
         var timeBarPos:String = Std.string(api.getKssValue("kssette_timebar_pos"));
         var showTimeBar:Bool = api.getKssValue("kssette_show_timebar") == true;
         var hasBottomTimebar = showTimeBar && (timeBarPos.indexOf("Bottom") != -1);
         var hasTopTimebar = showTimeBar && (timeBarPos.indexOf("Top") != -1);
         var inverted = api.getKssValue("kssette_score_pos") == "Inverted";
-        var isMob = api.isMobileMode == true;
+        var optManager = KassetteHUDElement.globalOptionsManager;
+        var isMob = optManager != null && optManager.isMobileMode == true;
         
         var state = PlayState.instance;
         var hbY:Float = (state != null && state.healthBarBG != null) ? state.healthBarBG.y : (downscroll ? (FlxG.height * 0.11) : (FlxG.height * 0.89));
@@ -622,7 +594,8 @@ class KssetteAccuracy extends Module {
         var infoPos:String = Std.string(api.getKssValue("kssette_info_pos"));
 
         var safeX:Float = 18;
-        if (api.isMobileMode == true) safeX = 85;
+        var optManager = KassetteHUDElement.globalOptionsManager;
+        if (optManager != null && optManager.isMobileMode == true) safeX = 85;
 
         var safeLeft:Float = safeX;
         var safeRight:Float = safeX;
@@ -689,7 +662,8 @@ class KssetteAccuracy extends Module {
 
         var jMarginLeft:Float = 6;
         var jMarginRight:Float = 6;
-        if (api.isMobileMode == true) {
+        var optManager = KassetteHUDElement.globalOptionsManager;
+        if (optManager != null && optManager.isMobileMode == true) {
             jMarginLeft = 85;
             jMarginRight = 85;
         }
@@ -733,9 +707,10 @@ class KssetteAccuracy extends Module {
 
         var isUnranked = false;
         var multiplierValue:Float = 1.0;
-        if (api != null) {
-            isUnranked = api.gammodUnranked == true;
-            if (api.gammodMultiplier != null) multiplierValue = api.gammodMultiplier;
+        var gammodHunter = KassetteHUDElement.globalGammodHunter;
+        if (gammodHunter != null) {
+            isUnranked = gammodHunter.gammodUnranked == true;
+            if (gammodHunter.gammodMultiplier != null) multiplierValue = gammodHunter.gammodMultiplier;
         }
         
         var paramsChanged = (_lastBuiltScoreInt != scoreInt || _lastBuiltMisses != misses || _lastBuiltAcc != acc || _lastBuiltRank != rankStr || _lastBuiltTier != tierStr || _lastBuiltMult != multiplierValue || _lastBuiltUnranked != isUnranked);
@@ -840,7 +815,8 @@ class KssetteAccuracy extends Module {
 
         var isHighscore = false;
         var hsColor:Int = 0xFFFFFFFF;
-        if (api != null && api.gammodHighscoreActive == true) {
+        var gammodHunter = KassetteHUDElement.globalGammodHunter;
+        if (gammodHunter != null && gammodHunter.gammodHighscoreActive == true) {
             isHighscore = true;
             hsColor = FlxColor.fromHSB(_rainbowHue, 1.0, 1.0);
         }
@@ -924,8 +900,8 @@ class KssetteAccuracy extends Module {
      *    e. Applies smooth accuracy lerp.
      *    f. Throttled UI text rebuild (~30fps, or immediately on major changes).
      */
-    override public function onUpdate(event) {
-        var elapsed = event.elapsed;
+    override public function onUpdate(event:Dynamic) {
+        var elapsed:Float = (Std.isOfType(event, Float)) ? event : (event != null ? event.elapsed : 0);
         
         if (uiText != null && uiText.exists && _cScoreBop) {
             var lerpFactor = 1.0 - (elapsed * 15.0);
@@ -1073,8 +1049,8 @@ class KssetteAccuracy extends Module {
             lastMaxCombo = c;
             lastNotesHit = h;
             
-            if (_cShowRank) cachedRankStr = api.getRankID(state);
-            if (_cShowTier) cachedTierStr = api.getComboTier(state);
+            if (_cShowRank && scoreHunter != null) cachedRankStr = scoreHunter.getRankID(state);
+            if (_cShowTier && scoreHunter != null) cachedTierStr = scoreHunter.getComboTier(state);
 
             targetAcc = 0.0;
             if (_cAccMode == "Ascending") {
@@ -1153,17 +1129,19 @@ class KssetteAccuracy extends Module {
         var accTextChanged:Bool = (visualAcc != lastVisualAcc);
 
         var gammodChanged:Bool = false;
-        if (api != null) {
-            if (_lastBuiltUnranked != (api.gammodUnranked == true)) gammodChanged = true;
-            var currentMult:Float = api.gammodMultiplier != null ? api.gammodMultiplier : 1.0;
-            if (_lastBuiltMult != currentMult) gammodChanged = true;
+        var gammodHunter = KassetteHUDElement.globalGammodHunter;
+        if (gammodHunter != null) {
+            if (_lastBuiltUnranked != (gammodHunter.gammodUnranked == true)) gammodChanged = true;
+            var currentMult:Float = gammodHunter.gammodMultiplier != null ? gammodHunter.gammodMultiplier : 1.0;
+            if (Math.abs(_lastBuiltMult - currentMult) > 0.001) gammodChanged = true;
         }
 
         if (majorChange || minorChange || accTextChanged || gammodChanged) {
             pendingTextUpdate = true;
         }
 
-        if (api != null && api.gammodHighscoreActive == true) {
+        var gammodHunter = KassetteHUDElement.globalGammodHunter;
+        if (gammodHunter != null && gammodHunter.gammodHighscoreActive == true) {
             _rainbowHue += elapsed * 150;
             if (_rainbowHue >= 360) _rainbowHue -= 360;
             pendingTextUpdate = true;
@@ -1172,7 +1150,8 @@ class KssetteAccuracy extends Module {
         uiUpdateTimer += elapsed;
         
         var updateThreshold:Float = 0.033; // ~30 fps
-        if (api != null && api.isMobileMode == true) {
+        var optManager = KassetteHUDElement.globalOptionsManager;
+        if (optManager != null && optManager.isMobileMode == true) {
             updateThreshold = 0.1; // fuck you jetsam
         }
         
@@ -1185,5 +1164,31 @@ class KssetteAccuracy extends Module {
 
             updateAccuracyText(lastScore, m, visualAcc, cachedRankStr, cachedTierStr);
         }
+    }
+    
+    override public function destroy() {
+        if (uiText != null) uiText.destroy();
+        if (infoText != null) infoText.destroy();
+        if (timeText != null) timeText.destroy();
+        if (modeText != null) modeText.destroy();
+        
+        uiText = null;
+        infoText = null;
+        timeText = null;
+        modeText = null;
+        
+        currentTargetFmt = null;
+        _fmtPerfectGold = null;
+        _fmtPerfect = null;
+        _fmtExcellent = null;
+        _fmtGreat = null;
+        _fmtGood = null;
+        _fmtShit = null;
+        _fmtDefault = null;
+        _fmtUnranked = null;
+        _fmtMult = null;
+        _fmtHighscore = null;
+        
+        super.destroy();
     }
 }

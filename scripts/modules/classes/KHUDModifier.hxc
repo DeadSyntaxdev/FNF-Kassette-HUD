@@ -1,0 +1,51 @@
+package kassettehud.util;
+
+import funkin.play.PlayState;
+import flixel.FlxG;
+
+import funkin.modding.module.Module;
+
+class KHUDModifier extends Module {
+    public var name:String = "Modifier";
+    public var isPreview:Bool = false;
+
+    public var playState:Dynamic;
+    public var isMobile:Bool = false;
+    
+    public var breakHunter:Dynamic;
+    public var gammodHunter:Dynamic;
+    public var iconHunter:Dynamic;
+    public var assetHunter:Dynamic;
+    public var scoreHunter:Dynamic;
+    public var songHunter:Dynamic;
+    public var apiModule:Dynamic;
+
+    public function new(name:String) {
+        super(name);
+        this.active = true;
+        this.playState = PlayState.instance;
+        this.isMobile = KassetteHUDElement.globalOptionsManager != null ? KassetteHUDElement.globalOptionsManager.isMobileMode : FlxG.onMobile;
+        this.apiModule = KassetteHUDElement.globalApi;
+        this.breakHunter = KassetteHUDElement.globalBreakHunter;
+        this.gammodHunter = KassetteHUDElement.globalGammodHunter;
+        this.iconHunter = KassetteHUDElement.globalIconHunter;
+        this.assetHunter = KassetteHUDElement.globalAssetHunter;
+        this.scoreHunter = KassetteHUDElement.globalScoreHunter;
+        this.songHunter = KassetteHUDElement.globalSongHunter;
+    }
+
+    public function getSetting(key:String):Dynamic {
+        return KassetteHUDElement.globalOptionsManager != null ? KassetteHUDElement.globalOptionsManager.getKssValue(key) : null;
+    }
+
+    // Getters have been replaced with standard instance variables initialized in the constructor to improve HScript compatibility.
+
+    // Hooks removed: inherited from Module
+
+    // ==========================================
+    // UTILITY
+    // ==========================================
+    public function isPlayStateActive():Bool {
+        return playState != null && !playState.startingSong;
+    }
+}

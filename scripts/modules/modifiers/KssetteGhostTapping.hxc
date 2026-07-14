@@ -23,13 +23,12 @@ package kassettehud.util;
  *   - KssetteApi.isGammodMode   - disables ghost tap during Gammod auto-play
  */
 
-import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
 import flixel.FlxG;
 import Std;
 
-class KssGhostTapping extends Module {
+class KssGhostTapping extends KHUDModifier {
     /** Current ghost tapping mode: "Off", "On", or "In Breaks". */
     var _cGhostTappingMode:String = "Off";
 
@@ -40,7 +39,8 @@ class KssGhostTapping extends Module {
     var isPaused:Bool = false;
 
     public function new() {
-        super('KssGhostTapping', 1);
+        super('KssGhostTapping');
+        elementType = "modifier";
     }
 
     /**
@@ -54,19 +54,17 @@ class KssGhostTapping extends Module {
     override public function onCountdownStart(event:Dynamic) {
         super.onCountdownStart(event);
         isPaused = false;
-
-        var api = ModuleHandler.getModule("KssetteApi");
-        if (api == null) return;
+        breakHunter = KassetteHUDElement.globalBreakHunter;
 
             // Normalize bool/string to a canonical string. Preserves "In Breaks" as is.
-            var gtVal = api?.getKssValue("kssette_ghost_tapping");
-            _cGhostTappingMode = (gtVal == null || gtVal == false) ? "Off"
-                               : (gtVal == true)                   ? "On"
-                               : Std.string(gtVal);
+            var _rawMode:Dynamic = getSetting("kssette_ghost_tapping");
+            _cGhostTappingMode = (_rawMode == null || _rawMode == false) ? "Off"
+                               : (_rawMode == true)                   ? "On"
+                               : Std.string(_rawMode);
         
             // Ghost sing: whether to animate character on ghost taps.
-            var gsVal = api?.getKssValue("kssette_ghost_sing");
-            _cGhostSing = (gsVal == true || Std.string(gsVal) == "On");
+            var _rawSing:Dynamic = getSetting("kssette_ghost_sing");
+            _cGhostSing = (_rawSing == true || Std.string(_rawSing) == "On");
 
             trace("[KssGhostTapping] onCountdownStart - mode=" + _cGhostTappingMode + " ghostSing=" + _cGhostSing);
     }
@@ -96,7 +94,7 @@ class KssGhostTapping extends Module {
      */
     function isGammodActive():Bool {
         var api = ModuleHandler.getModule("KssetteApi");
-        return (api?.isGammodMode == true);
+        return (gammodHunter != null && gammodHunter.isGammodMode == true);
     }
 
     /**
@@ -113,8 +111,7 @@ class KssGhostTapping extends Module {
         if (_cGhostTappingMode == "On") return true;
         
         if (_cGhostTappingMode == "In Breaks") {
-            var api = ModuleHandler.getModule("KssetteApi");
-            var breakData = api?.getBreakData();
+            var breakData = breakHunter != null ? breakHunter.currentBreakData : null;
             return (breakData?.active == true);
         }
         return false;
@@ -150,7 +147,7 @@ class KssGhostTapping extends Module {
      *   - Game is not paused
      */
     override public function onUpdate(event:Dynamic) {
-        super.onUpdate(event);
+        var elapsed:Float = (Std.isOfType(event, Float)) ? event : (event != null ? event.elapsed : 0);
 
         if (!_cGhostSing) return;
 
@@ -161,8 +158,7 @@ class KssGhostTapping extends Module {
         if (controlsObj == null) return;
 
         // Determine which character to animate based on Gammod's player side setting.
-        var api = ModuleHandler.getModule("KssetteApi");
-        var isOpposite = (api?.gammodPlayerSide == "OPPOSITE");
+        var isOpposite = (gammodHunter != null && gammodHunter.gammodPlayerSide == "OPPOSITE");
         var player = isOpposite ? state.currentStage?.getDad() : state.currentStage?.getBoyfriend();
         if (player == null) return;
 

@@ -27,7 +27,6 @@ package kassettehud.util;
  *   - KssetteApi.cachedP1Scale/P2Scale/P1Bop/P2Bop - icon scale and bop data
  */
 
-import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
 import flixel.FlxG;
@@ -35,7 +34,7 @@ import flixel.math.FlxMath;
 import Std;
 import flixel.util.FlxColor;
 
-class KssetteHealthBar extends Module {
+class KssetteHealthBar extends KassetteHUDElement {
     /** Last known character ID for P1 icon; used to detect icon changes. */
     var _lastP1Id:String = "";
     /** Last known character ID for P2 icon; used to detect icon changes. */
@@ -58,8 +57,9 @@ class KssetteHealthBar extends Module {
         var api = ModuleHandler.getModule("KssetteApi");
         if (api == null) return;
         
-        api.registerModule("KssetteHealthBar", this);
-        
+        iconHunter = KassetteHUDElement.globalIconHunter;
+        gammodHunter = KassetteHUDElement.globalGammodHunter;
+
         _lastP1Id = "";
         _lastP2Id = "";
 
@@ -79,8 +79,8 @@ class KssetteHealthBar extends Module {
      *   2. Solo mode — hides P2 icon and flips the bar if there is no opponent.
      *   3. Icon positioning — manages "Corners" placement and scale interpolation.
      */
-    override function onUpdate(event) {
-        var elapsed = event.elapsed;
+    override function onUpdate(event:Dynamic) {
+        var elapsed:Float = (Std.isOfType(event, Float)) ? event : (event != null ? event.elapsed : 0);
         var state = PlayState.instance;
         var api = ModuleHandler.getModule("KssetteApi");
         if (state == null || api == null) return;
@@ -100,7 +100,7 @@ class KssetteHealthBar extends Module {
         if (id2 != null) curP2 = Std.string(id2);
 
         // --- HEALTH BAR COLORING LOGIC ---
-        var gammodPlayerSide:String = (api.gammodPlayerSide != null) ? api.gammodPlayerSide : "NORMAL";
+        var gammodPlayerSide:String = (gammodHunter != null && gammodHunter.gammodPlayerSide != null) ? gammodHunter.gammodPlayerSide : "NORMAL";
         
         // Determine solo mode: no opponent, opponent is "none", or P1 and P2 share the same icon.
         var dadObj = state.currentStage?.getDad();
@@ -121,7 +121,7 @@ class KssetteHealthBar extends Module {
             }
         }
 
-        if (api.getKssValue("kssette_colored_healthbar") == true) {
+        if (getSetting("kssette_colored_healthbar") == true) {
             // Disable Gammod's health bar override so our colors take priority.
             var _gammodPlay = ModuleHandler.getModule("GammodPlayModule");
             _gammodPlay?.scriptSet("healthBarOverride", false);
@@ -132,8 +132,8 @@ class KssetteHealthBar extends Module {
                     _lastP1Id = curP1;
                     _lastP2Id = curP2;
                     
-                    _p1Color = api.extractIconColor(p1, true, curP1);
-                    _p2Color = api.extractIconColor(p2, false, curP2);
+                    _p1Color = iconHunter != null ? iconHunter.extractIconColor(p1, true, curP1) : 0xFF66FF33;
+                    _p2Color = iconHunter != null ? iconHunter.extractIconColor(p2, false, curP2) : 0xFFFF0000;
                     
                     // Apply colors: solo = black to p1, opposite = p1 on left, normal = p2 on left.
                     if (isSolo) {
@@ -178,12 +178,14 @@ class KssetteHealthBar extends Module {
             var lerpFactor = 1.0 - (elapsed * 15.0);
             if (lerpFactor < 0) lerpFactor = 0;
             
-            var p1Scale:Float = api.cachedP1Scale;
+            var p1Scale:Float = 1.0;
+            if (iconHunter != null) p1Scale = iconHunter.cachedP1Scale;
             state.iconP1.scale.x = p1Scale + ((state.iconP1.scale.x - p1Scale) * lerpFactor);
             state.iconP1.scale.y = p1Scale + ((state.iconP1.scale.y - p1Scale) * lerpFactor);
             
             if (state.iconP2 != null) {
-                var p2Scale:Float = api.cachedP2Scale;
+                var p2Scale:Float = 1.0;
+                if (iconHunter != null) p2Scale = iconHunter.cachedP2Scale;
                 state.iconP2.scale.x = p2Scale + ((state.iconP2.scale.x - p2Scale) * lerpFactor);
                 state.iconP2.scale.y = p2Scale + ((state.iconP2.scale.y - p2Scale) * lerpFactor);
             }
@@ -245,16 +247,25 @@ class KssetteHealthBar extends Module {
         if (state == null || api == null) return;
         
         if (api.getKssValue("kssette_icon_pos") == "Corners" && state.iconP1 != null && state.iconP2 != null) {
-            var bop1 = api.cachedP1Bop;
-            var bop2 = api.cachedP2Bop;
+            var iconHunter = KassetteHUDElement.globalIconHunter;
+            var bop1 = 4;
+            var bop2 = 4;
+            if (iconHunter != null) {
+                bop1 = iconHunter.cachedP1Bop;
+                bop2 = iconHunter.cachedP2Bop;
+            }
             
             // Increase scale by 20% on the bop interval; interpolates back to normal in onUpdate.
             if (bop1 > 0 && event.step % bop1 == 0) {
-                var p1Scale:Float = api.cachedP1Scale;
+                var iconHunter = KassetteHUDElement.globalIconHunter;
+                var p1Scale:Float = 1.0;
+                if (iconHunter != null) p1Scale = iconHunter.cachedP1Scale;
                 state.iconP1.scale.set(p1Scale * 1.2, p1Scale * 1.2);
             }
             if (bop2 > 0 && event.step % bop2 == 0) {
-                var p2Scale:Float = api.cachedP2Scale;
+                var iconHunter = KassetteHUDElement.globalIconHunter;
+                var p2Scale:Float = 1.0;
+                if (iconHunter != null) p2Scale = iconHunter.cachedP2Scale;
                 state.iconP2.scale.set(p2Scale * 1.2, p2Scale * 1.2);
             }
         }

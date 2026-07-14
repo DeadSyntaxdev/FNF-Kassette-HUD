@@ -3,6 +3,7 @@ package kassettehud.util;
 import flixel.FlxG;
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
+import kassettehud.util.KassetteHUDElement;
 import funkin.play.PlayState;
 import funkin.Paths;
 import flixel.text.FlxText;
@@ -246,13 +247,14 @@ class KssetteSkyCompat extends Module {
                     var judgePos = Std.string(api.getKssValue("kssette_judge_pos"));
                     var timeBarPos = Std.string(api.getKssValue("kssette_timebar_pos"));
                     var infoPos = Std.string(api.getKssValue("kssette_info_pos"));
-                    var isMobile = api.isMobileMode == true;
+                    var optManager = KassetteHUDElement.globalOptionsManager;
+                    var isMobile = optManager != null && optManager.isMobileMode == true;
                     
                     var forceDownscrollLook = false;
                     if (api != null && api.isForcedDownscroll != null) forceDownscrollLook = api.isForcedDownscroll();
                     
                     var isDownscroll = false;
-                    if (api != null && api.getDownscroll != null) isDownscroll = api.getDownscroll();
+                    if (KassetteHUDElement.globalSongHunter != null) isDownscroll = KassetteHUDElement.globalSongHunter.getDownscroll();
                     else isDownscroll = Preferences.downscroll;
 
                     var tX:Float = originalTimerX != -1 ? originalTimerX : (FlxG.width - skyHUDModule.timerBackdrop.width) / 2;

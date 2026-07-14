@@ -29,7 +29,7 @@ import funkin.modding.events.ScriptEvent;
  * the active NoteStyle, falling back to pixel or base funkin styles as needed.
  */
 
-class KssetteResumeCount extends Module {
+class KssetteResumeCount extends KHUDModifier {
     /** Indicates whether the resume countdown feature is enabled in the options. */
     var cachedActive:Bool = false;
     /** True if the 3-2-1 countdown animation is currently running. */
@@ -52,9 +52,6 @@ class KssetteResumeCount extends Module {
     /** The original score to lock and prevent background drift. */
     var storedScore:Int = 0;
     
-    /** Reference to the KssetteApi module for reading configurations. */
-    var apiModule:Dynamic = null;
-
     /** The cached NoteStyle ID used to resolve assets. */
     var cachedStyle:String = "funkin";
     /** Indicates if the resolved style is pixel-based. */
@@ -82,6 +79,7 @@ class KssetteResumeCount extends Module {
 
     public function new() {
         super("KssetteResumeCount");
+        elementType = "modifier";
     }
 
     /**
@@ -125,11 +123,10 @@ class KssetteResumeCount extends Module {
     override public function onCountdownStart(event) {
         super.onCountdownStart(event);
         cachedActive = false;
-        apiModule = ModuleHandler.getModule("KssetteApi");
-        if (apiModule == null) return;
+
         
-        apiModule.registerModule("KssetteResumeCount", this);
-        cachedActive = apiModule.getKssValue("kssette_resume_countdown") == true;
+
+        cachedActive = getSetting("kssette_resume_countdown") == true;
         isCounting = false;
         isResuming = false;
 
@@ -144,7 +141,8 @@ class KssetteResumeCount extends Module {
      * Per-frame update logic. Monitors for unexpected state changes 
      * and forces the song score to remain locked while the countdown is active.
      */
-    override public function onUpdate(event) {
+    override public function onUpdate(event:Dynamic) {
+        var elapsed:Float = (Std.isOfType(event, Float)) ? event : (event != null ? event.elapsed : 0);
         if (isCounting) {
             var state = PlayState.instance;
             if (state == null || state.startingSong || state.isPlayerDying || (state.conductorInUse != null && state.conductorInUse.songPosition <= 0)) {
@@ -363,5 +361,24 @@ class KssetteResumeCount extends Module {
             if (state.vocals != null) state.vocals.play();
             isCounting = false;
         }
+    }
+    
+    override public function destroy() {
+        if (currentTimer != null) currentTimer.cancel();
+        currentTimer = null;
+        if (resumeTimer != null) resumeTimer.cancel();
+        resumeTimer = null;
+        
+        if (activeTweens != null) {
+            for (t in activeTweens) t.cancel();
+            activeTweens = [];
+        }
+
+        if (activeSprites != null) {
+            for (s in activeSprites) s.destroy();
+            activeSprites = [];
+        }
+
+        super.destroy();
     }
 }

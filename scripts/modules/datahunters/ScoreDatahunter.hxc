@@ -1,0 +1,146 @@
+package kassettehud.util;
+
+import kassettehud.util.KassetteHUDElement;
+
+import funkin.Highscore;
+import funkin.play.scoring.Scoring;
+import funkin.play.PlayState;
+import Math;
+import Std;
+import funkin.modding.events.ScriptEvent;
+import funkin.modding.events.UpdateScriptEvent;
+
+class ScoreDatahunter extends KassetteHUDDatahunter {
+    public var lastRankScore:Int = -1;
+    public var lastRankMisses:Int = -1;
+    public var cachedRank:String = "?";
+    
+    public var lastTierMisses:Int = -1;
+    public var lastTierGoods:Int = -1;
+    public var lastTierBads:Int = -1;
+    public var lastTierShits:Int = -1;
+    public var cachedTier:String = "N/A";
+
+    public var totalNotes:Int = 0;
+    
+    public function new() {
+        super("ScoreDatahunter");
+        KassetteHUDElement.globalScoreHunter = this;
+    }
+
+    override public function onUpdate(event:UpdateScriptEvent) {
+        var elapsed = event.elapsed;
+    }
+
+    override public function onCountdownStart(event:ScriptEvent) {
+        lastRankScore = -1;
+        lastRankMisses = -1;
+        cachedRank = "?";
+        lastTierMisses = -1;
+        lastTierGoods = -1;
+        lastTierBads = -1;
+        lastTierShits = -1;
+        cachedTier = "N/A";
+
+        var state = PlayState.instance;
+        if (state != null && state.currentChart != null && state.currentChart.notes != null) {
+            var count:Int = 0;
+            for (note in state.currentChart.notes) {
+                var isPlayer = false;
+                try {
+                    if (note.getMustHitNote() == true) isPlayer = true;
+                } catch(e:Dynamic) {
+                    var d = note?.data;
+                    if (d == null) d = note?.d;
+                    if (d != null && Std.parseInt(Std.string(d)) >= 4) isPlayer = true;
+                    if (note?.mustHitNote == true) isPlayer = true;
+                }
+                if (isPlayer) count++;
+            }
+            totalNotes = (count == 0) ? Std.int(state.currentChart.notes.length / 2) : count;
+        } else {
+            totalNotes = 0;
+        }
+    }
+
+    public function getRankID(state:PlayState):String {
+        var t = Highscore.tallies;
+        if (t == null || (t.totalNotesHit + t.missed) <= 0) return "?";
+        
+        if (state.songScore == lastRankScore && t.missed == lastRankMisses && cachedRank != "?") return cachedRank;
+
+        lastRankScore = state.songScore;
+        lastRankMisses = t.missed;
+        cachedRank = Scoring.calculateRank({
+            score: state.songScore,
+            tallies: {
+                sick: t.sick,
+                good: t.good,
+                bad: t.bad,
+                shit: t.shit,
+                miss: t.missed,
+                combo: t.combo,
+                maxCombo: t.maxCombo,
+                totalNotesHit: t.totalNotesHit,
+                totalNotes: t.totalNotesHit + t.missed
+            }
+        });
+        return cachedRank;
+    }
+
+    public function getComboTier(state:PlayState):String {
+        var t = Highscore.tallies;
+        if (t == null) return "N/A";
+        
+        if (t.missed == lastTierMisses && t.good == lastTierGoods && t.bad == lastTierBads && t.shit == lastTierShits && cachedTier != "N/A") return cachedTier;
+
+        lastTierMisses = t.missed;
+        lastTierGoods = t.good;
+        lastTierBads = t.bad;
+        lastTierShits = t.shit;
+
+        if (t.missed == 0) {
+            if (t.good == 0 && t.bad == 0 && t.shit == 0) cachedTier = "SFC";
+            else if (t.bad == 0 && t.shit == 0) cachedTier = "GFC";
+            else cachedTier = "FC";
+        } else {
+            cachedTier = (t.missed < 10) ? "SDCB" : "Clear";
+        }
+        return cachedTier;
+    }
+
+    public function getAccuracy(state:PlayState):Float {
+        var t = Highscore.tallies;
+        if (t == null) return 0.0;
+        var total:Int = t.totalNotesHit + t.missed;
+        if (total <= 0) return 0.0;
+        var raw:Float = ((t.sick + t.good - t.missed) / total) * 100;
+        return Math.floor(Math.max(0, raw) * 100) / 100;
+    }
+
+    public function getAscendingAccuracy(state:PlayState, songProgress:Float):Float {
+        if (state == null) return 0.0;
+
+        var realAcc:Float = getAccuracy(state);
+        var totalPlayerNotes:Int = totalNotes;
+        var processed:Int = 0;
+        
+        if (Highscore.tallies != null) {
+            processed = Highscore.tallies.sick + Highscore.tallies.good + Highscore.tallies.bad + Highscore.tallies.shit + Highscore.tallies.missed;
+            if (Highscore.tallies?.totalNotes != null) {
+                var realTotal:Dynamic = Highscore.tallies.totalNotes;
+                if (realTotal != null && realTotal > 0) totalPlayerNotes = Std.int(realTotal);
+            }
+        }
+
+        if (processed > totalPlayerNotes) totalPlayerNotes = processed;
+
+        var noteProgress:Float = (totalPlayerNotes > 0) ? (processed / totalPlayerNotes) : 1.0;
+        if (noteProgress > 1.0) noteProgress = 1.0;
+        
+        if (Math.isNaN(songProgress) || songProgress < 0) songProgress = 0;
+        if (songProgress >= 0.995) noteProgress = 1.0;
+        
+        return realAcc * noteProgress;
+    }
+}

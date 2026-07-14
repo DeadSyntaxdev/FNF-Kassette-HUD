@@ -20,7 +20,6 @@ package kassettehud.util;
  *   - AlbumRegistry (for album art graphics)
  */
 
-import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
 import flixel.FlxG;
@@ -28,16 +27,17 @@ import flixel.text.FlxText;
 import flixel.text.FlxTextBorderStyle;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
+import kassettehud.util.KassetteHUDElement;
 import flixel.FlxSprite;
 import funkin.Paths;
 import funkin.data.freeplay.album.AlbumRegistry;
 import Std;
 
-class KssetteShowTitle extends Module {
+class KssetteShowTitle extends KassetteHUDElement {
     var titleTxt:FlxText;
     var artistTxt:FlxText;
     var albumSprite:FlxSprite;
-    var apiModule:Dynamic = null;
+
     var isActive:Bool = false;
     
     var titleTargetX:Float = 0;
@@ -50,8 +50,8 @@ class KssetteShowTitle extends Module {
     var animAlbum:String = "On";
     var isFadingOut:Bool = false;
 
-    public var isPreview:Bool = false;
-    public var previewCam:flixel.FlxCamera = null;
+
+    public var previewCam:FlxCamera = null;
     var previewTimer:Float = 0.0;
     var cachedTitleFont:String = "";
     var cachedArtistFont:String = "";
@@ -67,9 +67,7 @@ class KssetteShowTitle extends Module {
     function killObj(obj:Dynamic) {
         if (obj != null) {
             FlxTween.cancelTweensOf(obj);
-            if (PlayState.instance != null && !isPreview) PlayState.instance.remove(obj);
-            FlxG.state.remove(obj);
-            obj.destroy();
+            safeDestroy(obj);
         }
     }
 
@@ -92,16 +90,19 @@ class KssetteShowTitle extends Module {
         var titleFontKey = "vcr.ttf";
         var artistFontKey = "vcr.ttf";
 
-        var tk = apiModule.getKssValue("kssette_intro_font_title");
+        var tk = getSetting("kssette_intro_font_title");
         if (tk != null) titleFontKey = Std.string(tk);
 
-        var ak = apiModule.getKssValue("kssette_intro_font_artist");
+        var ak = getSetting("kssette_intro_font_artist");
         if (ak != null) artistFontKey = Std.string(ak);
 
         cachedTitleFont = "VCR OSD Mono";
         cachedArtistFont = "VCR OSD Mono";
-        cachedTitleFont = Std.string(apiModule.resolveCustomFont(titleFontKey));
-        cachedArtistFont = Std.string(apiModule.resolveCustomFont(artistFontKey));
+        var globalAssetHunter = KassetteHUDElement.globalAssetHunter;
+        if (globalAssetHunter != null) {
+            cachedTitleFont = Std.string(globalAssetHunter.resolveCustomFont(titleFontKey));
+            cachedArtistFont = Std.string(globalAssetHunter.resolveCustomFont(artistFontKey));
+        }
     }
 
     /**
@@ -134,7 +135,7 @@ class KssetteShowTitle extends Module {
      * Initializes the intro UI elements based on the current song and settings.
      * @param cam The camera to render the UI on.
      */
-    function setupUI(cam:flixel.FlxCamera) {
+    function setupUI(cam:FlxCamera) {
         cleanUp();
         if (!isActive) return;
 
@@ -160,10 +161,10 @@ class KssetteShowTitle extends Module {
             }
 
             if (titleStr == "Unknown" || titleStr == "null") {
-                titleStr = Std.string(apiModule.getSongTitle());
+                titleStr = Std.string(songHunter.getSongTitle());
             }
             if (artistStr == "Unknown Artist" || artistStr == "null") {
-                artistStr = Std.string(apiModule.getSongArtist());
+                artistStr = Std.string(songHunter.getSongArtist());
             }
         }
 
@@ -176,7 +177,7 @@ class KssetteShowTitle extends Module {
         artistBaseSize = (apiModule != null) ? apiModule.getFontSize(32, "kssette_size_intro") : 32;
 
         var showAlbum:String = "On";
-        var rawAlbum = (apiModule != null) ? apiModule.getKssValue("kssette_intro_album") : null;
+        var rawAlbum = getSetting("kssette_intro_album");
         if (rawAlbum != null) showAlbum = Std.string(rawAlbum);
 
         var albumArtAsset:String = null;
@@ -302,21 +303,15 @@ class KssetteShowTitle extends Module {
         }
         
         if (albumSprite != null) {
-            albumSprite.cameras = [cam];
             albumSprite.zIndex = 100000;
-            if (PlayState.instance != null && !isPreview) PlayState.instance.add(albumSprite);
-            else FlxG.state.add(albumSprite);
+            safeAdd(albumSprite, cam);
         }
 
-        artistTxt.cameras = [cam]; 
         artistTxt.zIndex = 100001;
-        if (PlayState.instance != null && !isPreview) PlayState.instance.add(artistTxt);
-        else FlxG.state.add(artistTxt);
+        safeAdd(artistTxt, cam);
 
-        titleTxt.cameras = [cam]; 
         titleTxt.zIndex = 100002;
-        if (PlayState.instance != null && !isPreview) PlayState.instance.add(titleTxt);
-        else FlxG.state.add(titleTxt);
+        safeAdd(titleTxt, cam);
 
         if (artistStr == "Unknown Artist" || artistStr == "null" || artistStr == "") {
             artistTxt.visible = false;
@@ -511,18 +506,14 @@ class KssetteShowTitle extends Module {
         cleanUp();
         isPreview = false;
 
-        apiModule = ModuleHandler.getModule("KssetteApi");
-        if (apiModule == null) return;
-
-            var rawStyle = (apiModule != null) ? apiModule.getKssValue("kssette_intro_text") : null;
-            animStyle = Std.string(rawStyle);
-            
-            var rawPos = (apiModule != null) ? apiModule.getKssValue("kssette_intro_pos") : null;
-            if (rawPos != null) animPos = Std.string(rawPos);
-            else animPos = "Center";
-            
-            isActive = (animStyle != "Off" && animStyle != "false");
+        var rawStyle = getSetting("kssette_intro_text");
+        animStyle = Std.string(rawStyle);
         
+        var rawPos = getSetting("kssette_intro_pos");
+        if (rawPos != null) animPos = Std.string(rawPos);
+        else animPos = "Center";
+        
+        isActive = (animStyle != "Off" && animStyle != "false");
         if (!isActive) return;
 
         var state = PlayState.instance;
@@ -545,21 +536,21 @@ class KssetteShowTitle extends Module {
      * Prepares the UI for the options menu preview mode.
      * @param cam The preview camera to render onto.
      */
-    public function buildPreview(cam:flixel.FlxCamera) {
+    public function buildPreview(cam:FlxCamera) {
         isPreview = true;
         isFadingOut = false;
         previewCam = cam;
         
         apiModule = ModuleHandler.getModule("KssetteApi");
         if (apiModule != null) {
-            var rawStyle = apiModule.getKssValue("kssette_intro_text");
+            var rawStyle = getSetting("kssette_intro_text");
             animStyle = Std.string(rawStyle);
             
-            var rawPos = apiModule.getKssValue("kssette_intro_pos");
+            var rawPos = getSetting("kssette_intro_pos");
             if (rawPos != null) animPos = Std.string(rawPos);
             else animPos = "Center";
             
-            var rawAlbum = apiModule.getKssValue("kssette_intro_album");
+            var rawAlbum = getSetting("kssette_intro_album");
             if (rawAlbum != null) animAlbum = Std.string(rawAlbum);
             else animAlbum = "On";
             
@@ -582,16 +573,16 @@ class KssetteShowTitle extends Module {
      * Refreshes the preview state, pulling new settings from KssetteApi.
      */
     public function updatePreview() {
-        if (!isPreview || apiModule == null) return;
+        if (!isPreview) return;
 
-        var rawStyle = apiModule.getKssValue("kssette_intro_text");
+        var rawStyle = getSetting("kssette_intro_text");
         var currentActive = (Std.string(rawStyle) != "Off" && Std.string(rawStyle) != "false");
         var newStyle = Std.string(rawStyle);
         
-        var rawPos = apiModule.getKssValue("kssette_intro_pos");
+        var rawPos = getSetting("kssette_intro_pos");
         var newPos = rawPos != null ? Std.string(rawPos) : "Center";
         
-        var rawAlbum = apiModule.getKssValue("kssette_intro_album");
+        var rawAlbum = getSetting("kssette_intro_album");
         var newAlbum = rawAlbum != null ? Std.string(rawAlbum) : "On";
         
         var oldTitleFont = cachedTitleFont;
@@ -643,9 +634,10 @@ class KssetteShowTitle extends Module {
      * the intro needs to fade out before the first note hits.
      */
     override public function onUpdate(event:Dynamic) {
+        var elapsed:Float = (Std.isOfType(event, Float)) ? event : (event != null ? event.elapsed : 0);
         if (isPreview && isActive) {
             if (previewTimer > 0) {
-                previewTimer -= event.elapsed;
+                previewTimer -= elapsed;
                 if (previewTimer <= 0) {
                     startAnim();
                     previewTimer = 12.0;
@@ -654,7 +646,8 @@ class KssetteShowTitle extends Module {
         } else if (!isPreview && isActive && !isFadingOut) {
             var state = PlayState.instance;
             if (state != null && state.conductorInUse != null && apiModule != null) {
-                var notes = apiModule.playerNoteTimes;
+                var breakHunter = KassetteHUDElement.globalBreakHunter;
+                var notes = breakHunter != null ? breakHunter.playerNoteTimes : [];
                 if (notes != null && notes.length > 0) {
                     var firstNoteTime = notes[0].start;
                     var currentTime = state.conductorInUse.songPosition;
@@ -664,5 +657,26 @@ class KssetteShowTitle extends Module {
                 }
             }
         }
+    }
+    
+    override public function destroy() {
+        if (titleTxt != null) titleTxt.destroy();
+        if (artistTxt != null) artistTxt.destroy();
+        if (albumSprite != null) albumSprite.destroy();
+        if (uiGroup != null) uiGroup.destroy();
+        
+        titleTxt = null;
+        artistTxt = null;
+        albumSprite = null;
+        uiGroup = null;
+        
+        if (titleTween != null) titleTween.cancel();
+        if (artistTween != null) artistTween.cancel();
+        if (albumTween != null) albumTween.cancel();
+        titleTween = null;
+        artistTween = null;
+        albumTween = null;
+        
+        super.destroy();
     }
 }
