@@ -6,7 +6,7 @@ import funkin.modding.module.Module;
 import funkin.save.Save;
 import funkin.ui.options.OptionsState;
 import funkin.modding.events.StateChangeScriptEvent;
-import funkin.modding.base.ScriptedMusicBeatState;
+import funkin.ui.ScriptedMusicBeatState;
 import flixel.FlxG;
 import flixel.util.FlxColor;
 import Std;
@@ -247,7 +247,7 @@ class KssetteOptionsManager extends Module {
 
         var item = mainPage.createItem(label, function() { 
             FlxG.camera.fade(FlxColor.BLACK, 0.4, false, function() {
-                FlxG.switchState(ScriptedMusicBeatState.init("KssetteMenuState"));
+                FlxG.switchState(ScriptedMusicBeatState.init("KssetteOptionsState"));
             });
         });
         

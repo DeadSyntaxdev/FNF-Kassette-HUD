@@ -4,7 +4,7 @@ import funkin.modding.module.Module;
 import funkin.modding.events.UpdateScriptEvent;
 import funkin.modding.events.StateChangeScriptEvent;
 import funkin.ui.mainmenu.MainMenuState;
-import funkin.modding.base.ScriptedMusicBeatState;
+import funkin.ui.ScriptedMusicBeatState;
 import flixel.FlxG;
 import flixel.text.FlxText;
 import flixel.text.FlxTextBorderStyle;

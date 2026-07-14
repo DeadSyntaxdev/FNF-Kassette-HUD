@@ -63,7 +63,7 @@ class KassetteHUDElement {
     /** Logic executed exclusively when inside PlayState */
     public function inGameplay(event:Dynamic) {}
     
-    /** Logic executed exclusively when inside the KssetteMenuState Preview */
+    /** Logic executed exclusively when inside the KssetteOptionsState Preview */
     public function inPreview(event:Dynamic) {}
 
     public function onStepHit(event:Dynamic) {}

@@ -1,0 +1,334 @@
+
+import flixel.FlxG;
+import flixel.FlxCamera;
+import flixel.FlxSprite;
+import flixel.text.FlxText;
+import flixel.text.FlxTextBorderStyle;
+import flixel.group.FlxSpriteGroup;
+import funkin.save.Save;
+import funkin.modding.module.ModuleHandler;
+import funkin.ui.options.OptionsState;
+import funkin.audio.FunkinSound;
+import funkin.Paths;
+import flixel.util.FlxColor;
+import funkin.ui.ScriptedMusicBeatState;
+import funkin.ui.ScriptedMusicBeatSubState;
+import funkin.play.character.CharacterDataParser;
+import kassettehud.util.KassetteHUDElement;
+import funkin.play.stage.Stage;
+import funkin.play.character.BaseCharacter;
+import funkin.play.character.SparrowCharacter;
+import funkin.play.character.AnimateAtlasCharacter;
+import funkin.play.character.MultiSparrowCharacter;
+import funkin.play.character.MultiAnimateAtlasCharacter;
+import funkin.play.character.PackerCharacter;
+
+import funkin.modding.events.ScriptEvent;
+import funkin.Conductor;
+import flixel.math.FlxMath;
+import funkin.graphics.FunkinCamera;
+import funkin.Preferences;
+import Math;
+import Std;
+import flixel.math.FlxPoint;
+import flixel.math.FlxRect;
+import flixel.tweens.FlxTween;
+import flixel.tweens.FlxEase;
+import StringTools;
+import Reflect;
+
+class KssetteOptionsState extends ScriptedMusicBeatState {
+
+    var previewModuleNames:Array<String> = ["KssetteNight", "KssetteAccuracy", "KssetteJudgements", "KssetteTimeBar", "KssetteCombo", "KssetteSongInfo", "KssetteShowTitle", "KssetteBreakBar", "KssetteSubtitles"];
+    var previewModules:Array<Dynamic> = [];
+    public var menuFont:String = "VCR OSD Mono";
+    public var screenW:Float = 0;
+    public var screenH:Float = 0;
+    public var halfScreenH:Float = 0;
+    public var apiRef:Dynamic; 
+    public var panelWidth:Int = 660; 
+    public var optionCam:FlxCamera;
+    public var hudCam:FlxCamera;
+    public var stageCam:FunkinCamera;
+    public var panelOnLeft:Bool = false;
+    
+    var stage:Stage;
+    var bf:BaseCharacter;
+    var dad:BaseCharacter;
+    var gf:BaseCharacter;
+
+    public var sndScroll:Dynamic;
+    public var sndOn:Dynamic;
+    public var sndOff:Dynamic;
+    public var sndCancel:Dynamic;
+    public var sndHit:Dynamic;
+
+    public function new() {
+        super();
+    }
+
+    override public function create():Void {
+        super.create();
+        
+        sndScroll = Paths.sound('ui/khud_scroll');
+        sndOn = Paths.sound('ui/khud_on');
+        sndOff = Paths.sound('ui/khud_off');
+        sndCancel = Paths.sound('cancelMenu');
+        sndHit = Paths.sound("play/hitsound");
+        Paths.sound('confirmMenu'); 
+
+        screenW = FlxG.width;
+        screenH = FlxG.height;
+        halfScreenH = screenH * 0.5;
+        menuFont = Paths.font("5by7.ttf");
+
+        apiRef = ModuleHandler.getModule("KssetteApi");
+        cachePreviewModules();
+        
+        stageCam = new FunkinCamera('stageCam', 0, 0, Std.int(screenW), Std.int(screenH));
+        stageCam.bgColor = FlxColor.BLACK;
+        stageCam.zoom = 0.7;
+        FlxG.cameras.reset(stageCam);
+
+        hudCam = new FlxCamera(0, 0, Std.int(screenW), Std.int(screenH));
+        hudCam.bgColor = FlxColor.TRANSPARENT;
+        FlxG.cameras.add(hudCam, false);
+
+        optionCam = new FlxCamera(0, 0, Std.int(screenW), Std.int(screenH));
+        optionCam.bgColor = FlxColor.TRANSPARENT;
+        FlxG.cameras.add(optionCam, false);
+
+        var initEvent:ScriptEvent = new ScriptEvent("onCreate");
+
+        stage = new Stage("mainStage");
+        stage.onCreate(initEvent);
+        stage.cameras = [stageCam];
+        add(stage);
+
+        gf = spawnCharacter("gf", initEvent);
+        dad = spawnCharacter("dad", initEvent);
+        bf = spawnCharacter("bf", initEvent);
+
+        var sData = stage._data;
+        var placeChar = function(char:BaseCharacter, cData:Dynamic, isPlayer:Bool) {
+            if (char == null) return;
+            char.resetCharacter(true);
+            if (cData != null) {
+                char.x = cData.position[0] - char.characterOrigin.x;
+                char.y = cData.position[1] - char.characterOrigin.y;
+                var cScale:Float = 1.0;
+                if (cData.scale != null) cScale = cData.scale;
+                char.setScale(char.getBaseScale() * cScale);
+                var dataFlip = char.getDataFlipX();
+                char.flipX = isPlayer ? !dataFlip : dataFlip;
+                char.originalPosition.set(char.x, char.y);
+                char.resetCameraFocusPoint();
+                if (cData.cameraOffsets != null) {
+                    char.cameraFocusPoint.x += cData.cameraOffsets[0];
+                    char.cameraFocusPoint.y += cData.cameraOffsets[1];
+                }
+                if (cData.scroll != null) {
+                    char.scrollFactor.set(cData.scroll[0], cData.scroll[1]);
+                }
+            }
+        };
+
+        var gfData = null; var dadData = null; var bfData = null;
+        if (sData != null && sData.characters != null) {
+            gfData = sData.characters.gf;
+            dadData = sData.characters.dad;
+            bfData = sData.characters.bf;
+        }
+
+        placeChar(gf, gfData, false);
+        placeChar(dad, dadData, false);
+        placeChar(bf, bfData, true);
+
+        if (gf != null) { add(gf); gf.cameras = [stageCam]; }
+        if (dad != null) { add(dad); dad.cameras = [stageCam]; }
+        if (bf != null) { add(bf); bf.cameras = [stageCam]; }
+
+        if (apiRef != null) {
+            apiRef.preview_bf = bf;
+            apiRef.preview_dad = dad;
+        }
+
+        if (gf != null && gf.cameraFocusPoint != null) {
+            stageCam.focusOn(gf.cameraFocusPoint);
+        } else {
+            stageCam.scroll.set(0, 0);
+        }
+        
+        var subOptions:Dynamic = ScriptedMusicBeatSubState.init("KssetteSubOptionsSubState", [this]);
+        subOptions.initSubstate();
+        
+        var capsulesSubstate:Dynamic = ScriptedMusicBeatSubState.init("KssetteCapsulesSubState", [this]);
+        capsulesSubstate.subOptions = subOptions;
+        capsulesSubstate.initSubstate();
+        openSubState(capsulesSubstate);
+        capsulesSubstate.openSubState(subOptions);
+
+        var hudPreview:Dynamic = ScriptedMusicBeatSubState.init("KssetteHUDPreview");
+        subOptions.openSubState(hudPreview);
+
+        FlxG.sound.cache(Paths.music('dakassette/dakassette'));
+        FunkinSound.playMusic('dakassette',
+        {
+            startingVolume: 1.0,
+            overrideExisting: true,
+            restartTrack: false,
+            persist: false
+        });
+
+        FlxG.camera.fade(FlxColor.BLACK, 0.4, true);
+        
+        initPreviews();
+        updatePreviews();
+    }
+
+    function cachePreviewModules():Void {
+        previewModules = [];
+        for (mName in previewModuleNames) {
+            var mod:Dynamic = ModuleHandler.getModule(mName);
+            if (mod != null) previewModules.push(mod);
+        }
+    }
+
+    public function initPreviews() {
+        if (previewModules.length == 0) cachePreviewModules();
+        for (mod in previewModules) {
+            if (mod != null) {
+                mod.buildPreview(hudCam);
+            }
+        }
+    }
+
+    public function updatePreviews() {
+        if (KassetteHUDElement.globalOptionsManager != null) {
+            KassetteHUDElement.globalOptionsManager.refreshOptionCache();
+        }
+
+        if (previewModules.length == 0) cachePreviewModules();
+        for (mod in previewModules) {
+            if (mod != null) {
+                if (Reflect.hasField(mod, "updatePreview")) {
+                    Reflect.callMethod(mod, Reflect.field(mod, "updatePreview"), []);
+                }
+            }
+        }
+        fixZIndex();
+    }
+
+    public function fixZIndex() {
+        var titleMod:Dynamic = ModuleHandler.getModule("KssetteShowTitle");
+        if (titleMod != null) {
+            if (titleMod.titleTxt != null) { FlxG.state.remove(titleMod.titleTxt, true); FlxG.state.add(titleMod.titleTxt); }
+            if (titleMod.artistTxt != null) { FlxG.state.remove(titleMod.artistTxt, true); FlxG.state.add(titleMod.artistTxt); }
+        }
+        
+        var timeMod:Dynamic = ModuleHandler.getModule("KssetteTimeBar");
+        if (timeMod != null) {
+            if (timeMod.timeBarBG != null) { FlxG.state.remove(timeMod.timeBarBG, true); FlxG.state.add(timeMod.timeBarBG); }
+            if (timeMod.timeBar != null) { FlxG.state.remove(timeMod.timeBar, true); FlxG.state.add(timeMod.timeBar); }
+        }
+        
+        var breakMod:Dynamic = ModuleHandler.getModule("KssetteBreakBar");
+        if (breakMod != null) {
+            try {
+                if (breakMod.borders != null) {
+                    var brds:Array<Dynamic> = breakMod.borders;
+                    for (i in 0...brds.length) {
+                        var b = brds[i];
+                        if (b != null) { FlxG.state.remove(b, true); FlxG.state.add(b); }
+                    }
+                }
+                if (breakMod.barFill != null) { FlxG.state.remove(breakMod.barFill, true); FlxG.state.add(breakMod.barFill); }
+                if (breakMod.breakText != null) { FlxG.state.remove(breakMod.breakText, true); FlxG.state.add(breakMod.breakText); }
+            } catch(e:Dynamic) {}
+        }
+
+        var previewMod:Dynamic = ModuleHandler.getModule("KssetteHUDPreview");
+        if (previewMod != null) {
+            if (previewMod.opponentStrumPreview != null) { FlxG.state.remove(previewMod.opponentStrumPreview, true); FlxG.state.add(previewMod.opponentStrumPreview); }
+            if (previewMod.playerStrumPreview != null) { FlxG.state.remove(previewMod.playerStrumPreview, true); FlxG.state.add(previewMod.playerStrumPreview); }
+            if (previewMod.healthBarBG != null) { FlxG.state.remove(previewMod.healthBarBG, true); FlxG.state.add(previewMod.healthBarBG); }
+            if (previewMod.healthBarFillP2 != null) { FlxG.state.remove(previewMod.healthBarFillP2, true); FlxG.state.add(previewMod.healthBarFillP2); }
+            if (previewMod.healthBarFillP1 != null) { FlxG.state.remove(previewMod.healthBarFillP1, true); FlxG.state.add(previewMod.healthBarFillP1); }
+            if (previewMod.iconP1 != null) { FlxG.state.remove(previewMod.iconP1, true); FlxG.state.add(previewMod.iconP1); }
+            if (previewMod.iconP2 != null) { FlxG.state.remove(previewMod.iconP2, true); FlxG.state.add(previewMod.iconP2); }
+        }
+
+        var accMod:Dynamic = ModuleHandler.getModule("KssetteAccuracy");
+        if (accMod != null) {
+            if (accMod.uiText != null) { FlxG.state.remove(accMod.uiText, true); FlxG.state.add(accMod.uiText); }
+            if (accMod.infoText != null) { FlxG.state.remove(accMod.infoText, true); FlxG.state.add(accMod.infoText); }
+            if (accMod.timeText != null) { FlxG.state.remove(accMod.timeText, true); FlxG.state.add(accMod.timeText); }
+            if (accMod.modeText != null) { FlxG.state.remove(accMod.modeText, true); FlxG.state.add(accMod.modeText); }
+            if (accMod.judgeLabels != null) {
+                var labels:Array<Dynamic> = accMod.judgeLabels;
+                for (i in 0...labels.length) {
+                    var l = labels[i];
+                    if (l != null) { FlxG.state.remove(l, true); FlxG.state.add(l); }
+                }
+            }
+            if (accMod.judgeValues != null) {
+                var vals:Array<Dynamic> = accMod.judgeValues;
+                for (i in 0...vals.length) {
+                    var v = vals[i];
+                    if (v != null) { FlxG.state.remove(v, true); FlxG.state.add(v); }
+                }
+            }
+        }
+    }
+
+    function spawnCharacter(id:String, initEvent:ScriptEvent):BaseCharacter {
+        var char:BaseCharacter = null;
+        var rType:String = "";
+
+        var entry = CharacterDataParser.parseCharacterData(id);
+        if (entry != null) {
+            var rawType = Reflect.getProperty(entry, "renderType");
+            if (rawType != null) rType = Std.string(rawType).toLowerCase();
+        }
+
+        if (rType == "") {
+            var types = ["sparrow", "animateatlas", "multisparrow", "multianimateatlas", "packer"];
+            for (type in types) {
+                if (type == "animateatlas") char = new AnimateAtlasCharacter(id);
+                else if (type == "sparrow") char = new SparrowCharacter(id);
+                else if (type == "multsparrow") char = new MultiSparrowCharacter(id);
+                else if (type == "multianimateatlas") char = new MultiAnimateAtlasCharacter(id);
+                else if (type == "packer") char = new PackerCharacter(id);
+
+                if (char != null) {
+                    char.onCreate(initEvent);
+                    return char;
+                }
+            }
+            return null;
+        }
+
+        if (rType == "animateatlas") char = new AnimateAtlasCharacter(id);
+        else if (rType == "multsparrow") char = new MultiSparrowCharacter(id);
+        else if (rType == "multianimateatlas") char = new MultiAnimateAtlasCharacter(id);
+        else if (rType == "packer") char = new PackerCharacter(id);
+        else char = new SparrowCharacter(id);
+        
+        char.onCreate(initEvent);
+        return char;
+    }
+
+    override public function beatHit():Void {
+        super.beatHit();
+        if (bf != null) bf.dance();
+        if (dad != null) dad.dance();
+        if (gf != null) gf.dance();
+    }
+
+    override public function update(elapsed:Float):Void {
+        if (FlxG.sound.music != null && FlxG.sound.music.playing) {
+            if (Conductor.instance != null) Conductor.instance.update(FlxG.sound.music.time);
+        }
+        super.update(elapsed);
+    }
+}

@@ -9,7 +9,7 @@ import flixel.util.FlxColor;
 import flixel.tweens.FlxTween;
 import funkin.Paths;
 import funkin.audio.FunkinSound;
-import funkin.modding.base.ScriptedMusicBeatState;
+import funkin.ui.ScriptedMusicBeatState;
 import funkin.ui.mainmenu.MainMenuState;
 import funkin.modding.module.ModuleHandler;
 import funkin.util.WindowUtil;

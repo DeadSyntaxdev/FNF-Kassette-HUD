@@ -1,0 +1,149 @@
+
+import funkin.ui.ScriptedMusicBeatSubState;
+import funkin.play.character.CharacterDataParser;
+import funkin.play.stage.Stage;
+import funkin.play.character.BaseCharacter;
+import funkin.play.character.SparrowCharacter;
+import funkin.play.character.AnimateAtlasCharacter;
+import funkin.play.character.MultiSparrowCharacter;
+import funkin.play.character.MultiAnimateAtlasCharacter;
+import funkin.play.character.PackerCharacter;
+
+import funkin.modding.events.ScriptEvent;
+import funkin.graphics.FunkinCamera;
+import flixel.FlxG;
+import flixel.util.FlxColor;
+import funkin.modding.module.ModuleHandler;
+import Std;
+import Reflect;
+
+class KssettePlayPreviewSubstate extends ScriptedMusicBeatSubState {
+    public var stageCam:FunkinCamera;
+    public var stage:Stage;
+    public var bf:BaseCharacter;
+    public var dad:BaseCharacter;
+    public var gf:BaseCharacter;
+    var apiRef:Dynamic;
+
+    public function new() {
+        super();
+        this.persistentUpdate = true;
+        this.persistentDraw = true;
+    }
+
+    override public function create():Void {
+        super.create();
+        
+        apiRef = ModuleHandler.getModule("KssetteApi");
+        
+        stageCam = new FunkinCamera('stageCam', 0, 0, Std.int(FlxG.width), Std.int(FlxG.height));
+        stageCam.bgColor = FlxColor.BLACK;
+        stageCam.zoom = 0.7;
+        FlxG.cameras.reset(stageCam);
+
+        var initEvent:ScriptEvent = new ScriptEvent("onCreate");
+
+        stage = new Stage("mainStage");
+        stage.onCreate(initEvent);
+        stage.cameras = [stageCam];
+        add(stage);
+
+        gf = spawnCharacter("gf", initEvent);
+        dad = spawnCharacter("dad", initEvent);
+        bf = spawnCharacter("bf", initEvent);
+
+        var sData = stage._data;
+        var placeChar = function(char:BaseCharacter, cData:Dynamic, isPlayer:Bool) {
+            if (char == null) return;
+            char.resetCharacter(true);
+            if (cData != null) {
+                char.x = cData.position[0] - char.characterOrigin.x;
+                char.y = cData.position[1] - char.characterOrigin.y;
+                var cScale:Float = 1.0;
+                if (cData.scale != null) cScale = cScale;
+                char.setScale(char.getBaseScale() * cScale);
+                var dataFlip = char.getDataFlipX();
+                char.flipX = isPlayer ? !dataFlip : dataFlip;
+                char.originalPosition.set(char.x, char.y);
+                char.resetCameraFocusPoint();
+                if (cData.cameraOffsets != null) {
+                    char.cameraFocusPoint.x += cData.cameraOffsets[0];
+                    char.cameraFocusPoint.y += cData.cameraOffsets[1];
+                }
+                if (cData.scroll != null) {
+                    char.scrollFactor.set(cData.scroll[0], cData.scroll[1]);
+                }
+            }
+        };
+
+        var gfData = null; var dadData = null; var bfData = null;
+        if (sData != null && sData.characters != null) {
+            gfData = sData.characters.gf;
+            dadData = sData.characters.dad;
+            bfData = sData.characters.bf;
+        }
+
+        placeChar(gf, gfData, false);
+        placeChar(dad, dadData, false);
+        placeChar(bf, bfData, true);
+
+        if (gf != null) { add(gf); gf.cameras = [stageCam]; }
+        if (dad != null) { add(dad); dad.cameras = [stageCam]; }
+        if (bf != null) { add(bf); bf.cameras = [stageCam]; }
+
+        if (apiRef != null) {
+            apiRef.preview_bf = bf;
+            apiRef.preview_dad = dad;
+        }
+
+        if (gf != null && gf.cameraFocusPoint != null) {
+            stageCam.focusOn(gf.cameraFocusPoint);
+        } else {
+            stageCam.scroll.set(0, 0);
+        }
+    }
+
+    override public function beatHit():Void {
+        super.beatHit();
+        if (bf != null) bf.dance();
+        if (dad != null) dad.dance();
+        if (gf != null) gf.dance();
+    }
+
+    function spawnCharacter(id:String, initEvent:ScriptEvent):BaseCharacter {
+        var char:BaseCharacter = null;
+        var rType:String = "";
+
+        var entry = CharacterDataParser.parseCharacterData(id);
+        if (entry != null) {
+            var rawType = Reflect.getProperty(entry, "renderType");
+            if (rawType != null) rType = Std.string(rawType).toLowerCase();
+        }
+
+        if (rType == "") {
+            var types = ["sparrow", "animateatlas", "multisparrow", "multianimateatlas", "packer"];
+            for (type in types) {
+                if (type == "animateatlas") char = new AnimateAtlasCharacter(id);
+                else if (type == "sparrow") char = new SparrowCharacter(id);
+                else if (type == "multsparrow") char = new MultiSparrowCharacter(id);
+                else if (type == "multianimateatlas") char = new MultiAnimateAtlasCharacter(id);
+                else if (type == "packer") char = new PackerCharacter(id);
+
+                if (char != null) {
+                    char.onCreate(initEvent);
+                    return char;
+                }
+            }
+            return null;
+        }
+
+        if (rType == "animateatlas") char = new AnimateAtlasCharacter(id);
+        else if (rType == "multsparrow") char = new MultiSparrowCharacter(id);
+        else if (rType == "multianimateatlas") char = new MultiAnimateAtlasCharacter(id);
+        else if (rType == "packer") char = new PackerCharacter(id);
+        else char = new SparrowCharacter(id);
+        
+        char.onCreate(initEvent);
+        return char;
+    }
+}

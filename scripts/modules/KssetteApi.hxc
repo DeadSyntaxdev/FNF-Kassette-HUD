@@ -33,7 +33,7 @@ import openfl.net.URLRequest;
 import openfl.events.Event;
 import openfl.events.IOErrorEvent;
 import openfl.events.SecurityErrorEvent;
-import funkin.modding.base.ScriptedMusicBeatState;
+import funkin.ui.ScriptedMusicBeatState;
 import funkin.data.notestyle.NoteStyleRegistry;
 
 class KssetteApi extends Module {

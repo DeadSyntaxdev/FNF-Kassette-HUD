@@ -1,4 +1,3 @@
-package kassettehud.util;
 
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
@@ -23,7 +22,9 @@ import StringTools;
 import funkin.ui.FullScreenScaleMode;
 import funkin.Conductor;
 
-class KssetteHUDPreview extends Module {
+import funkin.ui.ScriptedMusicBeatSubState;
+
+class KssetteHUDPreview extends ScriptedMusicBeatSubState {
     public var isPreview:Bool = false;
     public var previewCam:FlxCamera = null;
     var apiModule:Dynamic = null;
@@ -57,7 +58,9 @@ class KssetteHUDPreview extends Module {
     var canSpawnOpp:Bool = true;
 
     public function new() {
-        super("KssetteHUDPreview");
+        super();
+        this.persistentUpdate = true;
+        this.persistentDraw = true;
     }
 
     function killObj(obj:Dynamic) {
@@ -645,8 +648,8 @@ class KssetteHUDPreview extends Module {
         }
     }
 
-    override public function onUpdate(event:Dynamic) {
-
+    override public function update(elapsed:Float):Void {
+        super.update(elapsed);
         if (!isPreview) return;
 
         if (Std.isOfType(FlxG.state, PlayState)) {
@@ -658,13 +661,13 @@ class KssetteHUDPreview extends Module {
         }
         
         if (bfIdleTimer > 0) {
-            bfIdleTimer -= event.elapsed;
+            bfIdleTimer -= elapsed;
             if (bfIdleTimer <= 0) {
                 try { if (apiModule.preview_bf != null) apiModule.preview_bf.dance(true); } catch(e:Dynamic) {}
             }
         }
         if (dadIdleTimer > 0) {
-            dadIdleTimer -= event.elapsed;
+            dadIdleTimer -= elapsed;
             if (dadIdleTimer <= 0) {
                 try { if (apiModule.preview_dad != null) apiModule.preview_dad.dance(true); } catch(e:Dynamic) {}
             }
@@ -675,7 +678,7 @@ class KssetteHUDPreview extends Module {
             beatDuration = Conductor.instance.crochet / 1000.0;
         }
 
-        noteTimer += event.elapsed;
+        noteTimer += elapsed;
         if (noteTimer > targetNoteDelay) {
             noteTimer = 0;
             var beatsToWait = 2 + Std.random(3); // Wait 2, 3, or 4 beats
@@ -691,7 +694,7 @@ class KssetteHUDPreview extends Module {
             apiModule.preview_turnProgress = prog;
         }
         
-        ghostTimer += event.elapsed;
+        ghostTimer += elapsed;
         if (ghostTimer > targetGhostDelay) {
             ghostTimer = 0;
             var ghostBeatsToWait = 3 + Std.random(5); // Wait 3 to 7 beats
@@ -716,14 +719,14 @@ class KssetteHUDPreview extends Module {
         }
 
         if (cachedActive && iconP1 != null && iconP1.exists && iconP2 != null && iconP2.exists && healthBarBG != null && healthBarBG.exists) {
-            bopTimer += event.elapsed;
+            bopTimer += elapsed;
             if (bopTimer >= beatDuration) { 
                 bopTimer = 0;
                 iconP1.scale.set(1.2, 1.2);
                 iconP2.scale.set(1.2, 1.2);
             }
             
-            var bopRecover = event.elapsed * 1.5;
+            var bopRecover = elapsed * 1.5;
             var prevScale = iconP1.scale.x;
             if (iconP1.scale.x > 1.0) iconP1.scale.x -= bopRecover;
             if (iconP1.scale.y > 1.0) iconP1.scale.y -= bopRecover;

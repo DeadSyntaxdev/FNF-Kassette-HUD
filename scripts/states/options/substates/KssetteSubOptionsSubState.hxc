@@ -1,0 +1,879 @@
+
+import funkin.ui.ScriptedMusicBeatSubState;
+import flixel.FlxG;
+import flixel.FlxCamera;
+import flixel.FlxSprite;
+import flixel.text.FlxText;
+import flixel.text.FlxTextBorderStyle;
+import flixel.group.FlxSpriteGroup;
+import funkin.save.Save;
+import funkin.audio.FunkinSound;
+import funkin.Paths;
+import flixel.util.FlxColor;
+import flixel.math.FlxMath;
+import funkin.Preferences;
+import Math;
+import Std;
+import StringTools;
+import funkin.util.TouchUtil;
+import funkin.util.SwipeUtil;
+import funkin.util.HapticUtil;
+import funkin.modding.module.ModuleHandler;
+
+class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
+    public var parent:Dynamic;
+    
+    var panelWidth:Float;
+    var screenW:Float;
+    var screenH:Float;
+    var halfScreenH:Float;
+    var optionCam:FlxCamera;
+    var menuFont:String;
+    var apiRef:Dynamic;
+    
+    var isOpMenuOpen:Bool = false;
+    var opSel_Group:FlxSpriteGroup;
+    var opSel_Up:FlxText;
+    var opSel_Down:FlxText;
+    var opSel_TxtVal:FlxText;
+    var opSel_Value:Int = 100;
+    var opSel_SaveKey:String = "";
+
+    var isVolMenuOpen:Bool = false;
+    var volSel_Group:FlxSpriteGroup;
+    var volSel_Up:FlxText;
+    var volSel_Down:FlxText;
+    var volSel_TxtVal:FlxText;
+    var volSel_Value:Int = 100;
+    var volSel_SaveKey:String = "";
+
+    var isTimeMenuOpen:Bool = false;
+    var tSel_Group:FlxSpriteGroup;
+    var tSel_UpHour:FlxText;
+    var tSel_DownHour:FlxText;
+    var tSel_UpMin:FlxText;
+    var tSel_DownMin:FlxText;
+    var tSel_TxtHour:FlxText;
+    var tSel_TxtMin:FlxText;
+    var tSel_TxtColon:FlxText;
+    var tSel_Hour:Int = 0;
+    var tSel_Min:Int = 0;
+    var tSel_IsMin:Bool = false;
+    var tSel_SaveKey:String = "";
+
+    var isFontMenuOpen:Bool = false;
+    var fontItems:Array<Dynamic> = [];
+    var fontBgGroup:FlxSpriteGroup;
+    var fontItemsGroup:FlxSpriteGroup;
+    var fontSelectedIndex:Int = 0;
+    var fontLastSelectedIndex:Int = -1;
+    var currentFontSaveKey:String = "";
+    var currentFontTextRef:FlxText = null;
+    var fontVisibleStart:Int = -1;
+    var fontVisibleEnd:Int = -1;
+    var lastFontVisibleStart:Int = -1;
+    var lastFontVisibleEnd:Int = -1;
+    var fontTargetScrollY:Float = 0;
+    var fontMaxScroll:Float = 0;
+    var fontActiveFile:String = "";
+
+    var sndScroll:Dynamic;
+    var sndOn:Dynamic;
+    var sndHit:Dynamic;
+    
+    var holdTimer:Float = 0.0;
+    var panelOnLeft:Bool = false;
+
+    public function new(parent:Dynamic) {
+        super();
+        this.parent = parent;
+        this.persistentUpdate = true;
+        this.persistentDraw = true;
+    }
+
+    public function initSubstate():Void {
+        this.panelWidth = parent.panelWidth;
+        this.screenW = parent.screenW;
+        this.screenH = parent.screenH;
+        this.halfScreenH = parent.halfScreenH;
+        this.optionCam = FlxG.cameras.list[FlxG.cameras.list.length - 1];
+        
+        var hudCam = FlxG.cameras.list[FlxG.cameras.list.length - 2];
+        this.cameras = [FlxG.camera, hudCam, this.optionCam];
+        
+        this.menuFont = Paths.font("5by7.ttf");
+        this.sndScroll = Paths.sound('ui/khud_scroll');
+        this.sndOn = Paths.sound('ui/khud_on');
+        this.sndHit = Paths.sound("play/hitsound");
+        this.panelOnLeft = parent.panelOnLeft;
+        this.apiRef = parent.apiRef;
+    }
+
+    function makeOverlayText(group:FlxSpriteGroup, x:Float, y:Float, w:Float, text:String, size:Int, color:Int, align:String, border:Bool = false):FlxText {
+        var txt = new FlxText(x, y, w, text, size);
+        if (border) txt.setFormat(menuFont, size, color, align, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+        else txt.setFormat(menuFont, size, color, align);
+        txt.scrollFactor.set(0, 0);
+        txt.antialiasing = false;
+        group.add(txt);
+        return txt;
+    }
+
+    function createOverlayGroup(title:String, inst:String = null):FlxSpriteGroup {
+        var group = new FlxSpriteGroup(0, 0);
+        group.x = panelOnLeft ? -panelWidth : screenW;
+        group.cameras = [optionCam];
+        add(group);
+
+        var bg = new FlxSprite(0, 0).makeGraphic(Std.int(panelWidth), Std.int(screenH), 0xFF000000);
+        bg.alpha = 0.95;
+        bg.scrollFactor.set(0, 0);
+        group.add(bg);
+
+        makeOverlayText(group, 10, 80, panelWidth - 20, title, 40, FlxColor.YELLOW, "center", true);
+        if (inst == null) inst = FlxG.onMobile ? "SWIPE TO CHANGE  |  TAP BACK BUTTON TO SAVE" : "SWIPE TO CHANGE  |  ENTER TO SAVE";
+        makeOverlayText(group, 10, 140, panelWidth - 20, inst, 20, FlxColor.WHITE, "center");
+        return group;
+    }
+
+    public function openOpacitySelector(saveKey:String) {
+        isOpMenuOpen = true; 
+        opSel_SaveKey = saveKey;
+        
+        var curVal = "65";
+        var fetched = Save.instance.modOptions.get(saveKey);
+        if (fetched != null) curVal = StringTools.replace(Std.string(fetched), "%", "");
+        
+        opSel_Value = Std.parseInt(curVal);
+        if (opSel_Value == null) opSel_Value = 65;
+        
+        opSel_Group = createOverlayGroup("ADJUST OPACITY (ESC TO CANCEL)");
+        var cY = halfScreenH;
+        var cX = panelWidth / 2;
+        
+        opSel_Up = makeOverlayText(opSel_Group, cX - 50, cY - 100, 100, "/\\", 50, FlxColor.YELLOW, "center");
+        opSel_Down = makeOverlayText(opSel_Group, cX - 50, cY + 50, 100, "\\/", 50, FlxColor.YELLOW, "center");
+        opSel_TxtVal = makeOverlayText(opSel_Group, cX - 100, cY - 40, 200, "65%", 70, FlxColor.WHITE, "center", true);
+
+        updateOpacityUI();
+    }
+
+    function updateOpacityUI() {
+        if (opSel_Group == null || opSel_TxtVal == null) return;
+        var nextText = Std.string(opSel_Value) + "%";
+        if (opSel_TxtVal.text != nextText) opSel_TxtVal.text = nextText;
+    }
+
+    function saveOpacitySelection() {
+        var finalStr = Std.string(opSel_Value) + "%";
+        Save.instance.modOptions.set(opSel_SaveKey, finalStr);
+        for (it in parent.optionItems) it.lockedState = null;
+        Save.instance.flush();
+        
+        if (parent.descTextDisplay != null && parent.optionItems.length > 0 && parent.selectedIndex >= 0) {
+            var selItem = parent.optionItems[parent.selectedIndex];
+            if (selItem.textDisplay != null) {
+                selItem.textDisplay.text = finalStr;
+            }
+        }
+
+        if (sndOn != null) FlxG.sound.play(sndOn, 0.6);
+        closeOpacitySelector();
+        
+        parent.updatePreviews();
+    }
+
+    function closeOpacitySelector() {
+        if (opSel_Group != null) {
+            remove(opSel_Group);
+            opSel_Group.destroy();
+            opSel_Group = null;
+        }
+        isOpMenuOpen = false;
+    }
+
+    function handleOpacityInput(elapsed:Float) {
+        var tX:Float = FlxG.mouse.screenX;
+        var tY:Float = FlxG.mouse.screenY;
+        var tJustPressed = false;
+        
+        if (FlxG.onMobile) {
+            tJustPressed = TouchUtil.justPressed;
+            if (TouchUtil.touch != null) { tX = TouchUtil.touch.screenX; tY = TouchUtil.touch.screenY; }
+        } else {
+            tJustPressed = FlxG.mouse.justPressed;
+        }
+
+        var oldValue = opSel_Value;
+        
+        if (tJustPressed) {
+            if (tX >= opSel_Up.x - 40 && tX <= opSel_Up.x + opSel_Up.width + 40 &&
+                tY >= opSel_Up.y - 40 && tY <= opSel_Up.y + opSel_Up.height + 40) {
+                opSel_Value += 5; holdTimer = 0.1;
+                if (sndScroll != null) FlxG.sound.play(sndScroll, 0.5);
+            }
+            else if (tX >= opSel_Down.x - 40 && tX <= opSel_Down.x + opSel_Down.width + 40 &&
+                     tY >= opSel_Down.y - 40 && tY <= opSel_Down.y + opSel_Down.height + 40) {
+                opSel_Value -= 5; holdTimer = 0.1;
+                if (sndScroll != null) FlxG.sound.play(sndScroll, 0.5);
+            }
+        }
+
+        if (FlxG.mouse != null && FlxG.mouse.wheel != 0) {
+            opSel_Value += Std.int(FlxG.mouse.wheel * 5);
+            if (sndScroll != null) FlxG.sound.play(sndScroll, 0.5);
+        }
+
+        var swipeU = SwipeUtil.swipeUp;
+        var swipeD = SwipeUtil.swipeDown;
+
+        if (controls.UI_UP_P || swipeU) {
+            opSel_Value += 5;
+            if (sndScroll != null) FlxG.sound.play(sndScroll, 0.5);
+        }
+        if (controls.UI_DOWN_P || swipeD) {
+            opSel_Value -= 5;
+            if (sndScroll != null) FlxG.sound.play(sndScroll, 0.5);
+        }
+
+        if (opSel_Value > 100) opSel_Value = 100;
+        if (opSel_Value < 5) opSel_Value = 5;
+        
+        if (oldValue != opSel_Value) updateOpacityUI();
+
+        if (controls.ACCEPT_P || (FlxG.onMobile && FlxG.keys.justPressed.ESCAPE)) {
+            saveOpacitySelection();
+        }
+        if (FlxG.keys.justPressed.ESCAPE && !FlxG.onMobile) {
+            closeOpacitySelector();
+        }
+    }
+
+    public function openVolumeSelector(saveKey:String) {
+        isVolMenuOpen = true; 
+        volSel_SaveKey = saveKey;
+        
+        var curVal = "100";
+        var fetched = Save.instance.modOptions.get(saveKey);
+        if (fetched != null) curVal = StringTools.replace(Std.string(fetched), "%", "");
+        
+        volSel_Value = Std.parseInt(curVal);
+        if (volSel_Value == null) volSel_Value = 100;
+        
+        volSel_Group = createOverlayGroup("ADJUST VOLUME (ESC TO CANCEL)");
+        var cY = halfScreenH;
+        var cX = panelWidth / 2;
+        
+        volSel_Up = makeOverlayText(volSel_Group, cX - 50, cY - 100, 100, "/\\", 50, FlxColor.YELLOW, "center");
+        volSel_Down = makeOverlayText(volSel_Group, cX - 50, cY + 50, 100, "\\/", 50, FlxColor.YELLOW, "center");
+        volSel_TxtVal = makeOverlayText(volSel_Group, cX - 100, cY - 40, 200, "100%", 70, FlxColor.WHITE, "center", true);
+
+        updateVolumeUI();
+    }
+
+    function updateVolumeUI() {
+        if (volSel_Group == null || volSel_TxtVal == null) return;
+        var nextText = Std.string(volSel_Value) + "%";
+        if (volSel_TxtVal.text != nextText) volSel_TxtVal.text = nextText;
+    }
+
+    function saveVolumeSelection() {
+        var finalStr = Std.string(volSel_Value) + "%";
+        Save.instance.modOptions.set(volSel_SaveKey, finalStr);
+        for (it in parent.optionItems) it.lockedState = null;
+        Save.instance.flush();
+        
+        if (parent.descTextDisplay != null && parent.optionItems.length > 0 && parent.selectedIndex >= 0) {
+            var selItem = parent.optionItems[parent.selectedIndex];
+            if (selItem.textDisplay != null) {
+                selItem.textDisplay.text = finalStr;
+            }
+        }
+
+        if (sndOn != null) FlxG.sound.play(sndOn, 0.6);
+        closeVolumeSelector();
+        
+        parent.updatePreviews();
+    }
+
+    function closeVolumeSelector() {
+        if (volSel_Group != null) {
+            remove(volSel_Group);
+            volSel_Group.destroy();
+            volSel_Group = null;
+        }
+        isVolMenuOpen = false;
+    }
+
+    function handleVolumeInput(elapsed:Float) {
+        var tX:Float = FlxG.mouse.screenX;
+        var tY:Float = FlxG.mouse.screenY;
+        var tJustPressed = false;
+        
+        if (FlxG.onMobile) {
+            tJustPressed = TouchUtil.justPressed;
+            if (TouchUtil.touch != null) { tX = TouchUtil.touch.screenX; tY = TouchUtil.touch.screenY; }
+        } else {
+            tJustPressed = FlxG.mouse.justPressed;
+        }
+        
+        var oldVol = volSel_Value;
+
+        if (tJustPressed) {
+            if (tX >= volSel_Up.x - 40 && tX <= volSel_Up.x + volSel_Up.width + 40 &&
+                tY >= volSel_Up.y - 40 && tY <= volSel_Up.y + volSel_Up.height + 40) {
+                volSel_Value += 5; holdTimer = 0.1;
+            }
+            else if (tX >= volSel_Down.x - 40 && tX <= volSel_Down.x + volSel_Down.width + 40 &&
+                     tY >= volSel_Down.y - 40 && tY <= volSel_Down.y + volSel_Down.height + 40) {
+                volSel_Value -= 5; holdTimer = 0.1;
+            }
+        }
+
+        if (FlxG.mouse != null && FlxG.mouse.wheel != 0) {
+            volSel_Value += Std.int(FlxG.mouse.wheel * 5);
+        }
+
+        var swipeU = SwipeUtil.swipeUp;
+        var swipeD = SwipeUtil.swipeDown;
+
+        if (controls.UI_UP_P || swipeU) {
+            volSel_Value += 5;
+        }
+        if (controls.UI_DOWN_P || swipeD) {
+            volSel_Value -= 5;
+        }
+
+        if (volSel_Value > 100) volSel_Value = 100;
+        if (volSel_Value < 0) volSel_Value = 0;
+        
+        if (oldVol != volSel_Value) {
+            if (FlxG.sound != null) {
+                if (sndHit != null) FlxG.sound.play(sndHit, volSel_Value / 100.0);
+            }
+            updateVolumeUI();
+            HapticUtil.vibrate(0, 0.01, 0.15, 0.1);
+        }
+
+        if (controls.ACCEPT_P || (FlxG.onMobile && FlxG.keys.justPressed.ESCAPE)) {
+            saveVolumeSelection();
+        }
+        if (FlxG.keys.justPressed.ESCAPE && !FlxG.onMobile) {
+            closeVolumeSelector();
+        }
+    }
+
+    public function openTimeSelector(saveKey:String, textRef:FlxText) {
+        isTimeMenuOpen = true; 
+        tSel_SaveKey = saveKey;
+        
+        var curVal = "20:00";
+        var fetched = Save.instance.modOptions.get(saveKey);
+        if (fetched != null) curVal = Std.string(fetched);
+        
+        tSel_Hour = 20; 
+        tSel_Min = 0;
+        if (curVal != null && curVal.indexOf(":") != -1) {
+            var colonIdx = curVal.indexOf(":");
+            if (colonIdx != -1) {
+                var pSH = Std.parseInt(curVal.substr(0, colonIdx));
+                var pSM = Std.parseInt(curVal.substr(colonIdx + 1));
+                if (pSH != null) tSel_Hour = pSH;
+                if (pSM != null) tSel_Min = pSM;
+            }
+        }
+        
+        tSel_IsMin = false;
+        
+        tSel_Group = createOverlayGroup("ADJUST CLOCK", FlxG.onMobile ? "SWIPE TO MOVE & CHANGE  |  TAP BACK BUTTON TO SAVE" : "SWIPE TO MOVE & CHANGE  |  ENTER TO SAVE  |  ESC TO CANCEL");
+        var cY = halfScreenH;
+        var cX = panelWidth / 2;
+        
+        tSel_UpHour = makeOverlayText(tSel_Group, cX - 110, cY - 100, 80, "/\\", 50, FlxColor.WHITE, "center");
+        tSel_DownHour = makeOverlayText(tSel_Group, cX - 110, cY + 50, 80, "\\/", 50, FlxColor.WHITE, "center");
+        tSel_UpMin = makeOverlayText(tSel_Group, cX + 30, cY - 100, 80, "/\\", 50, FlxColor.WHITE, "center");
+        tSel_DownMin = makeOverlayText(tSel_Group, cX + 30, cY + 50, 80, "\\/", 50, FlxColor.WHITE, "center");
+        tSel_TxtHour = makeOverlayText(tSel_Group, cX - 120, cY - 40, 100, "00", 70, FlxColor.WHITE, "center", true);
+        tSel_TxtColon = makeOverlayText(tSel_Group, cX - 20, cY - 45, 40, ":", 70, FlxColor.WHITE, "center", true);
+        tSel_TxtMin = makeOverlayText(tSel_Group, cX + 20, cY - 40, 100, "00", 70, FlxColor.WHITE, "center", true);
+        
+        updateTimeUI();
+    }
+
+    function updateTimeUI() {
+        if (tSel_Group == null) return;
+        var hrStr = tSel_Hour < 10 ? "0" + tSel_Hour : Std.string(tSel_Hour);
+        var minStr = tSel_Min < 10 ? "0" + tSel_Min : Std.string(tSel_Min);
+        var hourColor = !tSel_IsMin ? FlxColor.YELLOW : FlxColor.WHITE;
+        var minColor = tSel_IsMin ? FlxColor.YELLOW : FlxColor.WHITE;
+
+        if (tSel_TxtHour != null) {
+            if (tSel_TxtHour.text != hrStr) tSel_TxtHour.text = hrStr;
+            if (tSel_TxtHour.color != hourColor) tSel_TxtHour.color = hourColor;
+        }
+        if (tSel_TxtMin != null) {
+            if (tSel_TxtMin.text != minStr) tSel_TxtMin.text = minStr;
+            if (tSel_TxtMin.color != minColor) tSel_TxtMin.color = minColor;
+        }
+        if (tSel_UpHour != null && tSel_UpHour.color != hourColor) tSel_UpHour.color = hourColor;
+        if (tSel_DownHour != null && tSel_DownHour.color != hourColor) tSel_DownHour.color = hourColor;
+        if (tSel_UpMin != null && tSel_UpMin.color != minColor) tSel_UpMin.color = minColor;
+        if (tSel_DownMin != null && tSel_DownMin.color != minColor) tSel_DownMin.color = minColor;
+    }
+
+    function saveTimeSelection() {
+        var hrStr = tSel_Hour < 10 ? "0" + tSel_Hour : Std.string(tSel_Hour);
+        var minStr = tSel_Min < 10 ? "0" + tSel_Min : Std.string(tSel_Min);
+        var finalStr = hrStr + ":" + minStr;
+        
+        Save.instance.modOptions.set(tSel_SaveKey, finalStr);
+        for (it in parent.optionItems) it.lockedState = null;
+        Save.instance.flush();
+        
+        if (parent.descTextDisplay != null && parent.optionItems.length > 0 && parent.selectedIndex >= 0) {
+            var selItem = parent.optionItems[parent.selectedIndex];
+            if (selItem.textDisplay != null) {
+                selItem.textDisplay.text = finalStr;
+                selItem.textDisplay.color = 0xFF00FF00;
+            }
+        }
+
+        if (sndOn != null) FlxG.sound.play(sndOn, 0.6);
+        closeTimeSelector();
+        
+        parent.updatePreviews();
+    }
+
+    function closeTimeSelector() {
+        if (tSel_Group != null) {
+            remove(tSel_Group);
+            tSel_Group.destroy();
+            tSel_Group = null;
+        }
+        isTimeMenuOpen = false;
+    }
+
+    function handleTimeInput(elapsed:Float) {
+        var tX:Float = FlxG.mouse.screenX;
+        var tY:Float = FlxG.mouse.screenY;
+        var tJustPressed = false;
+        
+        if (FlxG.onMobile) {
+            tJustPressed = TouchUtil.justPressed;
+            if (TouchUtil.touch != null) { tX = TouchUtil.touch.screenX; tY = TouchUtil.touch.screenY; }
+        } else {
+            tJustPressed = FlxG.mouse.justPressed;
+        }
+
+        var oldHour = tSel_Hour;
+        var oldMin = tSel_Min;
+        var oldIsMin = tSel_IsMin;
+
+        if (tJustPressed) {
+            if (tX >= tSel_UpHour.x - 40 && tX <= tSel_UpHour.x + tSel_UpHour.width + 40 &&
+                tY >= tSel_UpHour.y - 40 && tY <= tSel_UpHour.y + tSel_UpHour.height + 40) {
+                tSel_IsMin = false; tSel_Hour++; holdTimer = 0.1;
+                if (sndScroll != null) FlxG.sound.play(sndScroll, 0.5);
+            } 
+            else if (tX >= tSel_DownHour.x - 40 && tX <= tSel_DownHour.x + tSel_DownHour.width + 40 &&
+                     tY >= tSel_DownHour.y - 40 && tY <= tSel_DownHour.y + tSel_DownHour.height + 40) {
+                tSel_IsMin = false; tSel_Hour--; holdTimer = 0.1;
+                if (sndScroll != null) FlxG.sound.play(sndScroll, 0.5);
+            }
+            else if (tX >= tSel_UpMin.x - 40 && tX <= tSel_UpMin.x + tSel_UpMin.width + 40 &&
+                     tY >= tSel_UpMin.y - 40 && tY <= tSel_UpMin.y + tSel_UpMin.height + 40) {
+                tSel_IsMin = true; tSel_Min++; holdTimer = 0.1;
+                if (sndScroll != null) FlxG.sound.play(sndScroll, 0.5);
+            }
+            else if (tX >= tSel_DownMin.x - 40 && tX <= tSel_DownMin.x + tSel_DownMin.width + 40 &&
+                     tY >= tSel_DownMin.y - 40 && tY <= tSel_DownMin.y + tSel_DownMin.height + 40) {
+                tSel_IsMin = true; tSel_Min--; holdTimer = 0.1;
+                if (sndScroll != null) FlxG.sound.play(sndScroll, 0.5);
+            }
+        }
+
+        if (FlxG.mouse != null && FlxG.mouse.wheel != 0) {
+            if (!tSel_IsMin) tSel_Hour += Std.int(FlxG.mouse.wheel);
+            else tSel_Min += Std.int(FlxG.mouse.wheel);
+            if (sndScroll != null) FlxG.sound.play(sndScroll, 0.5);
+        }
+
+        var swipeL = SwipeUtil.swipeLeft;
+        var swipeR = SwipeUtil.swipeRight;
+        var swipeU = SwipeUtil.swipeUp;
+        var swipeD = SwipeUtil.swipeDown;
+
+        if (controls.UI_LEFT_P || swipeL) {
+            tSel_IsMin = !tSel_IsMin;
+            if (sndScroll != null) FlxG.sound.play(sndScroll, 0.5);
+        }
+        if (controls.UI_RIGHT_P || swipeR) {
+            tSel_IsMin = !tSel_IsMin;
+            if (sndScroll != null) FlxG.sound.play(sndScroll, 0.5);
+        }
+
+        if (controls.UI_UP_P || swipeU) {
+            if (!tSel_IsMin) tSel_Hour++; else tSel_Min++;
+            if (sndScroll != null) FlxG.sound.play(sndScroll, 0.5);
+        }
+        if (controls.UI_DOWN_P || swipeD) {
+            if (!tSel_IsMin) tSel_Hour--; else tSel_Min--;
+            if (sndScroll != null) FlxG.sound.play(sndScroll, 0.5);
+        }
+
+        if (tSel_Hour > 23) tSel_Hour = 0;
+        if (tSel_Hour < 0) tSel_Hour = 23;
+        if (tSel_Min > 59) tSel_Min = 0;
+        if (tSel_Min < 0) tSel_Min = 59;
+        
+        if (oldHour != tSel_Hour || oldMin != tSel_Min || oldIsMin != tSel_IsMin) updateTimeUI();
+
+        if (controls.ACCEPT_P || (FlxG.onMobile && FlxG.keys.justPressed.ESCAPE)) {
+            saveTimeSelection();
+        }
+        if (FlxG.keys.justPressed.ESCAPE && !FlxG.onMobile) {
+            closeTimeSelector();
+        }
+    }
+
+    public function openFontSelector(saveKey:String, textRef:FlxText) {
+        isFontMenuOpen = true;
+        currentFontSaveKey = saveKey;
+        currentFontTextRef = textRef;
+        fontSelectedIndex = 0;
+        fontTargetScrollY = 0;
+        fontItems = [];
+        fontLastSelectedIndex = -1;
+        fontVisibleStart = -1;
+        fontVisibleEnd = -1;
+        lastFontVisibleStart = -1;
+        lastFontVisibleEnd = -1;
+
+        fontBgGroup = new FlxSpriteGroup(0, 0);
+        fontBgGroup.x = panelOnLeft ? -panelWidth : screenW;
+        fontBgGroup.cameras = [optionCam];
+        add(fontBgGroup);
+
+        var bg = new FlxSprite(0, 0).makeGraphic(Std.int(panelWidth), Std.int(screenH), 0xFF000000);
+        bg.alpha = 0.95;
+        bg.scrollFactor.set(0, 0);
+        fontBgGroup.add(bg);
+
+        var fTitle = new FlxText(10, 10, panelWidth - 20, "SELECT FONT (ESC TO CANCEL)", 32);
+        fTitle.setFormat(menuFont, 32, FlxColor.YELLOW, "center", FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+        fTitle.antialiasing = false;
+        fTitle.scrollFactor.set(0, 0);
+        fontBgGroup.add(fTitle);
+
+        fontItemsGroup = new FlxSpriteGroup(0, 60);
+        fontItemsGroup.x = panelOnLeft ? -panelWidth : screenW;
+        fontItemsGroup.cameras = [optionCam];
+        add(fontItemsGroup);
+
+        var curSavedFont:String = "vcr.ttf";
+        var fetchedVal = Save.instance.modOptions.get(saveKey);
+        if (fetchedVal != null) curSavedFont = Std.string(fetchedVal);
+        fontActiveFile = curSavedFont;
+
+        var fY:Float = 0;
+        var famDataList:Array<Dynamic> = apiRef.preloadedFamiliesData; 
+
+        for (famData in famDataList) {
+            var fam = famData.name;
+            var variants:Array<Dynamic> = famData.variants;
+            
+            if (variants.length == 1) {
+                var v = variants[0];
+                var displayName = v.family;
+                if (v.variant != "Regular" && v.variant != "Default") displayName += " " + v.variant;
+
+                var fTxt = new FlxText(30, 0, panelWidth - 60, displayName, 22);
+                fTxt.setFormat(v.path, 22, FlxColor.WHITE, "left");
+                
+                var txtH:Float = 22;
+                txtH = fTxt.height;
+                
+                var boxHeight:Float = txtH + 40;
+                if (boxHeight < 60) boxHeight = 60;
+
+                fTxt.y = fY + (boxHeight - txtH) / 2;
+
+                var itemBg = new FlxSprite(0, fY).makeGraphic(Std.int(panelWidth), Std.int(boxHeight), FlxColor.WHITE);
+                itemBg.alpha = 0.0;
+                fontItemsGroup.add(itemBg);
+                fontItemsGroup.add(fTxt);
+
+                fontItems.push({
+                    bg: itemBg,
+                    text: fTxt,
+                    fileName: v.file,
+                    y: fY,
+                    height: boxHeight
+                });
+
+                fY += boxHeight + 6;
+            } else {
+                var famTxt = new FlxText(30, fY + 10, panelWidth - 60, fam, 22);
+                famTxt.setFormat("VCR OSD Mono", 22, 0xFFDDDDDD, "left");
+                fontItemsGroup.add(famTxt);
+                fY += famTxt.height + 10;
+
+                for (v in variants) {
+                    var fTxt = new FlxText(50, 0, panelWidth - 80, v.variant, 20);
+                    fTxt.setFormat(v.path, 20, FlxColor.WHITE, "left");
+                    
+                    var txtH:Float = 20;
+                    txtH = fTxt.height;
+                    
+                    var boxHeight:Float = txtH + 40;
+                    if (boxHeight < 60) boxHeight = 60;
+
+                    fTxt.y = fY + (boxHeight - txtH) / 2;
+
+                    var itemBg = new FlxSprite(0, fY).makeGraphic(Std.int(panelWidth), Std.int(boxHeight), FlxColor.WHITE);
+                    itemBg.alpha = 0.0;
+                    fontItemsGroup.add(itemBg);
+                    fontItemsGroup.add(fTxt);
+
+                    fontItems.push({
+                        bg: itemBg,
+                        text: fTxt,
+                        fileName: v.file,
+                        y: fY,
+                        height: boxHeight
+                    });
+
+                    fY += boxHeight + 4;
+                }
+            }
+        }
+
+        fontMaxScroll = Math.max(0, fY - screenH + 150);
+
+        for (i in 0...fontItems.length) {
+            if (fontItems[i].fileName == curSavedFont) {
+                fontSelectedIndex = i;
+                break;
+            }
+        }
+        
+        changeFontSelection(0);
+    }
+
+    function closeFontSelector() {
+        if (fontBgGroup != null) {
+            remove(fontBgGroup);
+            fontBgGroup.destroy();
+            fontBgGroup = null;
+        }
+        if (fontItemsGroup != null) {
+            remove(fontItemsGroup);
+            fontItemsGroup.destroy();
+            fontItemsGroup = null;
+        }
+        fontItems = [];
+        isFontMenuOpen = false;
+        fontVisibleStart = -1;
+        fontVisibleEnd = -1;
+        lastFontVisibleStart = -1;
+        lastFontVisibleEnd = -1;
+        
+        if (parent.descBg != null) parent.descBg.visible = !parent.panelHidden;
+        if (parent.descTextDisplay != null) parent.descTextDisplay.visible = !parent.panelHidden;
+        if (parent.descValueText != null) parent.descValueText.visible = !parent.panelHidden;
+    }
+
+    function selectCurrentFont() {
+        if (fontItems.length > 0 && fontSelectedIndex >= 0 && fontSelectedIndex < fontItems.length) {
+            var selFile = fontItems[fontSelectedIndex].fileName;
+            Save.instance.modOptions.set(currentFontSaveKey, selFile);
+            for (it in parent.optionItems) it.lockedState = null;
+            Save.instance.flush();
+            fontActiveFile = selFile;
+            
+            if (parent.descTextDisplay != null && parent.optionItems.length > 0 && parent.selectedIndex >= 0) {
+                var selItem = parent.optionItems[parent.selectedIndex];
+                parent.descTextDisplay.text = selItem.desc;
+                if (parent.descValueText != null) {
+                    parent.descValueText.text = parent.formatLongValue(selFile);
+                    var targetColor = parent.getValueColor(parent.descValueText.text);
+                    if (parent.descValueText.color != targetColor) parent.descValueText.color = targetColor;
+                    parent.descValueSlideTimer = 0.0;
+                }
+                
+                if (selItem.textDisplay != null) {
+                    selItem.textDisplay.text = parent.formatShortValue(selFile);
+                    var tColor = parent.getValueColor(selItem.textDisplay.text);
+                    if (selItem.textDisplay.color != tColor) selItem.textDisplay.color = tColor;
+                }
+                parent.descSlideVerticalTimer = 0.0;
+            }
+
+            if (sndOn != null) FlxG.sound.play(sndOn, 0.6);
+            HapticUtil.vibrate(0, 0.01, 0.3, 0.1);
+            
+            parent.updatePreviews();
+        }
+        closeFontSelector();
+    }
+
+    function applyFontItemState(idx:Int):Void {
+        if (idx < 0 || idx >= fontItems.length) return;
+        var item = fontItems[idx];
+        var targetAlpha = (idx == fontSelectedIndex) ? 0.3 : 0.0;
+        if (item.bg != null && item.bg.alpha != targetAlpha) item.bg.alpha = targetAlpha;
+        if (item.text != null) {
+            var targetColor = (item.fileName == fontActiveFile) ? FlxColor.YELLOW : FlxColor.WHITE;
+            if (item.text.color != targetColor) item.text.color = targetColor;
+        }
+    }
+
+    function changeFontSelection(change:Int = 0) {
+        var prevIndex = fontSelectedIndex;
+        fontSelectedIndex += change;
+        if (fontSelectedIndex < 0) fontSelectedIndex = fontItems.length - 1;
+        if (fontSelectedIndex >= fontItems.length) fontSelectedIndex = 0;
+
+        if (change == 0 || fontLastSelectedIndex < 0) {
+            for (i in 0...fontItems.length) {
+                applyFontItemState(i);
+            }
+        } else {
+            applyFontItemState(prevIndex);
+            applyFontItemState(fontSelectedIndex);
+        }
+        fontLastSelectedIndex = fontSelectedIndex;
+
+        if (change != 0) {
+            if (sndScroll != null) FlxG.sound.play(sndScroll, 0.5);
+            HapticUtil.vibrate(0, 0.01, 0.15, 0.1);
+        }
+
+        if (fontItems.length > 0) {
+            var targetY = fontItems[fontSelectedIndex].y - halfScreenH + 60;
+            fontTargetScrollY = Math.max(0, Math.min(fontMaxScroll, targetY));
+        }
+    }
+
+    function setFontItemVisible(item:Dynamic, visible:Bool):Void {
+        if (item == null || item.bg == null) return;
+        if (item.bg.visible != visible) item.bg.visible = visible;
+        if (item.text != null && item.text.visible != visible) item.text.visible = visible;
+    }
+
+    function updateFontItemVisibility(grpY:Float, viewH:Float):Void {
+        var count = fontItems.length;
+        if (count <= 0) return;
+
+        var topY = -100.0 - grpY;
+        var bottomY = viewH + 100.0 - grpY;
+        var startIdx = lastFontVisibleStart < 0 ? 0 : lastFontVisibleStart;
+        if (startIdx >= count) startIdx = count - 1;
+
+        while (startIdx > 0) {
+            var prevItem = fontItems[startIdx - 1];
+            if (prevItem.y + prevItem.height < topY) break;
+            startIdx--;
+        }
+
+        while (startIdx < count) {
+            var curItem = fontItems[startIdx];
+            if (curItem.y + curItem.height >= topY) break;
+            setFontItemVisible(curItem, false);
+            startIdx++;
+        }
+
+        var endIdx = startIdx;
+        while (endIdx < count) {
+            var endItem = fontItems[endIdx];
+            if (endItem.y > bottomY) break;
+            endIdx++;
+        }
+        endIdx--;
+
+        fontVisibleStart = startIdx;
+        fontVisibleEnd = endIdx;
+
+        if (lastFontVisibleStart < 0) {
+            for (i in 0...count) {
+                if (i < fontVisibleStart || i > fontVisibleEnd) setFontItemVisible(fontItems[i], false);
+            }
+        } else {
+            var stopIdx = lastFontVisibleEnd + 1;
+            for (i in lastFontVisibleStart...stopIdx) {
+                if ((i < fontVisibleStart || i > fontVisibleEnd) && i >= 0 && i < count) {
+                    setFontItemVisible(fontItems[i], false);
+                }
+            }
+        }
+
+        if (fontVisibleEnd >= fontVisibleStart) {
+            var stopVisible = fontVisibleEnd + 1;
+            for (i in fontVisibleStart...stopVisible) {
+                setFontItemVisible(fontItems[i], true);
+            }
+        }
+
+        lastFontVisibleStart = fontVisibleStart;
+        lastFontVisibleEnd = fontVisibleEnd;
+    }
+
+    function handleFontInput(elapsed:Float) {
+        var tJustPressed = false;
+        var swipeU = SwipeUtil.swipeUp;
+        var swipeD = SwipeUtil.swipeDown;
+        var swipeL = SwipeUtil.swipeLeft;
+        var swipeR = SwipeUtil.swipeRight;
+        
+        if (FlxG.onMobile) {
+            tJustPressed = TouchUtil.justPressed;
+        } else {
+            tJustPressed = FlxG.mouse.justPressed;
+        }
+
+        if (controls.UI_UP_P || swipeD) {
+            changeFontSelection(-1);
+            holdTimer = 0.5;
+        }
+        if (controls.UI_DOWN_P || swipeU) {
+            changeFontSelection(1);
+            holdTimer = 0.5;
+        }
+        
+        if (FlxG.mouse != null && FlxG.mouse.wheel != 0) {
+            changeFontSelection(-FlxG.mouse.wheel);
+        }
+        
+        if (controls.UI_UP || controls.UI_DOWN) {
+            holdTimer -= elapsed;
+            if (holdTimer <= 0) {
+                changeFontSelection(controls.UI_UP ? -1 : 1);
+                holdTimer = 0.05;
+            }
+        }
+
+        if (controls.ACCEPT_P || (FlxG.onMobile && tJustPressed && SwipeUtil.swipeDistance < 10)) {
+            selectCurrentFont();
+        }
+        
+        if (FlxG.keys.justPressed.ESCAPE || swipeR || swipeL || controls.BACK) {
+            closeFontSelector();
+        }
+    }
+
+    override public function update(elapsed:Float):Void {
+        super.update(elapsed);
+        
+        if (parent.isOpMenuOpen) { handleOpacityInput(elapsed); return; }
+        if (parent.isVolMenuOpen) { handleVolumeInput(elapsed); return; }
+        if (parent.isTimeMenuOpen) { handleTimeInput(elapsed); return; }
+        if (parent.isFontMenuOpen) { 
+            handleFontInput(elapsed); 
+            if (fontItemsGroup != null) {
+                fontItemsGroup.y += (60 - fontTargetScrollY - fontItemsGroup.y) * elapsed * 8;
+                updateFontItemVisibility(fontItemsGroup.y, screenH);
+            }
+            return; 
+        }
+    }
+}
