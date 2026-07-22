@@ -5,7 +5,9 @@ import funkin.modding.module.ModuleHandler;
 import flixel.FlxG;
 import flixel.text.FlxText;
 import flixel.text.FlxTextBorderStyle;
-
+import funkin.Paths;
+import openfl.utils.Assets;
+import openfl.display.BitmapData;
 
 class KassetteHUDElement {
     public var name:String = "Element";
@@ -120,6 +122,54 @@ class KassetteHUDElement {
             if (f != null && f != "null" && f != "") return f;
         }
         return "VCR OSD Mono";
+    }
+
+    /** 
+     * Returns the loaded image graphic from the root of the current skin.
+     * Functions like Paths.image, preserving internal folder structure (e.g., ui/hud/break).
+     */
+    public function getSkinImage(imageName:String):Dynamic {
+        if (imageName == null || imageName == "") return null;
+        
+        var relativePath = "skins/" + this.skinId + "/images/" + imageName + ".png";
+        
+        // 1. Try standard Assets system
+        try {
+            if (Assets.exists(relativePath)) {
+                return Assets.getBitmapData(relativePath);
+            }
+        } catch(e:Dynamic) {}
+        
+        // 2. Fallback to direct filesystem access across all mod folders
+        if (this.assetHunter != null && this.assetHunter.getModFolders != null) {
+            try {
+                var folders:Array<String> = this.assetHunter.getModFolders();
+                for (folder in folders) {
+                    var directPath = "mods/" + folder + "/" + relativePath;
+                    
+                    var bmp = BitmapData.fromFile(directPath);
+                    if (bmp != null) return bmp;
+                    
+                    var winPath = directPath.split("/").join("\\");
+                    bmp = BitmapData.fromFile(winPath);
+                    if (bmp != null) return bmp;
+                }
+            } catch(e:Dynamic) {}
+        } else {
+            // Failsafe if assetHunter isn't ready
+            try {
+                var directPath = "mods/FNF-Kassette-HUD/" + relativePath;
+                var bmp = BitmapData.fromFile(directPath);
+                if (bmp != null) return bmp;
+                
+                var winPath = directPath.split("/").join("\\");
+                bmp = BitmapData.fromFile(winPath);
+                if (bmp != null) return bmp;
+            } catch(e:Dynamic) {}
+        }
+        
+        trace("[KassetteHUDElement] Error loading skin image: " + relativePath);
+        return null;
     }
 
     /** Creates and formats a FlxText object automatically. */

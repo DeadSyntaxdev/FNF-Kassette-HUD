@@ -2,6 +2,7 @@ package kassettehud.util;
 
 import funkin.play.PlayState;
 import flixel.FlxG;
+import flixel.FlxCamera;
 
 import funkin.modding.module.Module;
 
@@ -48,4 +49,18 @@ class KHUDModifier extends Module {
     public function isPlayStateActive():Bool {
         return playState != null && !playState.startingSong;
     }
+
+    /**
+     * Called by the Options Menu to initialize preview elements.
+     * Override this in subclasses to create UI elements for preview mode.
+     */
+    public function buildPreview(cam:FlxCamera) {
+        isPreview = true;
+    }
+
+    /**
+     * Called by the Options Menu to update preview elements.
+     * Override this in subclasses to animate or update UI elements in preview mode.
+     */
+    public function updatePreview() {}
 }

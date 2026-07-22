@@ -239,6 +239,7 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
 
         for (mName in previewModuleNames) {
             var mod = skin.getElement(mName);
+            if (mod == null) mod = ModuleHandler.getModule(mName);
             if (mod != null) previewModules.push(mod);
         }
         trace("[KssetteOptionsState] cachePreviewModules() completed. previewModules length: " + previewModules.length);
@@ -349,6 +350,12 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
                     if (v != null) { FlxG.state.remove(v, true); FlxG.state.add(v); }
                 }
             }
+        }
+
+        var subMod:Dynamic = ModuleHandler.getModule("KssetteSubtitles");
+        if (subMod != null && subMod.subText != null) {
+            FlxG.state.remove(subMod.subText, true); 
+            FlxG.state.add(subMod.subText); 
         }
     }
 

@@ -83,8 +83,10 @@ class KssetteSubtitles extends KHUDModifier {
     /** Whether subtitles are currently visible on screen. */
     var isShowing:Bool = false;
     
+    var targetPreviewTick:Int = 0;
+    
     /** The primary FlxText node that displays subtitle content. */
-    var subText:FlxText;
+    public var subText:FlxText;
 
     // --- Native subtitle system bridge ---
     var _nativeSubs:Dynamic = null;
@@ -483,7 +485,7 @@ var triviaArray:Array<String> = [
             smartKaraoke = getSetting("kssette_smart_karaoke") == true;
         }
         
-        previewTimer = 0.5;
+        targetPreviewTick = FlxG.game.ticks + 500;
         previewState = 0;
         lastRawText = "";
     }
@@ -548,7 +550,10 @@ var triviaArray:Array<String> = [
      *   - Calculating and running the karaoke tweens and show/hide animations.
      */
     override public function onUpdate(event:Dynamic) {
-        var elapsed:Float = (Std.isOfType(event, Float)) ? event : (event != null ? event.elapsed : 0);
+        var baseElapsed:Float = FlxG.elapsed;
+        if (baseElapsed <= 0) baseElapsed = 0.016; 
+        if (baseElapsed > 0.1) baseElapsed = 0.1; 
+
         if (subText == null) return;
 
         if (!subText.exists || !subText.active) {
@@ -556,10 +561,9 @@ var triviaArray:Array<String> = [
             return;
         }
 
-        var elapsed = event.elapsed;
-        updateTimer += elapsed;
+        updateTimer += baseElapsed;
         if (updateTimer < 0.008) return;
-        elapsed = updateTimer;
+        var elapsed:Float = updateTimer;
         updateTimer = 0.0;
 
         var rawTargetText:String = "";
@@ -568,30 +572,32 @@ var triviaArray:Array<String> = [
         var currentSubsTime:Float = -1000;
 
         if (isPreview) {
-            previewTimer -= elapsed;
-            if (previewTimer <= 0) {
+            if (previewState == 1 || previewState == 3) {
+                rawTargetText = lastRawText;
+            } else {
+                rawTargetText = "";
+            }
+
+            if (FlxG.game.ticks >= targetPreviewTick) {
                 previewState++;
                 if (previewState > 3) {
                     previewState = 0;
                 }
                 
                 if (previewState == 0) {
-                    previewTimer = 1.0; 
-                    lastRawText = ""; 
+                    targetPreviewTick = FlxG.game.ticks + 1000; 
+                    rawTargetText = "";
                 } else if (previewState == 1) {
-                    rawTargetText = triviaArray[FlxG.random.int(0, triviaArray.length - 1)];
-                    previewTimer = 4.0;
+                    var safeIdx = FlxG.random.int(0, triviaArray.length - 1);
+                    rawTargetText = triviaArray[safeIdx];
+                    targetPreviewTick = FlxG.game.ticks + 4000; 
                 } else if (previewState == 2) {
-                    previewTimer = 1.0;
-                    lastRawText = ""; 
+                    targetPreviewTick = FlxG.game.ticks + 1000;
+                    rawTargetText = "";
                 } else if (previewState == 3) {
                     rawTargetText = "<font color=\"#FF0000\">Testing Colors & Custom Fonts!</font>";
-                    previewTimer = 4.0;
+                    targetPreviewTick = FlxG.game.ticks + 4000; 
                 }
-            } else if (previewState == 1 || previewState == 3) {
-                rawTargetText = lastRawText;
-            } else {
-                rawTargetText = "";
             }
             
             isCutscene = false;

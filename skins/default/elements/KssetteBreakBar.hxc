@@ -44,6 +44,7 @@ import flixel.text.FlxTextBorderStyle;
 import flixel.math.FlxPoint;
 import flixel.math.FlxRect;
 import flixel.util.FlxSpriteUtil;
+import funkin.graphics.FunkinSprite;
 
 class KssetteBreakBar extends KassetteHUDElement {
     /** Horizontal offset for 'Default' and 'Pie' styles. */
@@ -59,7 +60,7 @@ class KssetteBreakBar extends KassetteHUDElement {
     /** Border sprite for 'Default' and 'Pie' styles. */
     var border:FlxSprite;
     /** Break icon sprite for 'Default' and 'Pie' styles. */
-    var breakIcon:FlxSprite;
+    var breakIcon:FunkinSprite;
     
     /** Array of sprites for the 'Classic' style borders. */
     var borders:Array<FlxSprite> = [];
@@ -287,8 +288,8 @@ class KssetteBreakBar extends KassetteHUDElement {
             lastPieDegree = -1;
             safeAdd(barFill, cam);
             
-            breakIcon = new FlxSprite(0, 0);
-            var iconImg = Paths.image("ui/hud/break");
+            breakIcon = new FunkinSprite(0, 0);
+            var iconImg = getSkinImage("break");
             if (iconImg != null) {
                 breakIcon.loadGraphic(iconImg);
             } else {
@@ -323,8 +324,8 @@ class KssetteBreakBar extends KassetteHUDElement {
             lastFillW = -1;
             safeAdd(barFill, cam);
 
-            breakIcon = new FlxSprite(0, 0);
-            var iconImg = Paths.image("ui/hud/break");
+            breakIcon = new FunkinSprite(0, 0);
+            var iconImg = getSkinImage("break");
             if (iconImg != null) {
                 breakIcon.loadGraphic(iconImg);
             } else {
