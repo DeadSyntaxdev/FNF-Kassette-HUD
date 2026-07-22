@@ -63,4 +63,6 @@ class KHUDModifier extends Module {
      * Override this in subclasses to animate or update UI elements in preview mode.
      */
     public function updatePreview() {}
+
+    public function destroy() {}
 }

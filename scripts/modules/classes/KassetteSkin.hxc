@@ -6,6 +6,7 @@ import haxe.Json;
 import Type;
 import Std;
 import funkin.modding.module.Module;
+import funkin.modding.module.ModuleHandler;
 import funkin.save.Save;
 
 class KassetteSkin extends Module {

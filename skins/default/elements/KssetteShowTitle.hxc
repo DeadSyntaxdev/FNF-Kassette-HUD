@@ -664,12 +664,10 @@ class KssetteShowTitle extends KassetteHUDElement {
         if (titleTxt != null) titleTxt.destroy();
         if (artistTxt != null) artistTxt.destroy();
         if (albumSprite != null) albumSprite.destroy();
-        if (uiGroup != null) uiGroup.destroy();
         
         titleTxt = null;
         artistTxt = null;
         albumSprite = null;
-        uiGroup = null;
         
         if (titleTween != null) titleTween.cancel();
         if (artistTween != null) artistTween.cancel();

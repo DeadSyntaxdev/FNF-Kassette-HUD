@@ -683,13 +683,11 @@ class KssetteBreakBar extends KassetteHUDElement {
     }
     
     override public function destroy() {
-        if (uiGroup != null) uiGroup.destroy();
         if (border != null) border.destroy();
         if (breakIcon != null) breakIcon.destroy();
         if (breakText != null) breakText.destroy();
         if (barFill != null) barFill.destroy();
         
-        uiGroup = null;
         border = null;
         breakIcon = null;
         breakText = null;

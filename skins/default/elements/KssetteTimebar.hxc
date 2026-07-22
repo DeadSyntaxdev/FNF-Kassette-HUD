@@ -386,11 +386,9 @@ class KssetteTimeBar extends KassetteHUDElement {
     override public function destroy() {
         if (timeBar != null) timeBar.destroy();
         if (timeBarBG != null) timeBarBG.destroy();
-        if (uiGroup != null) uiGroup.destroy();
         
         timeBar = null;
         timeBarBG = null;
-        uiGroup = null;
 
         super.destroy();
     }
