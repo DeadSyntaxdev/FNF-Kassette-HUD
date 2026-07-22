@@ -997,10 +997,10 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
                 var opOpen = subOptions != null && subOptions.isOpMenuOpen;
                 var volOpen = subOptions != null && subOptions.isVolMenuOpen;
                 if (fontOpen || timeOpen || opOpen || volOpen) {
-                    if (fontOpen) subOptions.closeFontSelector();
-                    if (timeOpen) subOptions.closeTimeSelector();
-                    if (opOpen) subOptions.closeOpacitySelector();
-                    if (volOpen) subOptions.closeVolumeSelector();
+                    if (fontOpen) subOptions.selectCurrentFont();
+                    if (timeOpen) subOptions.saveTimeSelection();
+                    if (opOpen) subOptions.saveOpacitySelection();
+                    if (volOpen) subOptions.saveVolumeSelection();
                 } else {
                     exitMenu();
                 }

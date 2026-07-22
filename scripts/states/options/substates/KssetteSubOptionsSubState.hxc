@@ -178,7 +178,7 @@ class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
         if (opSel_TxtVal.text != nextText) opSel_TxtVal.text = nextText;
     }
 
-    function saveOpacitySelection() {
+    public function saveOpacitySelection() {
         var finalStr = Std.string(opSel_Value) + "%";
         Save.instance.modOptions.set(opSel_SaveKey, finalStr);
         if (parent.optionItems != null) {
@@ -296,7 +296,7 @@ class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
         if (volSel_TxtVal.text != nextText) volSel_TxtVal.text = nextText;
     }
 
-    function saveVolumeSelection() {
+    public function saveVolumeSelection() {
         var finalStr = Std.string(volSel_Value) + "%";
         Save.instance.modOptions.set(volSel_SaveKey, finalStr);
         if (parent.optionItems != null) {
@@ -445,7 +445,7 @@ class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
         if (tSel_DownMin != null && tSel_DownMin.color != minColor) tSel_DownMin.color = minColor;
     }
 
-    function saveTimeSelection() {
+    public function saveTimeSelection() {
         var hrStr = tSel_Hour < 10 ? "0" + tSel_Hour : Std.string(tSel_Hour);
         var minStr = tSel_Min < 10 ? "0" + tSel_Min : Std.string(tSel_Min);
         var finalStr = hrStr + ":" + minStr;
@@ -714,7 +714,7 @@ class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
         if (parent.descValueText != null) parent.descValueText.visible = !parent.panelHidden;
     }
 
-    function selectCurrentFont() {
+    public function selectCurrentFont() {
         if (fontItems.length > 0 && fontSelectedIndex >= 0 && fontSelectedIndex < fontItems.length) {
             var selFile = fontItems[fontSelectedIndex].fileName;
             Save.instance.modOptions.set(currentFontSaveKey, selFile);
