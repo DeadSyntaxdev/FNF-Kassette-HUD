@@ -46,6 +46,7 @@ class KssetteHealthBar extends KassetteHUDElement {
 
     public function new() {
         super("KssetteHealthBar");
+        this.name = "KssetteHealthBar";
     }
 
     /**

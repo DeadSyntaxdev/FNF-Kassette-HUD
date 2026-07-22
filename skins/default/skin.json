@@ -1,14 +1,12 @@
 {
-  "id": "default",
-  "name": "Kassette Default",
-  "author": "mkssette",
-  "version": "0.1.0",
-  "description": "El HUD predeterminado de Kassette.",
-  "elements": [
-    "KssetteHealthBar",
-    "KssetteTimeBar",
-    "KssetteAccuracy",
-    "KssetteShowTitle",
-    "KssetteBreakBar"
-  ]
+    "name": "Default Skin",
+    "author": "Kassette",
+    "description": "The default Kassette HUD UI layout. Clean and minimalistic.",
+    "elements": [
+        "KssetteHealthBar",
+        "KssetteTimeBar",
+        "KssetteAccuracy",
+        "KssetteShowTitle",
+        "KssetteBreakBar"
+    ]
 }

@@ -36,10 +36,12 @@ class KssettePlayPreviewSubstate extends ScriptedMusicBeatSubState {
         
         apiRef = ModuleHandler.getModule("KssetteApi");
         
-        stageCam = new FunkinCamera('stageCam', 0, 0, Std.int(FlxG.width), Std.int(FlxG.height));
-        stageCam.bgColor = FlxColor.BLACK;
-        stageCam.zoom = 0.7;
-        FlxG.cameras.reset(stageCam);
+        if (stageCam == null) {
+            stageCam = new FunkinCamera('stageCam', 0, 0, Std.int(FlxG.width), Std.int(FlxG.height));
+            stageCam.bgColor = FlxColor.BLACK;
+            stageCam.zoom = 0.7;
+            FlxG.cameras.reset(stageCam);
+        }
 
         var initEvent:ScriptEvent = new ScriptEvent("onCreate");
 

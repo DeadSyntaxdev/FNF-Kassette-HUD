@@ -198,6 +198,7 @@ class KssetteAccuracy extends KassetteHUDElement {
 
     public function new() {
         super("KssetteAccuracy");
+        this.name = "KssetteAccuracy";
     }
 
     /**
@@ -432,6 +433,7 @@ class KssetteAccuracy extends KassetteHUDElement {
             updateAccuracyText(123456, 0, 100.00, "PERFECT_GOLD", "SFC");
             lastVisualAcc = 100.00;
         }
+        trace("[KssetteAccuracy] updatePreview() called. uiText.text: " + uiText.text + " | y: " + uiText.y + " | isPreview: " + isPreview);
 
         for (i in 0...judgeLabels.length) {
             if (judgeValues[i] != null) {
@@ -455,17 +457,35 @@ class KssetteAccuracy extends KassetteHUDElement {
     function updateSettings() {
         if (api == null) return;
         
-        _cShowScore = api.getKssValue("kssette_show_score") == true;
-        _cShowMisses = api.getKssValue("kssette_show_misses") == true;
-        _cShowRank = api.getKssValue("kssette_show_rank") == true;
-        _cShowTier = api.getKssValue("kssette_show_tier") == true;
+        var rawScore = api.getKssValue("kssette_show_score");
+        _cShowScore = (rawScore == true || Std.string(rawScore) == "On" || Std.string(rawScore) == "true");
+        
+        var rawMisses = api.getKssValue("kssette_show_misses");
+        _cShowMisses = (rawMisses == true || Std.string(rawMisses) == "On" || Std.string(rawMisses) == "true");
+        
+        var rawRank = api.getKssValue("kssette_show_rank");
+        _cShowRank = (rawRank == true || Std.string(rawRank) == "On" || Std.string(rawRank) == "true");
+        
+        var rawTier = api.getKssValue("kssette_show_tier");
+        _cShowTier = (rawTier == true || Std.string(rawTier) == "On" || Std.string(rawTier) == "true");
+        
         _cAccMode = Std.string(api.getKssValue("kssette_acc_mode"));
         _cJudgePos = Std.string(api.getKssValue("kssette_judge_pos"));
-        _cSmooth = api.getKssValue("kssette_smooth_display") == true;
-        _cShowTime = api.getKssValue("kssette_show_song_time") == true;
-        _cShowTitle = api.getKssValue("kssette_show_song_title") == true;
-        _cShowDiff = api.getKssValue("kssette_show_song_diff") == true;
-        _cScoreBop = api.getKssValue("kssette_score_bop") == true;
+        
+        var rawSmooth = api.getKssValue("kssette_smooth_display");
+        _cSmooth = (rawSmooth == true || Std.string(rawSmooth) == "On" || Std.string(rawSmooth) == "true");
+        
+        var rawTime = api.getKssValue("kssette_show_song_time");
+        _cShowTime = (rawTime == true || Std.string(rawTime) == "On" || Std.string(rawTime) == "true");
+        
+        var rawTitle = api.getKssValue("kssette_show_song_title");
+        _cShowTitle = (rawTitle == true || Std.string(rawTitle) == "On" || Std.string(rawTitle) == "true");
+        
+        var rawDiff = api.getKssValue("kssette_show_song_diff");
+        _cShowDiff = (rawDiff == true || Std.string(rawDiff) == "On" || Std.string(rawDiff) == "true");
+        
+        var rawBop = api.getKssValue("kssette_score_bop");
+        _cScoreBop = (rawBop == true || Std.string(rawBop) == "On" || Std.string(rawBop) == "true");
         
         var songHunter = KassetteHUDElement.globalSongHunter;
         if (songHunter != null) {
@@ -904,10 +924,19 @@ class KssetteAccuracy extends KassetteHUDElement {
         var elapsed:Float = (Std.isOfType(event, Float)) ? event : (event != null ? event.elapsed : 0);
         
         if (uiText != null && uiText.exists && _cScoreBop) {
-            var lerpFactor = 1.0 - (elapsed * 15.0);
+            var bopElapsed = elapsed;
+            if (bopElapsed > 0.016) bopElapsed = 0.016; 
+            
+            var lerpFactor = 1.0 - (bopElapsed * 15.0);
             if (lerpFactor < 0) lerpFactor = 0;
-            uiText.scale.x = 1.0 + ((uiText.scale.x - 1.0) * lerpFactor);
-            uiText.scale.y = 1.0 + ((uiText.scale.y - 1.0) * lerpFactor);
+            var newX = 1.0 + ((uiText.scale.x - 1.0) * lerpFactor);
+            var newY = 1.0 + ((uiText.scale.y - 1.0) * lerpFactor);
+            
+            if (Math.abs(newX - 1.0) > 0.001 || Math.abs(newY - 1.0) > 0.001) {
+                uiText.scale.set(newX, newY);
+            } else if (uiText.scale.x != 1.0 || uiText.scale.y != 1.0) {
+                uiText.scale.set(1.0, 1.0);
+            }
         }
         
         if (isPreview) {
@@ -938,7 +967,7 @@ class KssetteAccuracy extends KassetteHUDElement {
                 if (!_cSmooth) {
                     displayedAcc = targetVisualAcc;
                 } else {
-                    displayedAcc += (targetVisualAcc - displayedAcc) * (event.elapsed * 8);
+                    displayedAcc += (targetVisualAcc - displayedAcc) * (elapsed * 8);
                     if (Math.abs(targetVisualAcc - displayedAcc) < 0.001) displayedAcc = targetVisualAcc;
                 }
                 
@@ -952,7 +981,6 @@ class KssetteAccuracy extends KassetteHUDElement {
             return;
         }
 
-        var elapsed = event.elapsed;
         var state = PlayState.instance;
 
 

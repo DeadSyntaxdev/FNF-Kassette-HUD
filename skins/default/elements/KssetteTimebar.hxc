@@ -68,6 +68,7 @@ class KssetteTimeBar extends KassetteHUDElement {
 
     public function new() {
         super("KssetteTimeBar");
+        this.name = "KssetteTimeBar";
     }
 
     /**

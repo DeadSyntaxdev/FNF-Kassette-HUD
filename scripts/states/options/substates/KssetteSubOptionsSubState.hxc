@@ -1,5 +1,5 @@
-
 import funkin.ui.ScriptedMusicBeatSubState;
+import funkin.PlayerSettings;
 import flixel.FlxG;
 import flixel.FlxCamera;
 import flixel.FlxSprite;
@@ -19,6 +19,7 @@ import funkin.util.TouchUtil;
 import funkin.util.SwipeUtil;
 import funkin.util.HapticUtil;
 import funkin.modding.module.ModuleHandler;
+import kassettehud.util.KassetteHUDElement;
 
 class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
     public var parent:Dynamic;
@@ -92,10 +93,13 @@ class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
     }
 
     public function initSubstate():Void {
-        this.panelWidth = parent.panelWidth;
-        this.screenW = parent.screenW;
-        this.screenH = parent.screenH;
-        this.halfScreenH = parent.halfScreenH;
+        var pState:Dynamic = FlxG.state;
+        this.parent = pState;
+        
+        this.panelWidth = pState.panelWidth;
+        this.screenW = pState.screenW;
+        this.screenH = pState.screenH;
+        this.halfScreenH = pState.halfScreenH;
         this.optionCam = FlxG.cameras.list[FlxG.cameras.list.length - 1];
         
         var hudCam = FlxG.cameras.list[FlxG.cameras.list.length - 2];
@@ -105,8 +109,18 @@ class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
         this.sndScroll = Paths.sound('ui/khud_scroll');
         this.sndOn = Paths.sound('ui/khud_on');
         this.sndHit = Paths.sound("play/hitsound");
-        this.panelOnLeft = parent.panelOnLeft;
-        this.apiRef = parent.apiRef;
+        this.panelOnLeft = pState.panelOnLeft;
+        this.apiRef = pState.apiRef;
+    }
+
+    function moveGroup(group:FlxSpriteGroup, targetX:Float, elapsed:Float, speed:Float) {
+        if (group == null) return;
+        if (Math.abs(group.x - targetX) < 0.1) {
+            group.x = targetX;
+            return;
+        }
+        var newX = FlxMath.lerp(group.x, targetX, elapsed * speed);
+        group.x = newX;
     }
 
     function makeOverlayText(group:FlxSpriteGroup, x:Float, y:Float, w:Float, text:String, size:Int, color:Int, align:String, border:Bool = false):FlxText {
@@ -167,7 +181,12 @@ class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
     function saveOpacitySelection() {
         var finalStr = Std.string(opSel_Value) + "%";
         Save.instance.modOptions.set(opSel_SaveKey, finalStr);
-        for (it in parent.optionItems) it.lockedState = null;
+        if (parent.optionItems != null) {
+            for (i in 0...parent.optionItems.length) {
+                var it = parent.optionItems[i];
+                if (it != null) it.lockedState = null;
+            }
+        }
         Save.instance.flush();
         
         if (parent.descTextDisplay != null && parent.optionItems.length > 0 && parent.selectedIndex >= 0) {
@@ -183,7 +202,7 @@ class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
         parent.updatePreviews();
     }
 
-    function closeOpacitySelector() {
+    public function closeOpacitySelector() {
         if (opSel_Group != null) {
             remove(opSel_Group);
             opSel_Group.destroy();
@@ -280,7 +299,12 @@ class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
     function saveVolumeSelection() {
         var finalStr = Std.string(volSel_Value) + "%";
         Save.instance.modOptions.set(volSel_SaveKey, finalStr);
-        for (it in parent.optionItems) it.lockedState = null;
+        if (parent.optionItems != null) {
+            for (i in 0...parent.optionItems.length) {
+                var it = parent.optionItems[i];
+                if (it != null) it.lockedState = null;
+            }
+        }
         Save.instance.flush();
         
         if (parent.descTextDisplay != null && parent.optionItems.length > 0 && parent.selectedIndex >= 0) {
@@ -296,7 +320,7 @@ class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
         parent.updatePreviews();
     }
 
-    function closeVolumeSelector() {
+    public function closeVolumeSelector() {
         if (volSel_Group != null) {
             remove(volSel_Group);
             volSel_Group.destroy();
@@ -427,7 +451,12 @@ class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
         var finalStr = hrStr + ":" + minStr;
         
         Save.instance.modOptions.set(tSel_SaveKey, finalStr);
-        for (it in parent.optionItems) it.lockedState = null;
+        if (parent.optionItems != null) {
+            for (i in 0...parent.optionItems.length) {
+                var it = parent.optionItems[i];
+                if (it != null) it.lockedState = null;
+            }
+        }
         Save.instance.flush();
         
         if (parent.descTextDisplay != null && parent.optionItems.length > 0 && parent.selectedIndex >= 0) {
@@ -444,7 +473,7 @@ class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
         parent.updatePreviews();
     }
 
-    function closeTimeSelector() {
+    public function closeTimeSelector() {
         if (tSel_Group != null) {
             remove(tSel_Group);
             tSel_Group.destroy();
@@ -548,6 +577,7 @@ class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
         fontVisibleEnd = -1;
         lastFontVisibleStart = -1;
         lastFontVisibleEnd = -1;
+        holdTimer = 0.2;
 
         fontBgGroup = new FlxSpriteGroup(0, 0);
         fontBgGroup.x = panelOnLeft ? -panelWidth : screenW;
@@ -576,7 +606,8 @@ class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
         fontActiveFile = curSavedFont;
 
         var fY:Float = 0;
-        var famDataList:Array<Dynamic> = apiRef.preloadedFamiliesData; 
+        var assetHunter:Dynamic = KassetteHUDElement.globalAssetHunter;
+        var famDataList:Array<Dynamic> = (assetHunter != null) ? assetHunter.preloadedFamiliesData : [];
 
         for (famData in famDataList) {
             var fam = famData.name;
@@ -587,7 +618,7 @@ class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
                 var displayName = v.family;
                 if (v.variant != "Regular" && v.variant != "Default") displayName += " " + v.variant;
 
-                var fTxt = new FlxText(30, 0, panelWidth - 60, displayName, 22);
+                var fTxt = new FlxText(30, 0, panelWidth - 60, v.file, 24);
                 fTxt.setFormat(v.path, 22, FlxColor.WHITE, "left");
                 
                 var txtH:Float = 22;
@@ -660,7 +691,7 @@ class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
         changeFontSelection(0);
     }
 
-    function closeFontSelector() {
+    public function closeFontSelector() {
         if (fontBgGroup != null) {
             remove(fontBgGroup);
             fontBgGroup.destroy();
@@ -687,7 +718,12 @@ class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
         if (fontItems.length > 0 && fontSelectedIndex >= 0 && fontSelectedIndex < fontItems.length) {
             var selFile = fontItems[fontSelectedIndex].fileName;
             Save.instance.modOptions.set(currentFontSaveKey, selFile);
-            for (it in parent.optionItems) it.lockedState = null;
+            if (parent.optionItems != null) {
+                for (i in 0...parent.optionItems.length) {
+                    var it = parent.optionItems[i];
+                    if (it != null) it.lockedState = null;
+                }
+            }
             Save.instance.flush();
             fontActiveFile = selFile;
             
@@ -864,15 +900,44 @@ class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
         
-        if (parent.isOpMenuOpen) { handleOpacityInput(elapsed); return; }
-        if (parent.isVolMenuOpen) { handleVolumeInput(elapsed); return; }
-        if (parent.isTimeMenuOpen) { handleTimeInput(elapsed); return; }
-        if (parent.isFontMenuOpen) { 
-            handleFontInput(elapsed); 
+        var sw = screenW;
+        var sh = screenH;
+        
+        if (parent != null) {
+            this.panelOnLeft = parent.panelOnLeft;
+            this.panelWidth = parent.panelWidth;
+        }
+        
+        var targetFontX = panelOnLeft ? 0 : (sw - panelWidth);
+
+        if (isOpMenuOpen) { 
+            moveGroup(opSel_Group, targetFontX, elapsed, 12);
+            if (holdTimer > 0) holdTimer -= elapsed;
+            if (holdTimer <= 0) handleOpacityInput(elapsed); 
+            return; 
+        }
+        if (isVolMenuOpen) { 
+            moveGroup(volSel_Group, targetFontX, elapsed, 12);
+            if (holdTimer > 0) holdTimer -= elapsed;
+            if (holdTimer <= 0) handleVolumeInput(elapsed); 
+            return; 
+        }
+        if (isTimeMenuOpen) { 
+            moveGroup(tSel_Group, targetFontX, elapsed, 12);
+            if (holdTimer > 0) holdTimer -= elapsed;
+            if (holdTimer <= 0) handleTimeInput(elapsed); 
+            return; 
+        }
+        if (isFontMenuOpen) { 
+            moveGroup(fontBgGroup, targetFontX, elapsed, 12);
             if (fontItemsGroup != null) {
-                fontItemsGroup.y += (60 - fontTargetScrollY - fontItemsGroup.y) * elapsed * 8;
+                moveGroup(fontItemsGroup, targetFontX, elapsed, 12);
+                var newY = fontItemsGroup.y + (60 - fontTargetScrollY - fontItemsGroup.y) * elapsed * 8;
+                fontItemsGroup.y = newY;
                 updateFontItemVisibility(fontItemsGroup.y, screenH);
             }
+            if (holdTimer > 0) holdTimer -= elapsed;
+            if (holdTimer <= 0) handleFontInput(elapsed); 
             return; 
         }
     }

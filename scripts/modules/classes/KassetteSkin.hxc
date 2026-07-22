@@ -1,20 +1,33 @@
 package kassettehud.util;
 
 import openfl.utils.Assets;
+import openfl.utils.AssetType;
 import haxe.Json;
 import Type;
 import Std;
+import funkin.modding.module.Module;
+import funkin.save.Save;
 
-class KassetteSkin {
+class KassetteSkin extends Module {
+    public static var current:KassetteSkin = null;
+    public static var availableSkins:Array<{id:String, name:String, author:String, description:String}> = [];
+    public static var customElementFactories:Map<String, Void->Dynamic> = new Map();
+
     public var elements:Array<KassetteHUDElement> = [];
     public var skinId:String = "default";
     public var name:String = "default";
     public var apiModule:Dynamic = null;
 
-    public function new(skinId:String = "default") {
-        this.skinId = skinId;
-        this.name = skinId;
-        loadDefaultElements();
+    public function new() {
+        super("KassetteSkin");
+        this.active = true;
+        current = this;
+        
+        var savedSkin = Save.instance.modOptions.get("kssette_current_skin");
+        if (savedSkin == null) savedSkin = "default";
+        
+        loadAvailableSkins();
+        loadSkin(Std.string(savedSkin));
     }
 
     public function initialize() {
@@ -23,12 +36,102 @@ class KassetteSkin {
         }
     }
 
+    public static function loadAvailableSkins() {
+        while(KassetteSkin.availableSkins.length > 0) KassetteSkin.availableSkins.pop();
+        var allTextAssets = Assets.list(AssetType.TEXT);
+        trace("[KassetteSkin] Total TEXT assets found: " + allTextAssets.length);
+        
+        for (path in allTextAssets) {
+            // Handle both forward slashes and backslashes
+            var normPath = path.split("\\").join("/");
+            var pLower = normPath.toLowerCase();
+            if (pLower.indexOf("skins/") != -1 && pLower.substr(pLower.length - 10) == "/skin.json") {
+                try {
+                    trace("[KassetteSkin] Found potential skin json: " + path);
+                    var content = Assets.getText(path);
+                    var data = Json.parse(content);
+                    
+                    var parts = normPath.split("/");
+                    var sId = parts[parts.length - 2];
+                    
+                    var sName = data.name != null ? data.name : sId;
+                    var sAuthor = data.author != null ? data.author : "Unknown";
+                    var sDesc = data.description != null ? data.description : "No description provided.";
+                    KassetteSkin.availableSkins.push({id: sId, name: sName, author: sAuthor, description: sDesc});
+                    trace("[KassetteSkin] Discovered skin: " + sId + " (" + sName + ")");
+                } catch(e:Dynamic) {
+                    trace("[KassetteSkin] Failed to parse " + path + ": " + e);
+                }
+            }
+        }
+        
+        trace("[KassetteSkin] Finished checking assets. Found " + KassetteSkin.availableSkins.length + " skin(s).");
+        if (KassetteSkin.availableSkins.length == 0) {
+            trace("[KassetteSkin] Fallback to hardcoded default skin!");
+            KassetteSkin.availableSkins.push({id: "default", name: "Default Skin", author: "Kassette", description: "The default Kassette HUD skin."});
+        }
+    }
+
+    public function getSkinsList():Array<Dynamic> {
+        return availableSkins;
+    }
+
+    public static function switchSkin(newSkinId:String) {
+        var skinInst = current;
+        if (skinInst == null) skinInst = ModuleHandler.getModule("KassetteSkin");
+        if (skinInst == null) skinInst = new KassetteSkin();
+        
+        if (skinInst != null) {
+            skinInst.loadSkin(newSkinId);
+            current = skinInst;
+        }
+    }
+
+    public function loadSkin(newSkinId:String) {
+        for (el in elements) el.destroy();
+        elements = [];
+        this.skinId = newSkinId;
+        this.name = newSkinId;
+        loadDefaultElements();
+        initialize();
+        trace("[KassetteSkin] Switched to skin: " + newSkinId);
+    }
+
     function loadDefaultElements() {
-        addElement(new KssetteHealthBar());
-        addElement(new KssetteTimeBar());
-        addElement(new KssetteAccuracy());
-        addElement(new KssetteShowTitle());
-        addElement(new KssetteBreakBar());
+        var jsonPath = "skins/" + this.skinId + "/skin.json";
+        var content = null;
+        try {
+            content = Assets.getText(jsonPath);
+        } catch(e:Dynamic) {
+            trace("[KassetteSkin] No skin.json found for " + this.skinId + ". Loading defaults.");
+        }
+        
+        if (content != null) {
+            try {
+                var data = Json.parse(content);
+                if (data.name != null) this.name = data.name;
+                
+                if (data.elements != null && Std.isOfType(data.elements, Array)) {
+                    var elList:Array<Dynamic> = data.elements;
+                    for (elName in elList) {
+                        var elStr:String = Std.string(elName);
+                        var inst = instantiateElement(elStr);
+                        if (inst != null) addElement(inst);
+                    }
+                }
+            } catch(e:Dynamic) {
+                trace("[KassetteSkin] Failed to parse " + jsonPath + ": " + e);
+            }
+        }
+        
+        if (elements.length == 0) {
+            // Fallback
+            addElement(new KssetteHealthBar());
+            addElement(new KssetteTimeBar());
+            addElement(new KssetteAccuracy());
+            addElement(new KssetteShowTitle());
+            addElement(new KssetteBreakBar());
+        }
     }
 
     function instantiateElement(className:String):KassetteHUDElement {
@@ -39,12 +142,15 @@ class KassetteSkin {
             case "KssetteShowTitle": return new KssetteShowTitle();
             case "KssetteBreakBar": return new KssetteBreakBar();
             default: 
-                try {
-                    var cls = Type.resolveClass(className);
-                    if (cls == null) cls = Type.resolveClass("kassettehud.util." + className);
-                    if (cls != null) return Type.createInstance(cls, []);
-                } catch(e:Dynamic) {}
-                trace("[KassetteSkin] Could not instantiate custom element: " + className);
+                if (customElementFactories.exists(className)) {
+                    try {
+                        var factory = customElementFactories.get(className);
+                        return factory();
+                    } catch(e:Dynamic) {
+                        trace("[KassetteSkin] Failed to instantiate custom element " + className + ": " + e);
+                    }
+                }
+                trace("[KassetteSkin] Could not instantiate custom element (not registered): " + className);
                 return null;
         }
     }
@@ -57,119 +163,123 @@ class KassetteSkin {
 
     public function getElement(elementName:String):KassetteHUDElement {
         for (element in elements) {
-            if (element.name == elementName) return element;
+            if (element != null && element.name == elementName) {
+                return element;
+            }
         }
         return null;
     }
 
-    public function onCountdownStart(event:Dynamic) {
+    override public function onCountdownStart(event:Dynamic) {
         for (element in elements) {
             if (element.active) element.onCountdownStart(event);
         }
     }
 
-    public function onUpdate(elapsed:Float) {
+    override public function onUpdate(event:Dynamic) {
+        var elapsed = Std.isOfType(event, Float) ? event : event.elapsed;
         for (element in elements) {
             if (element.active) element.onUpdate(elapsed);
         }
     }
 
-    public function onStepHit(event:Dynamic) {
+    override public function onStepHit(event:Dynamic) {
         for (element in elements) {
             if (element.active) element.onStepHit(event);
         }
     }
 
-    public function onBeatHit(event:Dynamic) {
+    override public function onBeatHit(event:Dynamic) {
         for (element in elements) {
             if (element.active) element.onBeatHit(event);
         }
     }
 
-    public function onSongStart(event:Dynamic) {
+    override public function onSongStart(event:Dynamic) {
         for (element in elements) {
             if (element.active) element.onSongStart(event);
         }
     }
 
-    public function onSongRetry(event:Dynamic) {
+    override public function onSongRetry(event:Dynamic) {
         for (element in elements) {
             if (element.active) element.onSongRetry(event);
         }
     }
 
-    public function onSongEnd(event:Dynamic) {
+    override public function onSongEnd(event:Dynamic) {
         for (element in elements) {
             if (element.active) element.onSongEnd(event);
         }
     }
 
-    public function onResume(event:Dynamic) {
+    override public function onResume(event:Dynamic) {
         for (element in elements) {
             if (element.active) element.onResume(event);
         }
     }
 
-    public function onPause(event:Dynamic) {
+    override public function onPause(event:Dynamic) {
         for (element in elements) {
             if (element.active) element.onPause(event);
         }
     }
 
-    public function onStateChangeStart(event:Dynamic) {
+    override public function onStateChangeStart(event:Dynamic) {
         for (element in elements) {
             if (element.active) element.onStateChangeStart(event);
         }
     }
 
-    public function onStateChangeEnd(event:Dynamic) {
+    override public function onStateChangeEnd(event:Dynamic) {
         for (element in elements) {
             if (element.active) element.onStateChangeEnd(event);
         }
     }
 
-    public function onNoteMiss(event:Dynamic) {
+    override public function onNoteMiss(event:Dynamic) {
         for (element in elements) {
             if (element.active) element.onNoteMiss(event);
         }
     }
-    public function onNoteIncoming(event:Dynamic) {
+    
+    override public function onNoteIncoming(event:Dynamic) {
         for (element in elements) {
             if (element.active) element.onNoteIncoming(event);
         }
     }
 
-    public function onEvent(event:Dynamic) {
+    override public function onEvent(event:Dynamic) {
         for (element in elements) {
             if (element.active) element.onEvent(event);
         }
     }
 
-    public function onGhostMissNote(event:Dynamic) {
+    override public function onGhostMissNote(event:Dynamic) {
         for (element in elements) {
             if (element.active) element.onGhostMissNote(event);
         }
     }
 
-    public function onNoteGhostMiss(event:Dynamic) {
+    override public function onNoteGhostMiss(event:Dynamic) {
         for (element in elements) {
             if (element.active) element.onNoteGhostMiss(event);
         }
     }
 
-    public function onSubStateOpenBegin(event:Dynamic) {
+    override public function onSubStateOpenBegin(event:Dynamic) {
         for (element in elements) {
             if (element.active) element.onSubStateOpenBegin(event);
         }
     }
 
-    public function onSubStateCloseEnd(event:Dynamic) {
+    override public function onSubStateCloseEnd(event:Dynamic) {
         for (element in elements) {
             if (element.active) element.onSubStateCloseEnd(event);
         }
     }
 
-    public function onNoteHit(event:Dynamic) {
+    override public function onNoteHit(event:Dynamic) {
         for (element in elements) {
             if (element.active) element.onNoteHit(event);
         }

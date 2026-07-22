@@ -58,6 +58,7 @@ class KssetteShowTitle extends KassetteHUDElement {
 
     public function new() {
         super("KssetteShowTitle");
+        this.name = "KssetteShowTitle";
     }
 
     /**
@@ -639,8 +640,8 @@ class KssetteShowTitle extends KassetteHUDElement {
             if (previewTimer > 0) {
                 previewTimer -= elapsed;
                 if (previewTimer <= 0) {
+                    previewTimer = 0.0;
                     startAnim();
-                    previewTimer = 12.0;
                 }
             }
         } else if (!isPreview && isActive && !isFadingOut) {
