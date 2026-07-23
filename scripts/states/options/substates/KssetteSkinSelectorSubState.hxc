@@ -187,6 +187,16 @@ class KssetteSkinSelectorSubState extends ScriptedMusicBeatSubState {
             Save.instance.modOptions.set(currentSkinSaveKey, selId);
             Save.instance.flush();
             
+            KassetteSkin.switchSkin(selId);
+            if (parent != null) {
+                for (p in parent.previewModules) {
+                    if (p != null) p.destroy();
+                }
+                parent.cachePreviewModules();
+                parent.initPreviews();
+                parent.updatePreviews();
+            }
+
             if (currentSkinTextRef != null && parent != null) {
                 currentSkinTextRef.text = parent.formatShortValue(selId);
                 var tColor = parent.getValueColor(currentSkinTextRef.text);
@@ -245,16 +255,6 @@ class KssetteSkinSelectorSubState extends ScriptedMusicBeatSubState {
                 if (skinInfoAuthor != null) skinInfoAuthor.text = "By: " + skinData.author;
                 if (skinInfoDesc != null) skinInfoDesc.text = skinData.description;
             }
-            
-            KassetteSkin.switchSkin(selId);
-            if (parent != null) {
-                for (p in parent.previewModules) {
-                    if (p != null) p.destroy();
-                }
-                parent.cachePreviewModules();
-                parent.initPreviews();
-                parent.updatePreviews();
-            }
         }
     }
 
@@ -285,15 +285,6 @@ class KssetteSkinSelectorSubState extends ScriptedMusicBeatSubState {
         }
         
         if (FlxG.keys.justPressed.ESCAPE || swipeR || swipeL || controls.BACK) {
-            KassetteSkin.switchSkin(originalSkin);
-            if (parent != null) {
-                for (p in parent.previewModules) {
-                    if (p != null) p.destroy();
-                }
-                parent.cachePreviewModules();
-                parent.initPreviews();
-                parent.updatePreviews();
-            }
             closeSkinSelector();
         }
     }

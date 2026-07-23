@@ -8,11 +8,12 @@ import Std;
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.save.Save;
+import haxe.ds.StringMap;
 
 class KassetteSkin extends Module {
     public static var current:KassetteSkin = null;
     public static var availableSkins:Array<{id:String, name:String, author:String, description:String}> = [];
-    public static var customElementFactories:Map<String, Void->Dynamic> = new Map();
+    public static var customElementFactories:StringMap<Void->Dynamic> = new StringMap();
 
     public var elements:Array<KassetteHUDElement> = [];
     public var skinId:String = "default";
@@ -151,6 +152,7 @@ class KassetteSkin extends Module {
                         trace("[KassetteSkin] Failed to instantiate custom element " + className + ": " + e);
                     }
                 }
+                
                 trace("[KassetteSkin] Could not instantiate custom element (not registered): " + className);
                 return null;
         }

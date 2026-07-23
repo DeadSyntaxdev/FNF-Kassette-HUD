@@ -693,13 +693,6 @@ class KssetteBreakBar extends KassetteHUDElement {
         breakText = null;
         barFill = null;
         
-        if (fadeTween != null) fadeTween.cancel();
-        fadeTween = null;
-        if (activeTween != null) activeTween.cancel();
-        activeTween = null;
-        if (bounceTween != null) bounceTween.cancel();
-        bounceTween = null;
-
         super.destroy();
     }
 }

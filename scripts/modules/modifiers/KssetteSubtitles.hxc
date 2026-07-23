@@ -938,9 +938,6 @@ var triviaArray:Array<String> = [
     override public function destroy() {
         if (subText != null) subText.destroy();
         subText = null;
-
-        if (subTween != null) subTween.cancel();
-        subTween = null;
         
         if (karaokeTween != null) karaokeTween.cancel();
         karaokeTween = null;
