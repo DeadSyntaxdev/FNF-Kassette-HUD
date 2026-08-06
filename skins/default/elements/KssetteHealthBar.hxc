@@ -53,10 +53,11 @@ class KssetteHealthBar extends KassetteHUDElement {
     var previewHealthBarBG:FlxSprite;
     var previewHealthBarFillP1:FlxSprite;
     var previewHealthBarFillP2:FlxSprite;
-    var previewIconP1:HealthIcon;
-    var previewIconP2:HealthIcon;
+    var previewIconP1:FlxSprite;
+    var previewIconP2:FlxSprite;
     var previewCam:FlxCamera;
     var previewBopTimer:Float = 0;
+    var _lastPreviewBeat:Int = -1;
     
     public function new() {
         super("KssetteHealthBar");
@@ -90,22 +91,23 @@ class KssetteHealthBar extends KassetteHUDElement {
         previewHealthBarFillP1.scrollFactor.set(0, 0);
         safeAdd(previewHealthBarFillP1, cam);
 
-        previewIconP1 = new HealthIcon('bf', true);
-        previewIconP1.autoUpdate = false;
+        previewIconP1 = new FlxSprite();
         try {
             previewIconP1.loadGraphic(Paths.image('icons/icon-bf'), true, 150, 150);
-            previewIconP1.animation.add('icon', [0, 1], 0, false, true);
+            previewIconP1.animation.add('icon', [0, 1], 0, false, false);
             previewIconP1.animation.play('icon');
+            previewIconP1.updateHitbox();
         } catch(e:Dynamic) {}
+        previewIconP1.flipX = true;
         previewIconP1.scrollFactor.set(0, 0);
         safeAdd(previewIconP1, cam);
 
-        previewIconP2 = new HealthIcon('dad', false);
-        previewIconP2.autoUpdate = false;
+        previewIconP2 = new FlxSprite();
         try {
             previewIconP2.loadGraphic(Paths.image('icons/icon-dad'), true, 150, 150);
             previewIconP2.animation.add('icon', [0, 1], 0, false, false);
             previewIconP2.animation.play('icon');
+            previewIconP2.updateHitbox();
         } catch(e:Dynamic) {}
         previewIconP2.scrollFactor.set(0, 0);
         safeAdd(previewIconP2, cam);
@@ -189,14 +191,16 @@ class KssetteHealthBar extends KassetteHUDElement {
             var centerY = previewHealthBarBG.y + (previewHealthBarBG.height / 2);
             
             if (previewIconP1 != null && previewIconP2 != null) {
-                previewBopTimer += elapsed;
-                var beatDuration = 0.5;
+                var currentBeat = -1;
                 if (Conductor.instance != null && Conductor.instance.crochet > 0) {
-                    beatDuration = Conductor.instance.crochet / 1000.0;
+                    currentBeat = Math.floor(Conductor.instance.songPosition / Conductor.instance.crochet);
+                } else {
+                    previewBopTimer += elapsed;
+                    currentBeat = Math.floor(previewBopTimer / 0.5);
                 }
                 
-                if (previewBopTimer >= beatDuration) {
-                    previewBopTimer = 0;
+                if (currentBeat != _lastPreviewBeat) {
+                    _lastPreviewBeat = currentBeat;
                     previewIconP1.scale.set(1.2, 1.2);
                     previewIconP2.scale.set(1.2, 1.2);
                 }
@@ -204,38 +208,33 @@ class KssetteHealthBar extends KassetteHUDElement {
                 var lerpFactor = 1.0 - (elapsed * 15.0);
                 if (lerpFactor < 0) lerpFactor = 0;
                 
-                var prevScale = previewIconP1.scale.x;
                 previewIconP1.scale.x = 1.0 + ((previewIconP1.scale.x - 1.0) * lerpFactor);
                 previewIconP1.scale.y = 1.0 + ((previewIconP1.scale.y - 1.0) * lerpFactor);
                 
                 previewIconP2.scale.x = 1.0 + ((previewIconP2.scale.x - 1.0) * lerpFactor);
                 previewIconP2.scale.y = 1.0 + ((previewIconP2.scale.y - 1.0) * lerpFactor);
-                
-                if (prevScale != previewIconP1.scale.x) {
-                    previewIconP1.updateHitbox();
-                    previewIconP2.updateHitbox();
-                }
             }
             
-            if (api.getKssValue("kssette_icon_pos") == "Corners") {
-                if (previewIconP1 != null) {
-                    previewIconP1.x = previewHealthBarBG.x + previewHealthBarBG.width + 75 - previewIconP1.width;
-                    previewIconP1.y = centerY + 75 - previewIconP1.height;
+            if (previewIconP1 != null && previewIconP2 != null) {
+                previewIconP1.updateHitbox();
+                previewIconP2.updateHitbox();
+                
+                if (api.getKssValue("kssette_icon_pos") == "Corners") {
+                    previewIconP1.x = previewHealthBarBG.x + previewHealthBarBG.width - (previewIconP1.width / 2);
                     previewIconP1.flipX = true;
-                }
-                if (previewIconP2 != null) {
-                    previewIconP2.x = previewHealthBarBG.x + 75 - previewIconP2.width;
-                    previewIconP2.y = centerY + 75 - previewIconP2.height;
-                }
-            } else {
-                if (previewIconP1 != null) {
-                    previewIconP1.x = previewHealthBarBG.x + fw - 26;
-                    previewIconP1.y = previewHealthBarBG.y - (previewIconP1.height / 2) + 10;
+                    previewIconP1.y = centerY - (previewIconP1.height / 2);
+                    
+                    previewIconP2.x = previewHealthBarBG.x - (previewIconP2.width / 2);
+                    previewIconP2.flipX = false;
+                    previewIconP2.y = centerY - (previewIconP2.height / 2);
+                } else {
+                    previewIconP1.x = previewHealthBarBG.x + (previewHealthBarBG.width / 2) + fw - 26;
                     previewIconP1.flipX = true;
-                }
-                if (previewIconP2 != null) {
-                    previewIconP2.x = previewHealthBarBG.x + fw - (previewIconP2.width - 26);
-                    previewIconP2.y = previewHealthBarBG.y - (previewIconP2.height / 2) + 10;
+                    previewIconP1.y = centerY - (previewIconP1.height / 2);
+                    
+                    previewIconP2.x = previewHealthBarBG.x + (previewHealthBarBG.width / 2) - fw - (previewIconP2.width - 26);
+                    previewIconP2.flipX = false;
+                    previewIconP2.y = centerY - (previewIconP2.height / 2);
                 }
             }
             return;
