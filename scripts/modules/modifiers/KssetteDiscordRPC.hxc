@@ -1,0 +1,70 @@
+package kassettehud.util;
+
+import funkin.api.discord.DiscordClient;
+import funkin.play.PlayState;
+import funkin.Highscore;
+import Std;
+
+class KssetteDiscordRPC extends KHUDModifier {
+    var _timer:Float = 0;
+    var _lastScore:Int = -1;
+    var _lastMisses:Int = -1;
+
+    public function new() {
+        super("KssetteDiscordRPC");
+        this.name = "KssetteDiscordRPC";
+    }
+
+    override public function onUpdate(event:Dynamic) {
+        if (isPreview) return; // Do not update RPC during options preview
+        
+        if (PlayState.instance != null && Highscore.tallies != null) {
+            _timer += event.elapsed;
+            
+            var state = PlayState.instance;
+            var currentScore = Std.int(state.songScore);
+            var currentMisses = Highscore.tallies.missed;
+            
+            // Update if score/misses changed (throttled to 1 sec to avoid hold note spam), 
+            // OR force an update every 5 seconds to overwrite native PlayState RPC if it reverted (e.g., after pause).
+            if (((currentScore != _lastScore || currentMisses != _lastMisses) && _timer >= 1.0) || _timer >= 5.0) {
+                _timer = 0;
+                _lastScore = currentScore;
+                _lastMisses = currentMisses;
+                
+                var acc = "0%";
+                var rank = "?";
+                var fcTier = "Clear";
+                
+                if (scoreHunter != null) {
+                    acc = scoreHunter.getAccuracy(state) + "%";
+                    rank = scoreHunter.getRankID(state);
+                    fcTier = scoreHunter.getComboTier(state);
+                }
+                
+                var detailsText = "Score: " + currentScore + " | Acc: " + acc + " | Misses: " + currentMisses + " [" + rank + " - " + fcTier + "]";
+                
+                var diff = state.currentDifficulty;
+                if (diff == null) diff = "NORMAL";
+                var songName = "Unknown";
+                if (state.currentChart != null && state.currentChart.songName != null) {
+                    songName = state.currentChart.songName;
+                }
+                
+                var stateText = "Playing: " + songName + " [" + diff.toUpperCase() + "]";
+                
+                var largeImg = state.discordRPCAlbum;
+                var smallImg = state.discordRPCIcon;
+                
+                try {
+                    DiscordClient.setPresence({
+                        state: stateText,
+                        details: detailsText,
+                        largeImageKey: largeImg,
+                        smallImageKey: smallImg
+                    });
+                } catch(e:Dynamic) {}
+            }
+        }
+    }
+}
