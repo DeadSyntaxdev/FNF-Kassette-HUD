@@ -16,7 +16,8 @@ import funkin.util.TouchUtil;
 import funkin.util.SwipeUtil;
 import funkin.util.HapticUtil;
 import funkin.modding.module.ModuleHandler;
-import kassettehud.util.KassetteSkin;
+import kassettehud.util.KassetteSkinManager;
+import kassettehud.util.KassetteHUDSkin;
 
 class KssetteSkinSelectorSubState extends ScriptedMusicBeatSubState {
     public var parent:Dynamic;
@@ -62,7 +63,8 @@ class KssetteSkinSelectorSubState extends ScriptedMusicBeatSubState {
         var pState:Dynamic = FlxG.state;
         this.parent = pState;
         
-        KassetteSkin.loadAvailableSkins();
+        var skinMod:Dynamic = KassetteSkinManager.instance;
+        if (skinMod == null) skinMod = ModuleHandler.getModule("KassetteSkinManager");
         
         this.screenW = FlxG.width;
         this.screenH = FlxG.height;
@@ -111,15 +113,15 @@ class KssetteSkinSelectorSubState extends ScriptedMusicBeatSubState {
 
         var sY:Float = 0;
         var listW:Float = screenW * 0.45;
-        var skinMod:Dynamic = ModuleHandler.getModule("KassetteSkin");
-        var skinsArray:Array<Dynamic> = skinMod != null ? skinMod.getSkinsList() : [];
-        if (skinsArray == null || skinsArray.length == 0) skinsArray = KassetteSkin.availableSkins;
+        var skinMod:Dynamic = KassetteSkinManager.instance;
+        if (skinMod == null) skinMod = ModuleHandler.getModule("KassetteSkinManager");
+        var skinsArray:Array<Dynamic> = skinMod != null ? skinMod.skinList : [];
         if (skinsArray == null) skinsArray = [];
 
         for (i in 0...skinsArray.length) {
             var skin = skinsArray[i];
             
-            var sTxt = new FlxText(40, 0, listW - 80, skin.name, 32);
+            var sTxt = new FlxText(40, 0, listW - 80, skin.skinName, 32);
             sTxt.setFormat(menuFont, 32, FlxColor.WHITE, "left");
             
             var boxHeight:Float = sTxt.height + 30;
@@ -134,12 +136,12 @@ class KssetteSkinSelectorSubState extends ScriptedMusicBeatSubState {
             skinItems.push({
                 bg: itemBg,
                 text: sTxt,
-                skinId: skin.id,
+                skinId: skin.skinId,
                 y: sY,
                 height: boxHeight
             });
             
-            if (skin.id == originalSkin) skinSelectedIndex = i;
+            if (skin.skinId == originalSkin) skinSelectedIndex = i;
             sY += boxHeight + 8;
         }
         skinMaxScroll = Math.max(0, sY - (screenH - 160));
@@ -187,14 +189,20 @@ class KssetteSkinSelectorSubState extends ScriptedMusicBeatSubState {
             Save.instance.modOptions.set(currentSkinSaveKey, selId);
             Save.instance.flush();
             
-            KassetteSkin.switchSkin(selId);
-            if (parent != null) {
-                for (p in parent.previewModules) {
-                    if (p != null) p.destroy();
+            if (parent != null && parent.reloadSkinPreview != null) {
+                parent.reloadSkinPreview(selId);
+            } else {
+                var manager:Dynamic = KassetteSkinManager.instance;
+                if (manager == null) manager = ModuleHandler.getModule("KassetteSkinManager");
+                if (manager != null) manager.activateSkin(selId);
+                if (parent != null) {
+                    for (p in parent.previewModules) {
+                        if (p != null) p.destroy();
+                    }
+                    parent.cachePreviewModules();
+                    parent.initPreviews();
+                    parent.updatePreviews();
                 }
-                parent.cachePreviewModules();
-                parent.initPreviews();
-                parent.updatePreviews();
             }
 
             if (currentSkinTextRef != null && parent != null) {
@@ -245,13 +253,19 @@ class KssetteSkinSelectorSubState extends ScriptedMusicBeatSubState {
             skinTargetScrollY = Math.max(0, Math.min(skinMaxScroll, targetY));
             
             var selId = skinItems[skinSelectedIndex].skinId;
+            var skinMod:Dynamic = KassetteSkinManager.instance;
+            if (skinMod == null) skinMod = ModuleHandler.getModule("KassetteSkinManager");
+            var skins = skinMod != null ? skinMod.skinList : [];
             var skinData = null;
-            for (s in KassetteSkin.availableSkins) {
-                if (s.id == selId) { skinData = s; break; }
+            for (s in skins) {
+                if (s.skinId == selId) {
+                    skinData = s;
+                    break;
+                }
             }
             
             if (skinData != null) {
-                if (skinInfoTitle != null) skinInfoTitle.text = skinData.name;
+                if (skinInfoTitle != null) skinInfoTitle.text = skinData.skinName;
                 if (skinInfoAuthor != null) skinInfoAuthor.text = "By: " + skinData.author;
                 if (skinInfoDesc != null) skinInfoDesc.text = skinData.description;
             }

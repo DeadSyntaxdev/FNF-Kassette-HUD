@@ -41,7 +41,7 @@ import funkin.util.SwipeUtil;
 import funkin.util.HapticUtil;
 import funkin.PlayerSettings;
 import funkin.mobile.ui.FunkinBackButton;
-import kassettehud.util.KassetteSkin;
+import kassettehud.util.KassetteSkinManager;
 
 class KssetteOptionsState extends ScriptedMusicBeatState {
 
@@ -220,28 +220,34 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
 
     function cachePreviewModules():Void {
         previewModules = [];
-        var skin:Dynamic = ModuleHandler.getModule("KassetteSkin");
+        var skin:Dynamic = KassetteSkinManager.instance;
+        if (skin == null) skin = ModuleHandler.getModule("KassetteSkinManager");
         if (skin == null) {
-            trace("[KssetteOptionsState] KassetteSkin module not found in ModuleHandler! Instantiating manually...");
-            skin = KassetteSkin.current;
-            if (skin == null) skin = new KassetteSkin();
+            trace("[KssetteOptionsState] KassetteSkinManager module not found in ModuleHandler! Instantiating manually...");
+            skin = new KassetteSkinManager();
         }
-
-        if (skin.elements == null || skin.elements.length == 0) {
-            KassetteSkin.loadAvailableSkins();
-            skin.loadSkin("default");
-        } else {
-            trace("[KssetteOptionsState] skin.elements has " + skin.elements.length + " elements.");
-            for (el in skin.elements) {
+        
+        var currentSkin = skin.getCurrentSkin();
+        if (currentSkin == null) {
+            skin.activateSkin("default");
+            currentSkin = skin.getCurrentSkin();
+        }
+        
+        if (currentSkin != null) {
+            currentSkin.ensureElements();
+            trace("[KssetteOptionsState] skin.elements has " + currentSkin.elements.length + " elements.");
+            for (el in currentSkin.elements) {
                 if (el != null) trace("  -> Element name: " + el.name);
             }
         }
 
-        for (mName in previewModuleNames) {
-            var mod = skin.getElement(mName);
-            if (mod == null) mod = ModuleHandler.getModule(mName);
-            if (mod != null) previewModules.push(mod);
+        // 1. Añadimos todos los elementos de la skin actual (modulares o por defecto)
+        if (currentSkin != null && currentSkin.elements != null) {
+            for (el in currentSkin.elements) {
+                if (el != null) previewModules.push(el);
+            }
         }
+        
         trace("[KssetteOptionsState] cachePreviewModules() completed. previewModules length: " + previewModules.length);
     }
 
@@ -249,7 +255,8 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
         if (previewModules.length == 0) cachePreviewModules();
         for (mod in previewModules) {
             if (mod != null) {
-                if (mod.buildPreview != null) mod.buildPreview(hudCam);
+                mod.isPreview = true;
+                mod.buildPreview(hudCam);
             }
         }
     }
@@ -263,99 +270,78 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
         if (previewModules.length == 0) cachePreviewModules();
         for (mod in previewModules) {
             if (mod != null) {
-                if (mod.updatePreview != null) mod.updatePreview();
+                mod.updatePreview();
             }
         }
         
         if (hudPreview != null) {
-            if (hudPreview.updatePreview != null) hudPreview.updatePreview(0.0);
+            hudPreview.updatePreview(0.0);
         }
 
         fixZIndex();
         trace("[KssetteOptionsState] updatePreviews() FINISHED");
     }
 
+    var _isReloadingSkin:Bool = false;
+
+    public function reloadSkinPreview(newSkinId:String):Void {
+        if (_isReloadingSkin) return;
+        
+        if (hudCam != null) {
+            _isReloadingSkin = true;
+            hudCam.fade(0xFF000000, 0.15, false, function() {
+                var manager:Dynamic = KassetteSkinManager.instance;
+                if (manager == null) manager = ModuleHandler.getModule("KassetteSkinManager");
+                if (manager != null) manager.activateSkin(newSkinId);
+                for (p in previewModules) {
+                    if (p != null) p.destroy();
+                }
+                cachePreviewModules();
+                initPreviews();
+                updatePreviews();
+                
+                hudCam.fade(0xFF000000, 0.15, true, function() {
+                    _isReloadingSkin = false;
+                });
+            });
+        } else {
+            var manager:Dynamic = KassetteSkinManager.instance;
+            if (manager == null) manager = ModuleHandler.getModule("KassetteSkinManager");
+            if (manager != null) manager.activateSkin(newSkinId);
+            for (p in previewModules) {
+                if (p != null) p.destroy();
+            }
+            cachePreviewModules();
+            initPreviews();
+            updatePreviews();
+        }
+    }
+
     public function fixZIndex() {
-        var skin:Dynamic = KassetteSkin.current;
-        if (skin == null) return;
+        if (FlxG.state.members == null) return;
         
-        // 1. Strumlines (BOTTOM)
-        var previewMod:Dynamic = this.hudPreview;
-        if (previewMod != null) {
-            if (previewMod.opponentStrumPreview != null) { FlxG.state.remove(previewMod.opponentStrumPreview, true); FlxG.state.add(previewMod.opponentStrumPreview); }
-            if (previewMod.playerStrumPreview != null) { FlxG.state.remove(previewMod.playerStrumPreview, true); FlxG.state.add(previewMod.playerStrumPreview); }
-            
-            // 1.5 Fake Notes (MIDDLE)
-            if (previewMod.fakeNotes != null) {
-                var notes:Array<Dynamic> = previewMod.fakeNotes;
-                for (i in 0...notes.length) {
-                    var n = notes[i];
-                    if (n != null) { FlxG.state.remove(n, true); FlxG.state.add(n); }
-                }
-            }
-            
-            // 2. Healthbar and Icons (MIDDLE)
-            if (previewMod.healthBarBG != null) { FlxG.state.remove(previewMod.healthBarBG, true); FlxG.state.add(previewMod.healthBarBG); }
-            if (previewMod.healthBarFillP2 != null) { FlxG.state.remove(previewMod.healthBarFillP2, true); FlxG.state.add(previewMod.healthBarFillP2); }
-            if (previewMod.healthBarFillP1 != null) { FlxG.state.remove(previewMod.healthBarFillP1, true); FlxG.state.add(previewMod.healthBarFillP1); }
-            if (previewMod.iconP1 != null) { FlxG.state.remove(previewMod.iconP1, true); FlxG.state.add(previewMod.iconP1); }
-            if (previewMod.iconP2 != null) { FlxG.state.remove(previewMod.iconP2, true); FlxG.state.add(previewMod.iconP2); }
-        }
-
-        // 3. HUD Elements (TOP)
-        var titleMod:Dynamic = skin.getElement("KssetteShowTitle");
-        if (titleMod != null) {
-            if (titleMod.titleTxt != null) { FlxG.state.remove(titleMod.titleTxt, true); FlxG.state.add(titleMod.titleTxt); }
-            if (titleMod.artistTxt != null) { FlxG.state.remove(titleMod.artistTxt, true); FlxG.state.add(titleMod.artistTxt); }
-        }
-        
-        var timeMod:Dynamic = skin.getElement("KssetteTimeBar");
-        if (timeMod != null) {
-            if (timeMod.timeBarBG != null) { FlxG.state.remove(timeMod.timeBarBG, true); FlxG.state.add(timeMod.timeBarBG); }
-            if (timeMod.timeBar != null) { FlxG.state.remove(timeMod.timeBar, true); FlxG.state.add(timeMod.timeBar); }
-        }
-        
-        var breakMod:Dynamic = skin.getElement("KssetteBreakBar");
-        if (breakMod != null) {
-            try {
-                if (breakMod.borders != null) {
-                    var brds:Array<Dynamic> = breakMod.borders;
-                    for (i in 0...brds.length) {
-                        var b = brds[i];
-                        if (b != null) { FlxG.state.remove(b, true); FlxG.state.add(b); }
-                    }
-                }
-                if (breakMod.barFill != null) { FlxG.state.remove(breakMod.barFill, true); FlxG.state.add(breakMod.barFill); }
-                if (breakMod.breakText != null) { FlxG.state.remove(breakMod.breakText, true); FlxG.state.add(breakMod.breakText); }
-            } catch(e:Dynamic) {}
-        }
-
-        var accMod:Dynamic = skin.getElement("KssetteAccuracy");
-        if (accMod != null) {
-            if (accMod.uiText != null) { FlxG.state.remove(accMod.uiText, true); FlxG.state.add(accMod.uiText); }
-            if (accMod.infoText != null) { FlxG.state.remove(accMod.infoText, true); FlxG.state.add(accMod.infoText); }
-            if (accMod.timeText != null) { FlxG.state.remove(accMod.timeText, true); FlxG.state.add(accMod.timeText); }
-            if (accMod.modeText != null) { FlxG.state.remove(accMod.modeText, true); FlxG.state.add(accMod.modeText); }
-            if (accMod.judgeLabels != null) {
-                var labels:Array<Dynamic> = accMod.judgeLabels;
-                for (i in 0...labels.length) {
-                    var l = labels[i];
-                    if (l != null) { FlxG.state.remove(l, true); FlxG.state.add(l); }
-                }
-            }
-            if (accMod.judgeValues != null) {
-                var vals:Array<Dynamic> = accMod.judgeValues;
-                for (i in 0...vals.length) {
-                    var v = vals[i];
-                    if (v != null) { FlxG.state.remove(v, true); FlxG.state.add(v); }
-                }
+        var hudElements:Array<Dynamic> = [];
+        // Recolectar todos los elementos que tengan zIndex configurado
+        for (i in 0...FlxG.state.members.length) {
+            var m:Dynamic = FlxG.state.members[i];
+            if (m != null && m.zIndex != null && m.zIndex != 0) {
+                hudElements.push(m);
             }
         }
-
-        var subMod:Dynamic = ModuleHandler.getModule("KssetteSubtitles");
-        if (subMod != null && subMod.subText != null) {
-            FlxG.state.remove(subMod.subText, true); 
-            FlxG.state.add(subMod.subText); 
+        
+        // Ordenarlos de menor a mayor zIndex
+        hudElements.sort(function(a:Dynamic, b:Dynamic):Int {
+            var aZ:Float = a.zIndex;
+            var bZ:Float = b.zIndex;
+            if (aZ < bZ) return -1;
+            if (aZ > bZ) return 1;
+            return 0;
+        });
+        
+        // Re-agregarlos al estado en el orden correcto
+        for (m in hudElements) {
+            FlxG.state.remove(m, true);
+            FlxG.state.add(m);
         }
     }
 
@@ -376,6 +362,14 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
         }
         
         super.update(elapsed);
+        
+        if (previewModules != null) {
+            for (mod in previewModules) {
+                if (mod != null) {
+                    mod.onUpdate(elapsed);
+                }
+            }
+        }
 
         var fontOpen = subOptions != null && subOptions.isFontMenuOpen;
         var timeOpen = subOptions != null && subOptions.isTimeMenuOpen;

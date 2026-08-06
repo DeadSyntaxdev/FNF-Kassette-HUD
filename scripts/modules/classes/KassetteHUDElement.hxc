@@ -8,12 +8,16 @@ import flixel.text.FlxTextBorderStyle;
 import funkin.Paths;
 import openfl.utils.Assets;
 import openfl.display.BitmapData;
+import flixel.FlxCamera;
 
 class KassetteHUDElement {
     public var name:String = "Element";
     public var elementType:String = "visual";
     public var skinId:String = "default";
     public var active:Bool = true;
+
+    // Track objects to auto-destroy them when this element is destroyed
+    public var trackedObjects:Array<Dynamic> = [];
 
     // Static references to Datahunters (set by KssetteApi) to avoid heavy ModuleHandler usage
     public static var globalApi:Dynamic = null;
@@ -97,6 +101,10 @@ class KassetteHUDElement {
         var state = PlayState.instance;
         if (state != null && !isPreview) state.add(obj);
         else if (FlxG.state != null) FlxG.state.add(obj);
+        
+        if (trackedObjects.indexOf(obj) == -1) {
+            trackedObjects.push(obj);
+        }
     }
 
     /** Removes an element safely from PlayState and FlxG.state. */
@@ -206,5 +214,20 @@ class KassetteHUDElement {
         }
     }
 
-    public function destroy() {}
+    public function destroy() {
+        for (obj in trackedObjects) {
+            if (obj != null) {
+                try {
+                    safeRemove(obj);
+                    obj.destroy();
+                } catch(e:Dynamic) {}
+            }
+        }
+        trackedObjects = [];
+    }
+
+    public function buildPreview(cam:FlxCamera) {
+        this.isPreview = true;
+    }
+    public function updatePreview() {}
 }

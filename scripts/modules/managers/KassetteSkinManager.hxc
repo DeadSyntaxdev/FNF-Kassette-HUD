@@ -1,0 +1,70 @@
+package kassettehud.util;
+
+import funkin.modding.module.Module;
+import haxe.ds.StringMap;
+import funkin.save.Save;
+
+class KassetteSkinManager extends Module {
+    public static var instance:KassetteSkinManager = null;
+    
+    public var availableSkins = new StringMap();
+    public var skinList = [];
+    public var currentSkinId:String = "default";
+
+    public function new() {
+        super("KassetteSkinManager");
+        instance = this;
+        trace("[KassetteSkinManager] Initialized.");
+        loadSavedSkin();
+    }
+
+    public function registerSkin(skin:KassetteHUDSkin) {
+        if (!availableSkins.exists(skin.skinId)) {
+            availableSkins.set(skin.skinId, skin);
+            skinList.push(skin);
+            trace("[KassetteSkinManager] Registered skin: " + skin.skinId + " (" + skin.skinName + ")");
+            
+            // Si esta skin es la que el usuario tiene guardada, actívala
+            if (skin.skinId == currentSkinId) {
+                activateSkin(currentSkinId);
+            } else {
+                skin.active = false; // Desactivar si no es la actual
+            }
+        }
+    }
+
+    public function loadSavedSkin() {
+        if (Save.instance.modOptions.exists("KassetteHUD")) {
+            var options = Save.instance.modOptions.get("KassetteHUD");
+            if (options != null && options.exists("skin")) {
+                currentSkinId = options.get("skin");
+            }
+        }
+    }
+
+    public function saveSkin(id:String) {
+        if (!Save.instance.modOptions.exists("KassetteHUD")) {
+            Save.instance.modOptions.set("KassetteHUD", new StringMap());
+        }
+        Save.instance.modOptions.get("KassetteHUD").set("skin", id);
+        Save.instance.flush();
+    }
+
+    public function activateSkin(id:String) {
+        currentSkinId = id;
+        saveSkin(id);
+        
+        for (skin in skinList) {
+            if (skin.skinId == id) {
+                skin.active = true;
+                trace("[KassetteSkinManager] Activated skin: " + id);
+            } else {
+                skin.active = false;
+            }
+        }
+    }
+
+    public function getCurrentSkin():KassetteHUDSkin {
+        return availableSkins.get(currentSkinId);
+    }
+}

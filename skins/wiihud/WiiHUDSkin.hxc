@@ -1,0 +1,19 @@
+package kassettehud.util;
+
+import kassettehud.util.KassetteHUDSkin;
+import kassettehud.util.KassetteHUDElement;
+
+class WiiHUDSkin extends KassetteHUDSkin {
+    public function new(?_id:String) {
+        super("wiihud", "Wii HUD", "alesmi", "A clean HUD mimicking the classic Wii style.");
+    }
+
+    override public function buildElements():Dynamic {
+        // Al estar en el mismo package o importados globalmente, podemos instanciarlos directamente.
+        return [
+            new WiiHealthBar(),
+            new WiiTimeBar(),
+            new WiiAccuracy()
+        ];
+    }
+}

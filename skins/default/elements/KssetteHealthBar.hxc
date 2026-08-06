@@ -33,6 +33,12 @@ import flixel.FlxG;
 import flixel.math.FlxMath;
 import Std;
 import flixel.util.FlxColor;
+import flixel.FlxSprite;
+import flixel.FlxCamera;
+import funkin.Paths;
+import funkin.play.components.HealthIcon;
+import funkin.Preferences;
+import funkin.Conductor;
 
 class KssetteHealthBar extends KassetteHUDElement {
     /** Last known character ID for P1 icon; used to detect icon changes. */
@@ -44,9 +50,71 @@ class KssetteHealthBar extends KassetteHUDElement {
     /** Cached dominant color for P2 (opponent) health bar half. */
     var _p2Color:Int = 0xFFFF0000;
 
+    var previewHealthBarBG:FlxSprite;
+    var previewHealthBarFillP1:FlxSprite;
+    var previewHealthBarFillP2:FlxSprite;
+    var previewIconP1:HealthIcon;
+    var previewIconP2:HealthIcon;
+    var previewCam:FlxCamera;
+    var previewBopTimer:Float = 0;
+    
     public function new() {
         super("KssetteHealthBar");
         this.name = "KssetteHealthBar";
+    }
+
+    override public function buildPreview(cam:FlxCamera) {
+        isPreview = true;
+        previewCam = cam;
+
+        previewHealthBarBG = new FlxSprite(0, FlxG.height * 0.89);
+        try {
+            previewHealthBarBG.loadGraphic(Paths.image('healthBar'));
+        } catch(e:Dynamic) {
+            previewHealthBarBG.makeGraphic(601, 19, 0xFF000000);
+        }
+        previewHealthBarBG.screenCenter(0x01);
+        previewHealthBarBG.scrollFactor.set(0, 0);
+        safeAdd(previewHealthBarBG, cam);
+
+        var fw = Std.int((previewHealthBarBG.width - 8) / 2);
+        var fh = Std.int(previewHealthBarBG.height - 8);
+
+        previewHealthBarFillP2 = new FlxSprite(previewHealthBarBG.x + 4, previewHealthBarBG.y + 4).makeGraphic(fw, fh, 0xFFFFFFFF);
+        previewHealthBarFillP2.color = 0xFFFF0000;
+        previewHealthBarFillP2.scrollFactor.set(0, 0);
+        safeAdd(previewHealthBarFillP2, cam);
+
+        previewHealthBarFillP1 = new FlxSprite(previewHealthBarBG.x + 4 + fw, previewHealthBarBG.y + 4).makeGraphic(fw, fh, 0xFFFFFFFF);
+        previewHealthBarFillP1.color = 0xFF66FF33;
+        previewHealthBarFillP1.scrollFactor.set(0, 0);
+        safeAdd(previewHealthBarFillP1, cam);
+
+        previewIconP1 = new HealthIcon('bf', true);
+        previewIconP1.autoUpdate = false;
+        try {
+            previewIconP1.loadGraphic(Paths.image('icons/icon-bf'), true, 150, 150);
+            previewIconP1.animation.add('icon', [0, 1], 0, false, true);
+            previewIconP1.animation.play('icon');
+        } catch(e:Dynamic) {}
+        previewIconP1.scrollFactor.set(0, 0);
+        safeAdd(previewIconP1, cam);
+
+        previewIconP2 = new HealthIcon('dad', false);
+        previewIconP2.autoUpdate = false;
+        try {
+            previewIconP2.loadGraphic(Paths.image('icons/icon-dad'), true, 150, 150);
+            previewIconP2.animation.add('icon', [0, 1], 0, false, false);
+            previewIconP2.animation.play('icon');
+        } catch(e:Dynamic) {}
+        previewIconP2.scrollFactor.set(0, 0);
+        safeAdd(previewIconP2, cam);
+        
+        previewHealthBarFillP2.zIndex = 111;
+        previewHealthBarFillP1.zIndex = 111;
+        previewHealthBarBG.zIndex = 110;
+        previewIconP1.zIndex = 112;
+        previewIconP2.zIndex = 112;
     }
 
     /**
@@ -82,8 +150,98 @@ class KssetteHealthBar extends KassetteHUDElement {
      */
     override function onUpdate(event:Dynamic) {
         var elapsed:Float = (Std.isOfType(event, Float)) ? event : (event != null ? event.elapsed : 0);
-        var state = PlayState.instance;
         var api = ModuleHandler.getModule("KssetteApi");
+        
+        if (isPreview) {
+            if (api == null || previewHealthBarBG == null || !previewHealthBarBG.exists) return;
+            
+            var cachedActive = api.getKssValue("kssette_show_hud") == true;
+            previewHealthBarBG.visible = cachedActive;
+            if (previewHealthBarFillP1 != null) previewHealthBarFillP1.visible = cachedActive;
+            if (previewHealthBarFillP2 != null) previewHealthBarFillP2.visible = cachedActive;
+            if (previewIconP1 != null) previewIconP1.visible = cachedActive;
+            if (previewIconP2 != null) previewIconP2.visible = cachedActive;
+
+            var downscroll = false;
+            if (KassetteHUDElement.globalSongHunter != null) downscroll = KassetteHUDElement.globalSongHunter.getDownscroll();
+            else downscroll = Preferences.downscroll;
+
+            var hbY = downscroll ? FlxG.height * 0.11 : FlxG.height * 0.89;
+            previewHealthBarBG.y = hbY;
+            if (previewHealthBarFillP1 != null) previewHealthBarFillP1.y = hbY + 4;
+            if (previewHealthBarFillP2 != null) previewHealthBarFillP2.y = hbY + 4;
+
+            var coloredHB = api.getKssValue("kssette_colored_healthbar") == true;
+            var p1Color = 0xFF66FF33; 
+            var p2Color = 0xFFFF0000;
+            
+            if (coloredHB) {
+                p1Color = 0xFF31B0D1; 
+                p2Color = 0xFFAF66CE; 
+            }
+
+            if (previewHealthBarFillP1 != null) previewHealthBarFillP1.color = p1Color;
+            if (previewHealthBarFillP2 != null) previewHealthBarFillP2.color = p2Color;
+            
+            var fw = Std.int((previewHealthBarBG.width - 8) / 2);
+            if (previewHealthBarFillP1 != null) previewHealthBarFillP1.x = previewHealthBarBG.x + 4 + fw;
+            
+            var centerY = previewHealthBarBG.y + (previewHealthBarBG.height / 2);
+            
+            if (previewIconP1 != null && previewIconP2 != null) {
+                previewBopTimer += elapsed;
+                var beatDuration = 0.5;
+                if (Conductor.instance != null && Conductor.instance.crochet > 0) {
+                    beatDuration = Conductor.instance.crochet / 1000.0;
+                }
+                
+                if (previewBopTimer >= beatDuration) {
+                    previewBopTimer = 0;
+                    previewIconP1.scale.set(1.2, 1.2);
+                    previewIconP2.scale.set(1.2, 1.2);
+                }
+                
+                var lerpFactor = 1.0 - (elapsed * 15.0);
+                if (lerpFactor < 0) lerpFactor = 0;
+                
+                var prevScale = previewIconP1.scale.x;
+                previewIconP1.scale.x = 1.0 + ((previewIconP1.scale.x - 1.0) * lerpFactor);
+                previewIconP1.scale.y = 1.0 + ((previewIconP1.scale.y - 1.0) * lerpFactor);
+                
+                previewIconP2.scale.x = 1.0 + ((previewIconP2.scale.x - 1.0) * lerpFactor);
+                previewIconP2.scale.y = 1.0 + ((previewIconP2.scale.y - 1.0) * lerpFactor);
+                
+                if (prevScale != previewIconP1.scale.x) {
+                    previewIconP1.updateHitbox();
+                    previewIconP2.updateHitbox();
+                }
+            }
+            
+            if (api.getKssValue("kssette_icon_pos") == "Corners") {
+                if (previewIconP1 != null) {
+                    previewIconP1.x = previewHealthBarBG.x + previewHealthBarBG.width + 75 - previewIconP1.width;
+                    previewIconP1.y = centerY + 75 - previewIconP1.height;
+                    previewIconP1.flipX = true;
+                }
+                if (previewIconP2 != null) {
+                    previewIconP2.x = previewHealthBarBG.x + 75 - previewIconP2.width;
+                    previewIconP2.y = centerY + 75 - previewIconP2.height;
+                }
+            } else {
+                if (previewIconP1 != null) {
+                    previewIconP1.x = previewHealthBarBG.x + fw - 26;
+                    previewIconP1.y = previewHealthBarBG.y - (previewIconP1.height / 2) + 10;
+                    previewIconP1.flipX = true;
+                }
+                if (previewIconP2 != null) {
+                    previewIconP2.x = previewHealthBarBG.x + fw - (previewIconP2.width - 26);
+                    previewIconP2.y = previewHealthBarBG.y - (previewIconP2.height / 2) + 10;
+                }
+            }
+            return;
+        }
+
+        var state = PlayState.instance;
         if (state == null || api == null) return;
 
         var p1 = state.iconP1;

@@ -1,0 +1,111 @@
+package kassettehud.util;
+
+import funkin.modding.module.Module;
+import funkin.modding.module.ModuleHandler;
+import funkin.play.PlayState;
+
+class KassetteHUDSkin extends Module {
+    public var skinId:String = "unknown";
+    public var skinName:String = "Unknown Skin";
+    public var author:String = "Unknown";
+    public var description:String = "No description";
+
+    public var elements = [];
+    public var isBuilt:Bool = false;
+
+    public function new(?id:String, ?name:String, ?author:String, ?desc:String) {
+        if (id == null) id = "unknown";
+        if (name == null) name = "Unknown Skin";
+        if (author == null) author = "Unknown";
+        if (desc == null) desc = "No description";
+        
+        // Le damos un ID único al módulo para que V-Slice no lo sobreescriba
+        super(id + "SkinModule");
+        
+        this.skinId = id;
+        this.skinName = name;
+        this.author = author;
+        this.description = desc;
+        this.active = false; // El Manager decidirá si se activa
+
+        trace("[KassetteHUDSkin] Initializing skin: " + this.skinId);
+        
+        // Auto-registro en el Manager solo si no es la clase base
+        if (this.skinId != "unknown") {
+            var manager:Dynamic = ModuleHandler.getModule("KassetteSkinManager");
+            if (manager != null) {
+                manager.registerSkin(this);
+            } else {
+                trace("[KassetteHUDSkin] WARNING: KassetteSkinManager not found! Skin will not be registered.");
+            }
+        }
+    }
+
+    // A ser sobrescrito por las skins hijas
+    public function buildElements():Dynamic {
+        return [];
+    }
+
+    public function ensureElements() {
+        if (isBuilt) return;
+        elements = buildElements();
+        for (el in elements) {
+            el.skinId = this.skinId;
+        }
+        isBuilt = true;
+    }
+
+    public function destroyElements() {
+        for (el in elements) {
+            el.destroy();
+        }
+        elements = [];
+        isBuilt = false;
+    }
+
+    public function addElement(element:Dynamic) {
+        if (element != null) {
+            element.skinId = this.skinId;
+            elements.push(element);
+        }
+    }
+
+    public function getElement(elementName:String):Dynamic {
+        for (el in elements) {
+            if (el != null && el.name == elementName) {
+                return el;
+            }
+        }
+        return null;
+    }
+
+    override public function onCountdownStart(event:Dynamic) {
+        if (!active) return;
+        ensureElements();
+        for (el in elements) el.onCountdownStart(event);
+    }
+
+    override public function onUpdate(event:Dynamic) {
+        if (!active) return;
+        for (el in elements) el.onUpdate(event);
+    }
+
+    override public function onNoteHit(event:Dynamic) {
+        if (!active) return;
+        for (el in elements) el.onNoteHit(event);
+    }
+
+    override public function onSongEnd(event:Dynamic) {
+        if (!active) return;
+        for (el in elements) el.onSongEnd(event);
+    }
+
+    override public function onSongRetry(event:Dynamic) {
+        if (!active) return;
+        for (el in elements) el.onSongRetry(event);
+    }
+
+    override public function onDestroy(event:Dynamic) {
+        destroyElements();
+    }
+}
