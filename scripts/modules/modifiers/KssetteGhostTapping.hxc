@@ -1,5 +1,9 @@
 package kassettehud.util;
 
+import kassettehud.util.KassetteHUDElement;
+import kassettehud.util.KssetteOptionsManager;
+import kassettehud.util.KassetteHUDDatahunter;
+
 /**
  * KssGhostTapping
  *
@@ -54,7 +58,7 @@ class KssGhostTapping extends KHUDModifier {
     override public function onCountdownStart(event:Dynamic) {
         super.onCountdownStart(event);
         isPaused = false;
-        breakHunter = KassetteHUDElement.globalBreakHunter;
+        var breakHunter = KassetteHUDDatahunter.breakData;
 
             // Normalize bool/string to a canonical string. Preserves "In Breaks" as is.
             var _rawMode:Dynamic = getSetting("kssette_ghost_tapping");
@@ -93,7 +97,7 @@ class KssGhostTapping extends KHUDModifier {
      * interfering with the modifier's own note handling logic.
      */
     function isGammodActive():Bool {
-        var api = ModuleHandler.getModule("KssetteApi");
+        var gammodHunter = KassetteHUDDatahunter.gammod;
         return (gammodHunter != null && gammodHunter.isGammodMode == true);
     }
 
@@ -111,6 +115,7 @@ class KssGhostTapping extends KHUDModifier {
         if (_cGhostTappingMode == "On") return true;
         
         if (_cGhostTappingMode == "In Breaks") {
+            var breakHunter = KassetteHUDDatahunter.breakData;
             var breakData = breakHunter != null ? breakHunter.currentBreakData : null;
             return (breakData?.active == true);
         }
@@ -158,6 +163,7 @@ class KssGhostTapping extends KHUDModifier {
         if (controlsObj == null) return;
 
         // Determine which character to animate based on Gammod's player side setting.
+        var gammodHunter = KassetteHUDDatahunter.gammod;
         var isOpposite = (gammodHunter != null && gammodHunter.gammodPlayerSide == "OPPOSITE");
         var player = isOpposite ? state.currentStage?.getDad() : state.currentStage?.getBoyfriend();
         if (player == null) return;

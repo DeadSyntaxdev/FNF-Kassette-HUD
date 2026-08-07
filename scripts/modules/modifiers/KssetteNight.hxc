@@ -30,6 +30,8 @@ package kassettehud.util;
 import flixel.FlxG;
 import funkin.graphics.FunkinSprite;
 import funkin.modding.module.Module;
+import kassettehud.util.KssetteOptionsManager;
+import kassettehud.util.KassetteHUDDatahunter;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
 import Std;
@@ -150,16 +152,17 @@ class KssetteNight extends KHUDModifier {
 
         cachedMode = getMode();
         cachedOpacity = 0.65;
-        if (apiModule != null) {
-            var rawOp = Std.string(apiModule?.getKssValue("kssette_night_opacity"));
+        var optManager = KssetteOptionsManager.instance;
+        if (optManager != null) {
+            var rawOp = Std.string(optManager.getKssValue("kssette_night_opacity"));
             if (rawOp != null && rawOp != "null") {
                 var parsed = Std.parseFloat(StringTools.replace(rawOp, "%", ""));
                 if (!Math.isNaN(parsed)) cachedOpacity = parsed / 100.0;
             }
 
             var timeStrStart = "20:00"; var timeStrEnd = "06:00";
-            var fetchedStart = Std.string(apiModule?.getKssValue("kssette_night_start"));
-            var fetchedEnd   = Std.string(apiModule?.getKssValue("kssette_night_end"));
+            var fetchedStart = Std.string(optManager.getKssValue("kssette_night_start"));
+            var fetchedEnd   = Std.string(optManager.getKssValue("kssette_night_end"));
             if (fetchedStart != null && fetchedStart != "null") timeStrStart = fetchedStart;
             if (fetchedEnd   != null && fetchedEnd   != "null") timeStrEnd   = fetchedEnd;
             cachedStartSecs = parseClockSeconds(timeStrStart, 72000);

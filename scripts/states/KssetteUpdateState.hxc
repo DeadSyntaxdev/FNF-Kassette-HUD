@@ -12,6 +12,7 @@ import funkin.audio.FunkinSound;
 import funkin.ui.ScriptedMusicBeatState;
 import funkin.ui.mainmenu.MainMenuState;
 import funkin.modding.module.ModuleHandler;
+import kassettehud.util.KssetteUpdateManager;
 import funkin.util.WindowUtil;
 import funkin.util.TouchUtil;
 
@@ -68,9 +69,9 @@ class KssetteUpdateState extends ScriptedMusicBeatState {
         titleText.borderSize = 3;
         add(titleText);
         
-        var apiMod:Dynamic = ModuleHandler.getModule("KssetteApi");
-        if (apiMod != null && apiMod.latestVersion != null) {
-            latestVersion = Std.string(apiMod.latestVersion);
+        var updMgr:Dynamic = ModuleHandler.getModule("KssetteUpdateManager");
+        if (updMgr != null && updMgr.latestVersion != null) {
+            latestVersion = Std.string(updMgr.latestVersion);
         }
         
         infoText = new FlxText(0, 130, FlxG.width, "Fetching data from GameBanana...", 28);

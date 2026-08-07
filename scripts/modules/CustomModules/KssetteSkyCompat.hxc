@@ -4,6 +4,9 @@ import flixel.FlxG;
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import kassettehud.util.KassetteHUDElement;
+import kassettehud.util.KssetteOptionsManager;
+import kassettehud.util.KassetteHUDDatahunter;
+import kassettehud.util.KssetteFontManager;
 import funkin.play.PlayState;
 import funkin.Paths;
 import flixel.text.FlxText;
@@ -134,22 +137,22 @@ class KssetteSkyCompat extends Module {
         if (state == null) return;
 
         var kAcc:Dynamic = ModuleHandler.getModule("KssetteAccuracy");
-        var api:Dynamic = ModuleHandler.getModule("KssetteApi");
+        var optM = KssetteOptionsManager.instance;
 
-        if (api != null && api._kssCache != null) {
-            var curCachedFont = api._kssCache.get("kssette_custom_font");
+        if (optM != null && optM._kssCache != null) {
+            var curCachedFont = optM._kssCache.get("kssette_custom_font");
             
             if (curCachedFont != "Planet-Joy.ttf") {
-                api._kssCache.set("kssette_custom_font", "Planet-Joy.ttf");
-                api.cachedCustomFontPath = cachedFontPath;
-                api.lastFontKey = "Planet-Joy.ttf";
-                api._cachedHudFont = cachedFontPath;
+                optM._kssCache.set("kssette_custom_font", "Planet-Joy.ttf");
+                optM.cachedCustomFontPath = cachedFontPath;
+                optM.lastFontKey = "Planet-Joy.ttf";
+                optM._cachedHudFont = cachedFontPath;
                 
                 if (kAcc != null) applySkyStyleAll(kAcc, cachedFontPath, !isManifest ? 0xFF002faf : 0xFFFF0000);
             }
 
-            if (api._kssCache.get("kssette_show_song_time") != "Off") {
-                api._kssCache.set("kssette_show_song_time", "Off");
+            if (optM._kssCache.get("kssette_show_song_time") != "Off") {
+                optM._kssCache.set("kssette_show_song_time", "Off");
             }
         }
 
@@ -160,7 +163,7 @@ class KssetteSkyCompat extends Module {
 
         if (skyHUDModule != null && skyHUDModule.reduxHealthBar != null) {
             
-            if (api != null && api.getKssValue("kssette_colored_healthbar") == true) {
+            if (optM != null && optM.getKssValue("kssette_colored_healthbar") == true) {
                 if (state.iconP1 != null && state.iconP2 != null) {
                     var curP1:String = state.iconP1.characterId != null ? state.iconP1.characterId : "none1";
                     var curP2:String = state.iconP2.characterId != null ? state.iconP2.characterId : "none2";
@@ -169,8 +172,9 @@ class KssetteSkyCompat extends Module {
                         lastP1Id = curP1;
                         lastP2Id = curP2;
                         
-                        var p1Color:Int = api.extractIconColor(state.iconP1, true, curP1);
-                        var p2Color:Int = api.extractIconColor(state.iconP2, false, curP2);
+                        var iconHunter = KassetteHUDDatahunter.icon;
+                        var p1Color:Int = iconHunter != null ? iconHunter.extractIconColor(state.iconP1, true, curP1) : 0xFF66FF33;
+                        var p2Color:Int = iconHunter != null ? iconHunter.extractIconColor(state.iconP2, false, curP2) : 0xFFFF0000;
                         
                         skyHUDModule.reduxHealthBar.createFilledBar(p2Color, p1Color);
                         skyHUDModule.reduxHealthBar.updateBar();
@@ -241,26 +245,26 @@ class KssetteSkyCompat extends Module {
                     origComboY = skyHUDModule.comboTxt.y;
                 }
 
-                if (api != null) {
-                    var mid = api.getKssValue("kssette_middlescroll");
+                if (optM != null) {
+                    var mid = optM.getKssValue("kssette_middlescroll");
                     var isMidScroll = (mid == "On" || mid == true || mid == "P Style");
-                    var judgePos = Std.string(api.getKssValue("kssette_judge_pos"));
-                    var timeBarPos = Std.string(api.getKssValue("kssette_timebar_pos"));
-                    var infoPos = Std.string(api.getKssValue("kssette_info_pos"));
-                    var optManager = KassetteHUDElement.globalOptionsManager;
+                    var judgePos = Std.string(optM.getKssValue("kssette_judge_pos"));
+                    var timeBarPos = Std.string(optM.getKssValue("kssette_timebar_pos"));
+                    var infoPos = Std.string(optM.getKssValue("kssette_info_pos"));
+                    var optManager = KssetteOptionsManager.instance;
                     var isMobile = optManager != null && optManager.isMobileMode == true;
                     
                     var forceDownscrollLook = false;
-                    if (api != null && api.isForcedDownscroll != null) forceDownscrollLook = api.isForcedDownscroll();
+                    if (optM.isForcedDownscroll != null) forceDownscrollLook = optM.isForcedDownscroll();
                     
                     var isDownscroll = false;
-                    if (KassetteHUDElement.globalSongHunter != null) isDownscroll = KassetteHUDElement.globalSongHunter.getDownscroll();
+                    if (KassetteHUDDatahunter.song != null) isDownscroll = KassetteHUDDatahunter.song.getDownscroll();
                     else isDownscroll = Preferences.downscroll;
 
                     var tX:Float = originalTimerX != -1 ? originalTimerX : (FlxG.width - skyHUDModule.timerBackdrop.width) / 2;
                     var tY:Float = originalTimerY != -1 ? originalTimerY : 20;
 
-                    var showTimeBar = api.getKssValue("kssette_show_timebar") == true;
+                    var showTimeBar = optM.getKssValue("kssette_show_timebar") == true;
                     var isTimeBarTop = showTimeBar && (timeBarPos == "Top" || timeBarPos == "Top Left" || timeBarPos == "Top Right");
                     var isTimeBarBottom = showTimeBar && (timeBarPos == "Bottom" || timeBarPos == "Bottom Left" || timeBarPos == "Bottom Right");
 
@@ -369,15 +373,16 @@ class KssetteSkyCompat extends Module {
     override public function onDestroy(event:Dynamic) {
         super.onDestroy(event);
 
-        var api:Dynamic = ModuleHandler.getModule("KssetteApi");
-        if (api != null && api?.refreshOptionCache != null) {
-            api.refreshOptionCache();
+        var optM = KssetteOptionsManager.instance;
+        if (optM != null) {
+            optM.refreshOptionCache();
             
             var kAcc:Dynamic = ModuleHandler.getModule("KssetteAccuracy");
             if (kAcc != null) {
-                applySkyStyleAll(kAcc, api.getHudFont(), 0xFF000000);
+                var hudFont = KssetteFontManager.instance != null ? KssetteFontManager.instance.getHudFont() : "VCR OSD Mono";
+                applySkyStyleAll(kAcc, hudFont, 0xFF000000);
                 
-                if (api.getKssValue("kssette_show_song_time") == true) {
+                if (optM.getKssValue("kssette_show_song_time") == true) {
                     if (kAcc.timeText != null) {
                         kAcc.timeText.visible = true;
                         kAcc.timeText.alpha = 1;

@@ -3,6 +3,9 @@ package kassettehud.util;
 import funkin.api.discord.DiscordClient;
 import funkin.play.PlayState;
 import funkin.Highscore;
+import funkin.modding.module.Module;
+import kassettehud.util.KssetteOptionsManager;
+import kassettehud.util.KassetteHUDDatahunter;
 import Std;
 
 class KssetteDiscordRPC extends KHUDModifier {
@@ -36,6 +39,7 @@ class KssetteDiscordRPC extends KHUDModifier {
                 var rank = "?";
                 var fcTier = "Clear";
                 
+                var scoreHunter = KassetteHUDDatahunter.score;
                 if (scoreHunter != null) {
                     acc = scoreHunter.getAccuracy(state) + "%";
                     rank = scoreHunter.getRankID(state);

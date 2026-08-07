@@ -19,6 +19,8 @@ import Std;
 import kassettehud.util.KassetteHUDElement;
 
 class KssetteUpdateManager extends Module {
+    public static var instance:Dynamic = null;
+    public var hudVersion:String = "0.3.0-a";
     public var latestVersion:String = "";
     public var updateAvailable:Bool = false;
     
@@ -28,7 +30,7 @@ class KssetteUpdateManager extends Module {
 
     public function new() {
         super("KssetteUpdateManager");
-        KassetteHUDElement.globalUpdateManager = this;
+        KssetteUpdateManager.instance = this;
     }
 
     override public function onUpdate(event:UpdateScriptEvent) {
@@ -56,8 +58,7 @@ class KssetteUpdateManager extends Module {
                 trace("[KssetteUpdate] DOWNLOADED VERSION: '" + data + "'");
                 if (data != null && data != "") {
                     var v = StringTools.trim(data);
-                    var api = KassetteHUDElement.globalApi;
-                    var currentVersion = api != null ? api.hudVersion : "0.3.0-a";
+                    var currentVersion = hudVersion;
                     trace("[KssetteUpdate] COMPARING: Downloaded '" + v + "' vs Current '" + currentVersion + "'");
                     if (v != "" && v != currentVersion && v != "0.2.3.a1") {
                         trace("[KssetteUpdate] UPDATE AVAILABLE! Proceeding to notify.");
@@ -88,8 +89,7 @@ class KssetteUpdateManager extends Module {
         
         var target = event.targetState;
         if (target != null && Std.isOfType(target, MainMenuState)) {
-            var api = KassetteHUDElement.globalApi;
-            var currentVersion = api != null ? api.hudVersion : "0.3.0-a";
+            var currentVersion = hudVersion;
             
             var updateStr = updateAvailable ? " (UPDATE AVAILABLE)" : "";
             var mmWatermark = new FlxText(0, FlxG.height - 24, FlxG.width - 12, "KASSETTE HUD v" + currentVersion + updateStr, 16);

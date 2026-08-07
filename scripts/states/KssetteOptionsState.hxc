@@ -15,6 +15,9 @@ import funkin.ui.ScriptedMusicBeatState;
 import funkin.ui.ScriptedMusicBeatSubState;
 import funkin.play.character.CharacterDataParser;
 import kassettehud.util.KassetteHUDElement;
+import kassettehud.util.KssetteOptionsManager;
+import kassettehud.util.KassetteHUDDatahunter;
+import kassettehud.util.KssetteUpdateManager;
 import funkin.play.stage.Stage;
 import funkin.play.character.BaseCharacter;
 import funkin.play.character.SparrowCharacter;
@@ -45,13 +48,13 @@ import kassettehud.util.KassetteSkinManager;
 
 class KssetteOptionsState extends ScriptedMusicBeatState {
 
-    var previewModuleNames:Array<String> = ["KssetteNight", "KssetteAccuracy", "KssetteJudgements", "KssetteTimeBar", "KssetteCombo", "KssetteSongInfo", "KssetteShowTitle", "KssetteBreakBar", "KssetteSubtitles"];
+    var previewModuleNames:Array<String> = ["KssetteNight", "KssetteAccuracy", "KssetteJudgements", "KssetteTimeBar", "KssetteCombo", "KssetteSongInfo", "KssetteShowTitle", "KssetteBreakBar", "KssetteSubtitles", "KssetteHealthBar"];
     var previewModules:Array<Dynamic> = [];
     public var menuFont:String = "VCR OSD Mono";
     public var screenW:Float = 0;
     public var screenH:Float = 0;
     public var halfScreenH:Float = 0;
-    public var apiRef:Dynamic; 
+
     public var panelWidth:Int = 660; 
     public var optionCam:FlxCamera;
     public var hudCam:FlxCamera;
@@ -158,7 +161,6 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
         halfScreenH = screenH * 0.5;
         menuFont = Paths.font("5by7.ttf");
 
-        apiRef = ModuleHandler.getModule("KssetteApi");
         cachePreviewModules();
         
         stageCam = new FunkinCamera('stageCam', 0, 0, Std.int(screenW), Std.int(screenH));
@@ -197,7 +199,6 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
         this.add(subOptions);
         
         var hudPreview:Dynamic = ScriptedMusicBeatSubState.init("KssetteHUDPreview");
-        hudPreview.apiModule = apiRef;
         hudPreview.buildPreview(hudCam);
         this.hudPreview = hudPreview;
         this.add(hudPreview);
@@ -263,8 +264,8 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
 
     public function updatePreviews() {
         trace("[KssetteOptionsState] updatePreviews() STARTED");
-        if (KassetteHUDElement.globalOptionsManager != null) {
-            KassetteHUDElement.globalOptionsManager.refreshOptionCache();
+        if (KssetteOptionsManager.instance != null) {
+            KssetteOptionsManager.instance.refreshOptionCache();
         }
 
         if (previewModules.length == 0) cachePreviewModules();
@@ -577,7 +578,7 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
                     var targetAlpha = isSel ? 1.0 : 0.6;
                     var targetColor = isSel ? FlxColor.YELLOW : FlxColor.WHITE;
                     
-                    if (item.lockedState == null && apiRef != null) item.lockedState = apiRef.isOptionLocked(item.key);
+                    if (item.lockedState == null && KssetteOptionsManager.instance != null) item.lockedState = KssetteOptionsManager.instance.isOptionLocked(item.key);
                     if (item.lockedState == true) {
                         targetAlpha *= 0.4;
                         targetColor = FlxColor.GRAY;
@@ -819,7 +820,8 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
         marqueeBg.cameras = [optionCam];
 
         var apiVer = "0.2";
-        if (apiRef != null) apiVer = Std.string(apiRef.hudVersion);
+        var updManager = ModuleHandler.getModule("KssetteUpdateManager");
+        if (updManager != null) apiVer = Std.string(updManager.hudVersion);
 
         var mobileStr = "   OPTIONS MENU   SWIPE UP/DOWN TO SCROLL   SWIPE L/R TO MOVE UI   TAP AND HOLD THE STAGE TO PREVIEW   ";
         var pcStr = "   OPTIONS MENU   TAB TO HIDE OPTIONS   SHIFT TO MOVE OPTTIONS   ESC TO EXIT   ";
@@ -906,7 +908,7 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
         createToggle("SCORE TEXT POSITION", "kssette_score_pos", ["Vanilla", "Inverted"], "Choose where the score text is placed relative to the health bar.");
         
         var isDownscroll = Preferences.downscroll;
-        if (KassetteHUDElement.globalOptionsManager != null && KassetteHUDElement.globalOptionsManager.isForcedDownscroll()) isDownscroll = true;
+        if (KssetteOptionsManager.instance != null && KssetteOptionsManager.instance.isForcedDownscroll()) isDownscroll = true;
 
         var scorePosInit = Save.instance.modOptions.get("kssette_score_pos");
         if (scorePosInit == null) scorePosInit = "Vanilla";
@@ -1372,7 +1374,7 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
                 
                 descTextDisplay.text = selItem.desc;
                 if (descValueText != null) {
-                    if (selItem.lockedState == null && apiRef != null) selItem.lockedState = apiRef.isOptionLocked(selItem.key);
+                    if (selItem.lockedState == null && KssetteOptionsManager.instance != null) selItem.lockedState = KssetteOptionsManager.instance.isOptionLocked(selItem.key);
                     if (selItem.lockedState == true) {
                         descValueText.text = "LOCKED";
                         var targetColor = FlxColor.RED;
@@ -1486,7 +1488,7 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
             if (acceptPressed) {
                 var item = optionItems[selectedIndex];
                 if (item != null && !item.isHeader && item.fire != null) {
-                    if (apiRef != null && apiRef.isOptionLocked(item.key)) {
+                    if (KssetteOptionsManager.instance != null && KssetteOptionsManager.instance.isOptionLocked(item.key)) {
                         FlxG.sound.play(Paths.sound("ui/khud_lock"), 0.3);
                         item.errorTimer = 1.0;
                         holdTimer = 0.2;
@@ -1512,7 +1514,7 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
                 if (FlxG.mouse.justReleased && FlxG.mouse.overlaps(item.bg, optionCam)) {
                     if (!item.isHeader) {
                         if (selectedIndex == i) {
-                            if (apiRef != null && apiRef.isOptionLocked(item.key)) {
+                            if (KssetteOptionsManager.instance != null && KssetteOptionsManager.instance.isOptionLocked(item.key)) {
                                 FlxG.sound.play(Paths.sound("ui/khud_lock"), 0.3);
                                 item.errorTimer = 1.0;
                                 holdTimer = 0.2;

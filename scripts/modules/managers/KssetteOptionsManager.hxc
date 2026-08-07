@@ -12,6 +12,7 @@ import flixel.util.FlxColor;
 import Std;
 
 class KssetteOptionsManager extends Module {
+    public static var instance:Dynamic = null;
     public var _kssCache:Map<String, Dynamic> = null;
     public var _kssCacheReady:Bool = false;
     public var _mobileLikePc:Bool = true;
@@ -36,9 +37,9 @@ class KssetteOptionsManager extends Module {
 
     public function new() {
         super("KssetteOptionsManager");
+        KssetteOptionsManager.instance = this;
         this.active = true;
         isMobileMode = FlxG.onMobile;
-        KassetteHUDElement.globalOptionsManager = this;
     }
 
     public function initSettings() {

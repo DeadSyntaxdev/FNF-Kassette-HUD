@@ -9,6 +9,7 @@ import funkin.data.notestyle.NoteStyleRegistry;
 import Std;
 
 class KssetteFontManager extends Module {
+    public static var instance:Dynamic = null;
     public var _cachedHudFont:String = "";
     public var _cachedHudStyleId:String = "";
     public var lastFontKey:String = "";
@@ -19,7 +20,7 @@ class KssetteFontManager extends Module {
     public function new() {
         super("KssetteFontManager");
         this.active = true;
-        KassetteHUDElement.globalFontManager = this;
+        KssetteFontManager.instance = this;
     }
 
     public function getHudFont():String {
@@ -88,13 +89,13 @@ class KssetteFontManager extends Module {
     }
 
     public function resolveCustomFont(fontKey:String):String {
-        var assetHunter = KassetteHUDElement.globalAssetHunter;
+        var assetHunter = KassetteHUDDatahunter.asset;
         if (assetHunter != null) return assetHunter.resolveCustomFont(fontKey);
         return "VCR OSD Mono";
     }
 
     public function getCustomFont():String {
-        var optionsManager = KassetteHUDElement.globalOptionsManager;
+        var optionsManager = KssetteOptionsManager.instance;
         var fontKey:String = "None";
         if (optionsManager != null) {
             fontKey = Std.string(optionsManager.getKssValue("kssette_custom_font"));
@@ -107,7 +108,7 @@ class KssetteFontManager extends Module {
     }
 
     public function getCustomPixelFont():String {
-        var optionsManager = KassetteHUDElement.globalOptionsManager;
+        var optionsManager = KssetteOptionsManager.instance;
         var fontKey:String = "None";
         if (optionsManager != null) {
             fontKey = Std.string(optionsManager.getKssValue("kssette_custom_pixel_font"));

@@ -38,6 +38,9 @@ package kassettehud.util;
  */
 
 import funkin.modding.module.Module;
+import kassettehud.util.KssetteOptionsManager;
+import kassettehud.util.KassetteHUDDatahunter;
+import kassettehud.util.KssetteFontManager;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
 import flixel.FlxG;
@@ -459,7 +462,7 @@ var triviaArray:Array<String> = [
     public function buildPreview(cam:FlxCamera) {
         isPreview = true;
         previewCam = cam;
-        apiModule = ModuleHandler.getModule("KssetteApi");
+        // apiModule removed
         
         createSubText(cam);
         
@@ -476,14 +479,6 @@ var triviaArray:Array<String> = [
      */
     public function updatePreview() {
         if (!isPreview) return;
-        if (apiModule != null) {
-            cachedFont = apiModule.getHudFont();
-            if (cachedFont == null || cachedFont == "null" || cachedFont == "") cachedFont = "VCR OSD Mono";
-            animType = Std.string(getSetting("kssette_subtitles_anim"));
-            if (animType == "Karaoke") animType = "Fade"; 
-            posType = Std.string(getSetting("kssette_subtitles_pos"));
-            smartKaraoke = getSetting("kssette_smart_karaoke") == true;
-        }
         
         targetPreviewTick = FlxG.game.ticks + 500;
         previewState = 0;
@@ -512,7 +507,7 @@ var triviaArray:Array<String> = [
         
 
         
-        cachedFont = apiModule.getHudFont();
+        if (KssetteFontManager.instance != null) cachedFont = KssetteFontManager.instance.getHudFont();
         if (cachedFont == null || cachedFont == "null" || cachedFont == "") cachedFont = "VCR OSD Mono";
         animType = Std.string(getSetting("kssette_subtitles_anim"));
         if (animType == "Karaoke") animType = "Fade"; 

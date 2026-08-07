@@ -45,6 +45,9 @@ import flixel.math.FlxPoint;
 import flixel.math.FlxRect;
 import flixel.util.FlxSpriteUtil;
 import funkin.graphics.FunkinSprite;
+import kassettehud.util.KassetteHUDElement;
+import kassettehud.util.KssetteOptionsManager;
+import kassettehud.util.KassetteHUDDatahunter;
 
 class KssetteBreakBar extends KassetteHUDElement {
     /** Horizontal offset for 'Default' and 'Pie' styles. */
@@ -102,7 +105,9 @@ class KssetteBreakBar extends KassetteHUDElement {
     /** True when rendering in the options menu preview instead of gameplay. */
 
     /** Camera to render into during preview mode. */
-    public var previewCam:FlxCamera = null;
+    public    var previewCam:FlxCamera = null;
+    var songHunter:Dynamic = null;
+    var optManager:Dynamic = null;
     /** Accumulated time used to animate the preview break bar. */
     var previewBreakTimer:Float = 0.0;
     
@@ -138,6 +143,7 @@ class KssetteBreakBar extends KassetteHUDElement {
         isPreview = false;
         cleanupUI();
     }
+
 
     /**
      * Software-renders a rounded rectangle into a FlxSprite's bitmap.
@@ -441,12 +447,10 @@ class KssetteBreakBar extends KassetteHUDElement {
         
         var state = PlayState.instance;
         if (state == null) return;
-        
-        apiModule = ModuleHandler.getModule("KssetteApi");
 
 
         cachedActive = getSetting("kssette_show_breakbar") == true;
-        breakHunter = KassetteHUDElement.globalBreakHunter;
+        breakHunter = KassetteHUDDatahunter.breakData;
         cachedNoteTimes = breakHunter != null ? breakHunter.playerNoteTimes : [];
         
         localNoteIndex = 0;
@@ -465,7 +469,6 @@ class KssetteBreakBar extends KassetteHUDElement {
     public function buildPreview(cam:FlxCamera) {
         isPreview = true;
         previewCam = cam;
-        apiModule = ModuleHandler.getModule("KssetteApi");
 
         setupUI(cam);
         previewBreakTimer = 6.0;
@@ -484,8 +487,7 @@ class KssetteBreakBar extends KassetteHUDElement {
             if (breakIcon == null || !breakIcon.exists) return;
         }
 
-        apiModule = ModuleHandler.getModule("KssetteApi");
-
+        // apiModule removed
         
         cachedActive = getSetting("kssette_show_breakbar") == true;
         var rawStyle = getSetting("kssette_breakbar_style");
@@ -537,10 +539,10 @@ class KssetteBreakBar extends KassetteHUDElement {
 
         if (isPreview) {
             alphaTarget = 0;
-            if (cachedActive && apiModule != null) {
+            if (cachedActive) {
                 // Read preview state from KssetteApi using ? safe access.
-                var isP:Bool = (apiModule != null && apiModule.preview_playerTurn != false);
-                var prog:Float = (apiModule != null && apiModule.preview_turnProgress != null) ? apiModule.preview_turnProgress : 0.0;
+                var isP:Bool = KassetteHUDElement.preview_playerTurn != false;
+                var prog:Float = KassetteHUDElement.preview_turnProgress != null ? KassetteHUDElement.preview_turnProgress : 0.0;
                 if (!isP) {
                     alphaTarget = 1;
                     breakProgress = 1.0 - prog;

@@ -39,6 +39,9 @@ import funkin.Paths;
 import funkin.play.components.HealthIcon;
 import funkin.Preferences;
 import funkin.Conductor;
+import kassettehud.util.KassetteHUDElement;
+import kassettehud.util.KssetteOptionsManager;
+import kassettehud.util.KassetteHUDDatahunter;
 
 class KssetteHealthBar extends KassetteHUDElement {
     /** Last known character ID for P1 icon; used to detect icon changes. */
@@ -58,6 +61,12 @@ class KssetteHealthBar extends KassetteHUDElement {
     var previewCam:FlxCamera;
     var previewBopTimer:Float = 0;
     var _lastPreviewBeat:Int = -1;
+    
+    // Datahunters
+    var songHunter:Dynamic = null;
+    var gammodHunter:Dynamic = null;
+    var iconHunter:Dynamic = null;
+    var optManager:Dynamic = null;
     
     public function new() {
         super("KssetteHealthBar");
@@ -125,11 +134,13 @@ class KssetteHealthBar extends KassetteHUDElement {
      * by re-adding them to the end of the display list.
      */
     override function onCountdownStart(event) {
-        var api = ModuleHandler.getModule("KssetteApi");
-        if (api == null) return;
+        isPreview = false;
         
-        iconHunter = KassetteHUDElement.globalIconHunter;
-        gammodHunter = KassetteHUDElement.globalGammodHunter;
+        var optManager = KssetteOptionsManager.instance;
+        if (optManager == null) return;
+        
+        iconHunter = KassetteHUDDatahunter.icon;
+        gammodHunter = KassetteHUDDatahunter.gammod;
 
         _lastP1Id = "";
         _lastP2Id = "";
@@ -152,12 +163,12 @@ class KssetteHealthBar extends KassetteHUDElement {
      */
     override function onUpdate(event:Dynamic) {
         var elapsed:Float = (Std.isOfType(event, Float)) ? event : (event != null ? event.elapsed : 0);
-        var api = ModuleHandler.getModule("KssetteApi");
+        var optManager = KssetteOptionsManager.instance;
         
         if (isPreview) {
-            if (api == null || previewHealthBarBG == null || !previewHealthBarBG.exists) return;
+            if (optManager == null || previewHealthBarBG == null || !previewHealthBarBG.exists) return;
             
-            var cachedActive = api.getKssValue("kssette_show_hud") == true;
+            var cachedActive = optManager.getKssValue("kssette_show_hud") == true;
             previewHealthBarBG.visible = cachedActive;
             if (previewHealthBarFillP1 != null) previewHealthBarFillP1.visible = cachedActive;
             if (previewHealthBarFillP2 != null) previewHealthBarFillP2.visible = cachedActive;
@@ -165,7 +176,7 @@ class KssetteHealthBar extends KassetteHUDElement {
             if (previewIconP2 != null) previewIconP2.visible = cachedActive;
 
             var downscroll = false;
-            if (KassetteHUDElement.globalSongHunter != null) downscroll = KassetteHUDElement.globalSongHunter.getDownscroll();
+            if (KassetteHUDDatahunter.song != null) downscroll = KassetteHUDDatahunter.song.getDownscroll();
             else downscroll = Preferences.downscroll;
 
             var hbY = downscroll ? FlxG.height * 0.11 : FlxG.height * 0.89;
@@ -173,7 +184,7 @@ class KssetteHealthBar extends KassetteHUDElement {
             if (previewHealthBarFillP1 != null) previewHealthBarFillP1.y = hbY + 4;
             if (previewHealthBarFillP2 != null) previewHealthBarFillP2.y = hbY + 4;
 
-            var coloredHB = api.getKssValue("kssette_colored_healthbar") == true;
+            var coloredHB = optManager.getKssValue("kssette_colored_healthbar") == true;
             var p1Color = 0xFF66FF33; 
             var p2Color = 0xFFFF0000;
             
@@ -219,29 +230,29 @@ class KssetteHealthBar extends KassetteHUDElement {
                 previewIconP1.updateHitbox();
                 previewIconP2.updateHitbox();
                 
-                if (api.getKssValue("kssette_icon_pos") == "Corners") {
-                    previewIconP1.x = previewHealthBarBG.x + previewHealthBarBG.width - (previewIconP1.width / 2);
+                if (optManager.getKssValue("kssette_icon_pos") == "Corners") {
+                    previewIconP1.x = previewHealthBarBG.x + previewHealthBarBG.width + 75 - previewIconP1.width;
                     previewIconP1.flipX = true;
-                    previewIconP1.y = centerY - (previewIconP1.height / 2);
+                    previewIconP1.y = centerY + 75 - previewIconP1.height;
                     
-                    previewIconP2.x = previewHealthBarBG.x - (previewIconP2.width / 2);
+                    previewIconP2.x = previewHealthBarBG.x + 75 - previewIconP2.width;
                     previewIconP2.flipX = false;
-                    previewIconP2.y = centerY - (previewIconP2.height / 2);
+                    previewIconP2.y = centerY + 75 - previewIconP2.height;
                 } else {
-                    previewIconP1.x = previewHealthBarBG.x + (previewHealthBarBG.width / 2) + fw - 26;
+                    previewIconP1.x = previewHealthBarBG.x + fw - 26;
                     previewIconP1.flipX = true;
-                    previewIconP1.y = centerY - (previewIconP1.height / 2);
+                    previewIconP1.y = previewHealthBarBG.y - (previewIconP1.height / 2) + 10;
                     
-                    previewIconP2.x = previewHealthBarBG.x + (previewHealthBarBG.width / 2) - fw - (previewIconP2.width - 26);
+                    previewIconP2.x = previewHealthBarBG.x + fw - (previewIconP2.width - 26);
                     previewIconP2.flipX = false;
-                    previewIconP2.y = centerY - (previewIconP2.height / 2);
+                    previewIconP2.y = previewHealthBarBG.y - (previewIconP2.height / 2) + 10;
                 }
             }
             return;
         }
 
         var state = PlayState.instance;
-        if (state == null || api == null) return;
+        if (state == null || optManager == null) return;
 
         var p1 = state.iconP1;
         var p2 = state.iconP2;
@@ -324,7 +335,7 @@ class KssetteHealthBar extends KassetteHUDElement {
         }
 
         // --- ICON POSITIONING LOGIC ---
-        var isCorners = api.getKssValue("kssette_icon_pos") == "Corners";
+        var isCorners = optManager.getKssValue("kssette_icon_pos") == "Corners";
         
         if ((isCorners || isSolo) && state.healthBarBG != null && state.healthBar != null && state.iconP1 != null) {
             state.iconP1.autoUpdate = false;
@@ -401,11 +412,11 @@ class KssetteHealthBar extends KassetteHUDElement {
      */
     override function onStepHit(event) {
         var state = PlayState.instance;
-        var api = ModuleHandler.getModule("KssetteApi");
-        if (state == null || api == null) return;
+        var optManager = KssetteOptionsManager.instance;
+        if (state == null || optManager == null) return;
         
-        if (api.getKssValue("kssette_icon_pos") == "Corners" && state.iconP1 != null && state.iconP2 != null) {
-            var iconHunter = KassetteHUDElement.globalIconHunter;
+        if (optManager.getKssValue("kssette_icon_pos") == "Corners" && state.iconP1 != null && state.iconP2 != null) {
+            var iconHunter = KassetteHUDDatahunter.icon;
             var bop1 = 4;
             var bop2 = 4;
             if (iconHunter != null) {
@@ -415,13 +426,13 @@ class KssetteHealthBar extends KassetteHUDElement {
             
             // Increase scale by 20% on the bop interval; interpolates back to normal in onUpdate.
             if (bop1 > 0 && event.step % bop1 == 0) {
-                var iconHunter = KassetteHUDElement.globalIconHunter;
+                var iconHunter = KassetteHUDDatahunter.icon;
                 var p1Scale:Float = 1.0;
                 if (iconHunter != null) p1Scale = iconHunter.cachedP1Scale;
                 state.iconP1.scale.set(p1Scale * 1.2, p1Scale * 1.2);
             }
             if (bop2 > 0 && event.step % bop2 == 0) {
-                var iconHunter = KassetteHUDElement.globalIconHunter;
+                var iconHunter = KassetteHUDDatahunter.icon;
                 var p2Scale:Float = 1.0;
                 if (iconHunter != null) p2Scale = iconHunter.cachedP2Scale;
                 state.iconP2.scale.set(p2Scale * 1.2, p2Scale * 1.2);

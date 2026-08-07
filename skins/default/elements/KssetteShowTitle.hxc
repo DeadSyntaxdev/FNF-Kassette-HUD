@@ -28,6 +28,8 @@ import flixel.text.FlxTextBorderStyle;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import kassettehud.util.KassetteHUDElement;
+import kassettehud.util.KssetteOptionsManager;
+import kassettehud.util.KassetteHUDDatahunter;
 import flixel.FlxSprite;
 import funkin.Paths;
 import funkin.data.freeplay.album.AlbumRegistry;
@@ -53,6 +55,11 @@ class KssetteShowTitle extends KassetteHUDElement {
 
     public var previewCam:FlxCamera = null;
     var previewTimer:Float = 0.0;
+    
+    // Datahunters
+    var songHunter:Dynamic = null;
+    var optManager:Dynamic = null;
+    
     var cachedTitleFont:String = "";
     var cachedArtistFont:String = "";
 
@@ -99,7 +106,7 @@ class KssetteShowTitle extends KassetteHUDElement {
 
         cachedTitleFont = "VCR OSD Mono";
         cachedArtistFont = "VCR OSD Mono";
-        var globalAssetHunter = KassetteHUDElement.globalAssetHunter;
+        var globalAssetHunter = KassetteHUDDatahunter.asset;
         if (globalAssetHunter != null) {
             cachedTitleFont = Std.string(globalAssetHunter.resolveCustomFont(titleFontKey));
             cachedArtistFont = Std.string(globalAssetHunter.resolveCustomFont(artistFontKey));
@@ -161,11 +168,12 @@ class KssetteShowTitle extends KassetteHUDElement {
                 }
             }
 
+            var sh = KassetteHUDDatahunter.song != null ? KassetteHUDDatahunter.song : songHunter;
             if (titleStr == "Unknown" || titleStr == "null") {
-                titleStr = Std.string(songHunter.getSongTitle());
+                titleStr = sh != null ? Std.string(sh.getSongTitle()) : "Unknown";
             }
             if (artistStr == "Unknown Artist" || artistStr == "null") {
-                artistStr = Std.string(songHunter.getSongArtist());
+                artistStr = sh != null ? Std.string(sh.getSongArtist()) : "Unknown Artist";
             }
         }
 
@@ -173,9 +181,6 @@ class KssetteShowTitle extends KassetteHUDElement {
 
         var titleBaseSize = 44;
         var artistBaseSize = 32;
-
-        titleBaseSize = (apiModule != null) ? apiModule.getFontSize(44, "kssette_size_intro") : 44;
-        artistBaseSize = (apiModule != null) ? apiModule.getFontSize(32, "kssette_size_intro") : 32;
 
         var showAlbum:String = "On";
         var rawAlbum = getSetting("kssette_intro_album");
@@ -542,21 +547,18 @@ class KssetteShowTitle extends KassetteHUDElement {
         isFadingOut = false;
         previewCam = cam;
         
-        apiModule = ModuleHandler.getModule("KssetteApi");
-        if (apiModule != null) {
-            var rawStyle = getSetting("kssette_intro_text");
-            animStyle = Std.string(rawStyle);
-            
-            var rawPos = getSetting("kssette_intro_pos");
-            if (rawPos != null) animPos = Std.string(rawPos);
-            else animPos = "Center";
-            
-            var rawAlbum = getSetting("kssette_intro_album");
-            if (rawAlbum != null) animAlbum = Std.string(rawAlbum);
-            else animAlbum = "On";
-            
-            isActive = (animStyle != "Off" && animStyle != "false");
-        }
+        var rawStyle = getSetting("kssette_intro_text");
+        animStyle = Std.string(rawStyle);
+        
+        var rawPos = getSetting("kssette_intro_pos");
+        if (rawPos != null) animPos = Std.string(rawPos);
+        else animPos = "Center";
+        
+        var rawAlbum = getSetting("kssette_intro_album");
+        if (rawAlbum != null) animAlbum = Std.string(rawAlbum);
+        else animAlbum = "On";
+        
+        isActive = (animStyle != "Off" && animStyle != "false");
 
         setupUI(cam);
         if (isActive) {
@@ -646,8 +648,8 @@ class KssetteShowTitle extends KassetteHUDElement {
             }
         } else if (!isPreview && isActive && !isFadingOut) {
             var state = PlayState.instance;
-            if (state != null && state.conductorInUse != null && apiModule != null) {
-                var breakHunter = KassetteHUDElement.globalBreakHunter;
+            if (state != null && state.conductorInUse != null) {
+                var breakHunter = KassetteHUDDatahunter.breakData;
                 var notes = breakHunter != null ? breakHunter.playerNoteTimes : [];
                 if (notes != null && notes.length > 0) {
                     var firstNoteTime = notes[0].start;

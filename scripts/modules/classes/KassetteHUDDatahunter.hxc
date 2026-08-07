@@ -14,10 +14,15 @@ import funkin.modding.module.Module;
 
 class KassetteHUDDatahunter extends Module {
 
+    public static var score:Dynamic = null;
+    public static var gammod:Dynamic = null;
+    public static var song:Dynamic = null;
+    public static var asset:Dynamic = null;
+    public static var icon:Dynamic = null;
+    public static var breakData:Dynamic = null;
+
     public function new(name:String) {
         super(name);
         this.active = true;
     }
-
-    // Hooks removed: inherited from Module
 }

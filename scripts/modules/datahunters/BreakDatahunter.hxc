@@ -17,7 +17,7 @@ class BreakDatahunter extends KassetteHUDDatahunter {
 
     public function new() {
         super("BreakDatahunter");
-        KassetteHUDElement.globalBreakHunter = this;
+        KassetteHUDDatahunter.breakData = this;
     }
 
 
@@ -36,13 +36,10 @@ class BreakDatahunter extends KassetteHUDDatahunter {
                 if (note == null) continue;
 
                 var isPlayer:Bool = false;
-                var mustHitResult = note.getMustHitNote();
-                if (mustHitResult != null) {
-                    isPlayer = (mustHitResult == true);
-                } else {
-                    var noteData = note.data;
-                    if (noteData != null) isPlayer = (Std.parseInt(Std.string(noteData)) < 4);
-                }
+                try {
+                    var strumIdx:Dynamic = note.getStrumlineIndex();
+                    isPlayer = (strumIdx == 0);
+                } catch(e:Dynamic) {}
 
                 if (isPlayer) {
                     var noteTime:Float = (note.time != null) ? note.time : -1.0;

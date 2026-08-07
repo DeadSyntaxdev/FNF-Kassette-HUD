@@ -35,6 +35,8 @@ package kassettehud.util;
 
 import flixel.FlxG;
 import funkin.modding.module.Module;
+import kassettehud.util.KssetteOptionsManager;
+import kassettehud.util.KassetteHUDDatahunter;
 import funkin.modding.module.ModuleHandler;
 import funkin.modding.events.ScriptEvent;
 import funkin.modding.events.UpdateScriptEvent;
@@ -153,7 +155,7 @@ class KssetteStrumlines extends KHUDModifier {
         var isMob = false;
         var isMobPC = false;
         
-        var optManager = KassetteHUDElement.globalOptionsManager;
+        var optManager = KssetteOptionsManager.instance;
         if (optManager != null) {
             isMob = optManager.isMobileMode == true;
             isMobPC = optManager.isMobileLikePC() == true;
@@ -483,7 +485,7 @@ class KssetteStrumlines extends KHUDModifier {
         var oppStrum = cachedOppStrum;
 
         var isMob:Bool = FlxG.onMobile;
-        var optManager = KassetteHUDElement.globalOptionsManager;
+        var optManager = KssetteOptionsManager.instance;
         if (optManager != null && optManager.isMobileMode == true) isMob = true;
         
         if (cachedCutoutSize < 0) {
@@ -498,12 +500,8 @@ class KssetteStrumlines extends KHUDModifier {
         
         var cutoutSize:Float = cachedCutoutSize;
 
-        var showTimeBar:Bool = false;
-        var timeBarPos:String = "Bottom";
-        if (apiModule != null) {
-            showTimeBar = getSetting("kssette_show_timebar") == true;
-            timeBarPos = Std.string(getSetting("kssette_timebar_pos"));
-        }
+        var showTimeBar:Bool = getSetting("kssette_show_timebar") == true;
+        var timeBarPos:String = Std.string(getSetting("kssette_timebar_pos"));
 
         var marginLeft:Float = Constants.STRUMLINE_X_OFFSET + cutoutSize;
         var marginRight:Float = Constants.STRUMLINE_X_OFFSET + cutoutSize;
@@ -548,6 +546,7 @@ class KssetteStrumlines extends KHUDModifier {
         if (!isModActive) {
             if (!pHasShifted && myStrum != null && oppStrum != null) {
                 var gSide = "NORMAL";
+                var gammodHunter = KassetteHUDDatahunter.gammod;
                 if (gammodHunter != null && gammodHunter.gammodPlayerSide != null) gSide = gammodHunter.gammodPlayerSide;
 
                 if (gSide == "OPPOSITE") {
@@ -574,6 +573,7 @@ class KssetteStrumlines extends KHUDModifier {
             
             if (applyArrowLogic && !cachedIsMobPC && oppStrum != null) {
                 var gSide = "NORMAL";
+                var gammodHunter = KassetteHUDDatahunter.gammod;
                 if (gammodHunter != null && gammodHunter.gammodPlayerSide != null) gSide = gammodHunter.gammodPlayerSide;
                 
                 var oppRealWidth:Float = oppStrum.width;

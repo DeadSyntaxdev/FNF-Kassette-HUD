@@ -1,0 +1,77 @@
+package kassettehud.util;
+
+import funkin.modding.module.Module;
+import funkin.modding.events.UpdateScriptEvent;
+import funkin.modding.events.StateChangeScriptEvent;
+import funkin.play.PlayState;
+import flixel.FlxG;
+import flixel.text.FlxText;
+import flixel.text.FlxTextBorderStyle;
+import flixel.util.FlxColor;
+import Std;
+
+class KssetteMainManager extends Module {
+    public static var instance:Dynamic = null;
+    public var isMobileMode:Bool = false;
+    public var _isInPlayState:Bool = false;
+
+    public function new() {
+        super("KssetteMainManager", 1000);
+        KssetteMainManager.instance = this;
+        isMobileMode = FlxG.onMobile;
+        _isInPlayState = false;
+    }
+    
+    override public function onUpdate(event:UpdateScriptEvent) {
+        super.onUpdate(event);
+
+        var state = PlayState.instance;
+        if (state == null) {
+            if (_isInPlayState) _isInPlayState = false;
+            return;
+        }
+
+        if (_isInPlayState) {
+            if (state.scoreText != null) state.scoreText.visible = false;
+        }
+    }
+
+    override public function onStateChangeEnd(event:StateChangeScriptEvent):Void {
+        super.onStateChangeEnd(event);
+        var target = event.targetState;
+        
+        if (Std.isOfType(target, PlayState)) {
+            _isInPlayState = true;
+            createHUDWatermark(target);
+        } else {
+            if (_isInPlayState) {
+                _isInPlayState = false;
+                FlxG.bitmap.clearUnused();
+            }
+        }
+    }
+
+    function createHUDWatermark(state:PlayState) {
+        if (state == null || state.camHUD == null) return;
+        
+        var optManager = KssetteOptionsManager.instance;
+        var isMobPC = false;
+        if (optManager != null) {
+            try { isMobPC = optManager.isMobileLikePC(); } catch(e:Dynamic) {}
+        }
+        
+        var platform = isMobileMode ? (isMobPC ? "Mobile+KB" : "Mobile") : "PC";
+        var safeMargin:Float = isMobileMode ? 85 : 8;
+        
+        var timeBarPos = optManager != null ? optManager.getKssValue("kssette_timebar_pos") : "Bottom";
+        var yPos:Float = (timeBarPos == "Bottom" || timeBarPos == "Bottom Right") ? 10 : (FlxG.height - 24);
+
+        var gammodHunter = KassetteHUDDatahunter.gammod;
+        var gammodAdd:String = (gammodHunter != null && gammodHunter.isGammodMode) ? " + GAMMOD" : "";
+        var ver = KssetteUpdateManager.instance != null ? KssetteUpdateManager.instance.hudVersion : "0.3.0-a";
+        var watermark = new FlxText(0, yPos, FlxG.width - safeMargin, "Kassette HUD " + platform + " [" + ver + "]" + gammodAdd, 16);
+        watermark.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, "right", FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+        watermark.alpha = 0.5; watermark.zIndex = 1000; watermark.cameras = [state.camHUD];
+        state.add(watermark);
+    }
+}

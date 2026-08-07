@@ -25,7 +25,7 @@ class AssetDatahunter extends KassetteHUDDatahunter {
 
     public function new() {
         super("AssetDatahunter");
-        KassetteHUDElement.globalAssetHunter = this;
+        KassetteHUDDatahunter.asset = this;
         preloadFontsIndex();
     }
 

@@ -22,7 +22,7 @@ class IconColorDatahunter extends KassetteHUDDatahunter {
 
     public function new() {
         super("IconColorDatahunter");
-        KassetteHUDElement.globalIconHunter = this;
+        KassetteHUDDatahunter.icon = this;
         isMobileMode = FlxG.onMobile;
         
         if (ReflectUtil.hasField(FlxG, "kssIconColorCache")) {

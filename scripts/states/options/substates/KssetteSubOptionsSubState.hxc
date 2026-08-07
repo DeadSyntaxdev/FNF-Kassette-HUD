@@ -20,6 +20,8 @@ import funkin.util.SwipeUtil;
 import funkin.util.HapticUtil;
 import funkin.modding.module.ModuleHandler;
 import kassettehud.util.KassetteHUDElement;
+import kassettehud.util.KssetteOptionsManager;
+import kassettehud.util.KassetteHUDDatahunter;
 
 class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
     public var parent:Dynamic;
@@ -30,7 +32,7 @@ class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
     var halfScreenH:Float;
     var optionCam:FlxCamera;
     var menuFont:String;
-    var apiRef:Dynamic;
+
     
     var isOpMenuOpen:Bool = false;
     var opSel_Group:FlxSpriteGroup;
@@ -110,7 +112,7 @@ class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
         this.sndOn = Paths.sound('ui/khud_on');
         this.sndHit = Paths.sound("play/hitsound");
         this.panelOnLeft = pState.panelOnLeft;
-        this.apiRef = pState.apiRef;
+
     }
 
     function moveGroup(group:FlxSpriteGroup, targetX:Float, elapsed:Float, speed:Float) {
@@ -606,7 +608,7 @@ class KssetteSubOptionsSubState extends ScriptedMusicBeatSubState {
         fontActiveFile = curSavedFont;
 
         var fY:Float = 0;
-        var assetHunter:Dynamic = KassetteHUDElement.globalAssetHunter;
+        var assetHunter:Dynamic = KassetteHUDDatahunter.asset;
         var famDataList:Array<Dynamic> = (assetHunter != null) ? assetHunter.preloadedFamiliesData : [];
 
         for (famData in famDataList) {

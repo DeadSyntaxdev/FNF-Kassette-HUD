@@ -5,7 +5,12 @@ import kassettehud.util.KassetteHUDElement;
 
 class KssetteDefaultSkin extends KassetteHUDSkin {
     public function new(?_id:String) {
-        super("default", "Default Skin", "Kassette", "The default Kassette HUD skin.");
+        super({
+            id: "default",
+            name: "Default Skin",
+            author: "Kassette",
+            description: "The default Kassette HUD skin."
+        });
     }
 
     override public function buildElements():Dynamic {

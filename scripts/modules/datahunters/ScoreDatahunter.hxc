@@ -25,7 +25,7 @@ class ScoreDatahunter extends KassetteHUDDatahunter {
     
     public function new() {
         super("ScoreDatahunter");
-        KassetteHUDElement.globalScoreHunter = this;
+        KassetteHUDDatahunter.score = this;
     }
 
     override public function onUpdate(event:UpdateScriptEvent) {

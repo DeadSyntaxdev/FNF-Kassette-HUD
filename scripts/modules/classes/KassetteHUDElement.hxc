@@ -9,6 +9,9 @@ import funkin.Paths;
 import openfl.utils.Assets;
 import openfl.display.BitmapData;
 import flixel.FlxCamera;
+import kassettehud.util.KssetteOptionsManager;
+import kassettehud.util.KassetteHUDDatahunter;
+import kassettehud.util.KssetteFontManager;
 
 class KassetteHUDElement {
     public var name:String = "Element";
@@ -19,45 +22,28 @@ class KassetteHUDElement {
     // Track objects to auto-destroy them when this element is destroyed
     public var trackedObjects:Array<Dynamic> = [];
 
-    // Static references to Datahunters (set by KssetteApi) to avoid heavy ModuleHandler usage
-    public static var globalApi:Dynamic = null;
-    public static var globalGammodHunter:Dynamic = null;
-    public static var globalBreakHunter:Dynamic = null;
-    public static var globalIconHunter:Dynamic = null;
-    public static var globalSongHunter:Dynamic = null;
-    public static var globalAssetHunter:Dynamic = null;
-    public static var globalScoreHunter:Dynamic = null;
-    public static var globalOptionsManager:Dynamic = null;
-    public static var globalFontManager:Dynamic = null;
-    public static var globalUpdateManager:Dynamic = null;
-    public static var globalSecurityManager:Dynamic = null;
+    // Preview variables for HUD Options Menu
+    
+    // Preview variables for HUD Options Menu
+    public static var preview_bf:Dynamic = null;
+    public static var preview_dad:Dynamic = null;
+    public static var preview_scoreBopTrigger:Bool = false;
+    public static var preview_simulatedAcc:Float = 0.0;
+    public static var preview_missesCount:Int = 0;
+    public static var preview_playerTurn:Bool = true;
+    public static var preview_turnProgress:Float = 0.0;
+
     public var isMobile:Bool = false;
     public var isPreview:Bool = false;
     
-    public var breakHunter:Dynamic;
-    public var gammodHunter:Dynamic;
-    public var iconHunter:Dynamic;
-    public var assetHunter:Dynamic;
-    public var scoreHunter:Dynamic;
-    public var songHunter:Dynamic;
-    public var apiModule:Dynamic;
-
     public function new(name:String) {
         this.name = name;
-        this.isMobile = KassetteHUDElement.globalOptionsManager != null ? KassetteHUDElement.globalOptionsManager.isMobileMode : FlxG.onMobile;
-        this.apiModule = globalApi;
-        this.breakHunter = globalBreakHunter;
-        this.gammodHunter = globalGammodHunter;
-        this.iconHunter = globalIconHunter;
-        this.assetHunter = globalAssetHunter;
-        this.scoreHunter = globalScoreHunter;
-        this.songHunter = globalSongHunter;
+        this.isMobile = KssetteOptionsManager.instance != null ? KssetteOptionsManager.instance.isMobileMode : FlxG.onMobile;
     }
 
     /** Helper shortcut to fetch Kssette settings safely */
     public function getSetting(key:String):Dynamic {
-        if (globalOptionsManager != null) return globalOptionsManager.getKssValue(key);
-        if (globalApi != null) return globalApi.getKssValue(key);
+        if (KssetteOptionsManager.instance != null) return KssetteOptionsManager.instance.getKssValue(key);
         return null;
     }
 
@@ -123,10 +109,10 @@ class KassetteHUDElement {
         }
     }
 
-    /** Helper shortcut to get the current HUD font from KssetteApi. */
+    /** Helper shortcut to get the current HUD font. */
     public function getHudFont():String {
-        if (globalApi != null) {
-            var f = globalApi.getHudFont();
+        if (KssetteFontManager.instance != null) {
+            var f = KssetteFontManager.instance.getHudFont();
             if (f != null && f != "null" && f != "") return f;
         }
         return "VCR OSD Mono";

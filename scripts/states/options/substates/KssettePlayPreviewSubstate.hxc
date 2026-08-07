@@ -13,7 +13,9 @@ import funkin.modding.events.ScriptEvent;
 import funkin.graphics.FunkinCamera;
 import flixel.FlxG;
 import flixel.util.FlxColor;
+import flixel.math.FlxMath;
 import funkin.modding.module.ModuleHandler;
+import kassettehud.util.KassetteHUDElement;
 import Std;
 import Reflect;
 
@@ -23,7 +25,7 @@ class KssettePlayPreviewSubstate extends ScriptedMusicBeatSubState {
     public var bf:BaseCharacter;
     public var dad:BaseCharacter;
     public var gf:BaseCharacter;
-    var apiRef:Dynamic;
+
 
     public function new() {
         super();
@@ -34,7 +36,7 @@ class KssettePlayPreviewSubstate extends ScriptedMusicBeatSubState {
     override public function create():Void {
         super.create();
         
-        apiRef = ModuleHandler.getModule("KssetteApi");
+        // apiRef removed
         
         if (stageCam == null) {
             stageCam = new FunkinCamera('stageCam', 0, 0, Std.int(FlxG.width), Std.int(FlxG.height));
@@ -93,10 +95,8 @@ class KssettePlayPreviewSubstate extends ScriptedMusicBeatSubState {
         if (dad != null) { add(dad); dad.cameras = [stageCam]; }
         if (bf != null) { add(bf); bf.cameras = [stageCam]; }
 
-        if (apiRef != null) {
-            apiRef.preview_bf = bf;
-            apiRef.preview_dad = dad;
-        }
+        KassetteHUDElement.preview_bf = bf;
+        KassetteHUDElement.preview_dad = dad;
 
         if (gf != null && gf.cameraFocusPoint != null) {
             stageCam.focusOn(gf.cameraFocusPoint);
@@ -105,11 +105,30 @@ class KssettePlayPreviewSubstate extends ScriptedMusicBeatSubState {
         }
     }
 
+    var _bfTurn:Bool = true;
+    var _simBeat:Int = 0;
+    override public function update(elapsed:Float):Void {
+        super.update(elapsed);
+    }
+
     override public function beatHit():Void {
         super.beatHit();
-        if (bf != null) bf.dance();
-        if (dad != null) dad.dance();
+        _simBeat++;
+        
         if (gf != null) gf.dance();
+        
+        // Simular interactividad de turnos (para cámara y otros módulos)
+        if (_simBeat % 4 == 0) {
+            _bfTurn = !_bfTurn;
+        }
+
+        if (_bfTurn) {
+            if (dad != null) dad.dance();
+            if (bf != null) bf.dance();
+        } else {
+            if (bf != null) bf.dance();
+            if (dad != null) dad.dance();
+        }
     }
 
     function spawnCharacter(id:String, initEvent:ScriptEvent):BaseCharacter {

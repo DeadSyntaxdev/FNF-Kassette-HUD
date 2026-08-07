@@ -1,6 +1,8 @@
 package kassettehud.util;
 
 import kassettehud.util.KassetteHUDElement;
+import kassettehud.util.KssetteOptionsManager;
+import kassettehud.util.KassetteHUDDatahunter;
 import funkin.play.PlayState;
 import funkin.modding.events.ScriptEvent;
 import funkin.modding.events.UpdateScriptEvent;
@@ -31,7 +33,7 @@ class SongDatahunter extends KassetteHUDDatahunter {
 
     public function new() {
         super("SongDatahunter");
-        KassetteHUDElement.globalSongHunter = this;
+        KassetteHUDDatahunter.song = this;
     }
 
 
@@ -66,7 +68,7 @@ class SongDatahunter extends KassetteHUDDatahunter {
 
     public function getDownscroll():Bool {
         var forced:Bool = false;
-        if (KassetteHUDElement.globalApi != null) forced = KassetteHUDElement.globalApi.isForcedDownscroll();
+        if (KssetteOptionsManager.instance != null) forced = KssetteOptionsManager.instance.isForcedDownscroll();
         return Preferences.downscroll || forced;
     }
 
@@ -139,7 +141,7 @@ class SongDatahunter extends KassetteHUDDatahunter {
     }
 
     public function getDifficulty():String {
-        if (KassetteHUDElement.globalApi != null && KassetteHUDElement.globalApi.getKssValue("kssette_show_song_diff") != true) return "";
+        if (KssetteOptionsManager.instance != null && KssetteOptionsManager.instance.getKssValue("kssette_show_song_diff") != true) return "";
         var state = PlayState.instance;
         if (state == null) return "NORMAL";
         var diff:String = Std.string(state.currentDifficulty);
@@ -147,7 +149,7 @@ class SongDatahunter extends KassetteHUDDatahunter {
     }
 
     public function getTimeRemaining():String {
-        if (KassetteHUDElement.globalApi != null && KassetteHUDElement.globalApi.getKssValue("kssette_show_song_time") != true) return "";
+        if (KssetteOptionsManager.instance != null && KssetteOptionsManager.instance.getKssValue("kssette_show_song_time") != true) return "";
         var state = PlayState.instance;
         if (state == null || state.conductorInUse == null) return "0:00";
         var remaining:Float = (state.currentSongLengthMs - state.conductorInUse.songPosition) / 1000;
@@ -162,7 +164,7 @@ class SongDatahunter extends KassetteHUDDatahunter {
     }
 
     public function getNoteCount():Int {
-        if (KassetteHUDElement.globalApi != null && KassetteHUDElement.globalApi.getKssValue("kssette_acc_mode") != "Ascending") return 0;
+        if (KssetteOptionsManager.instance != null && KssetteOptionsManager.instance.getKssValue("kssette_acc_mode") != "Ascending") return 0;
         var state = PlayState.instance;
         if (state == null || state.currentChart == null || state.currentChart.notes == null) return 0;
         var count:Int = 0;

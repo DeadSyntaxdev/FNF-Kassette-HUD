@@ -3,6 +3,8 @@ import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
 import kassettehud.util.KassetteHUDElement;
+import kassettehud.util.KssetteOptionsManager;
+import kassettehud.util.KassetteHUDDatahunter;
 import funkin.Preferences;
 import funkin.Paths;
 import funkin.data.notestyle.NoteStyleRegistry;
@@ -27,7 +29,7 @@ import funkin.ui.ScriptedMusicBeatSubState;
 class KssetteHUDPreview extends ScriptedMusicBeatSubState {
     public var isPreview:Bool = false;
     public var previewCam:FlxCamera = null;
-    var apiModule:Dynamic = null;
+    var bgOptionsText:FlxText;
 
     var playerStrumPreview:Strumline;
     var opponentStrumPreview:Strumline;
@@ -49,6 +51,7 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
     
     var bfIdleTimer:Float = 0.0;
     var dadIdleTimer:Float = 0.0;
+    var dadDancesCount:Int = 0;
     var isArrowsScheme:Bool = false;
     var canSpawnOpp:Bool = true;
 
@@ -118,8 +121,6 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
         isPreview = true;
         previewCam = cam;
         
-        apiModule = ModuleHandler.getModule("KssetteApi");
-        
         setupUI(cam);
         updatePreview(0.0);
     }
@@ -128,12 +129,11 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
         if (!isPreview) { return; }
         
         elapsedTime += elapsed;
-        if (apiModule == null) { return; }
 
         var isMob = false;
         var isMobPC = false;
         try {
-            var optManager = KassetteHUDElement.globalOptionsManager;
+            var optManager = KssetteOptionsManager.instance;
             if (optManager != null) {
                 isMob = optManager.isMobileMode == true;
                 isMobPC = optManager.isMobileLikePC() == true;
@@ -155,17 +155,17 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
         }
 
         var downscroll = false;
-        if (KassetteHUDElement.globalSongHunter != null) downscroll = KassetteHUDElement.globalSongHunter.getDownscroll();
+        if (KassetteHUDDatahunter.song != null) downscroll = KassetteHUDDatahunter.song.getDownscroll();
         else downscroll = Preferences.downscroll;
         
-        var rawMs:Dynamic = apiModule != null ? apiModule.getKssValue("kssette_middlescroll") : null;
+        var rawMs:Dynamic = KssetteOptionsManager.instance != null ? KssetteOptionsManager.instance.getKssValue("kssette_middlescroll") : null;
         var ms:String = "";
         if (rawMs == true) ms = "On";
         else if (rawMs == false) ms = "Off";
         else ms = Std.string(rawMs);
         
-        var oppPos = Std.string(apiModule != null ? apiModule.getKssValue("kssette_opponent_pos") : null);
-        var coloredHB = apiModule != null && apiModule.getKssValue("kssette_colored_healthbar") == true;
+        var oppPos = Std.string(KssetteOptionsManager.instance != null ? KssetteOptionsManager.instance.getKssValue("kssette_opponent_pos") : null);
+        var coloredHB = KssetteOptionsManager.instance != null && KssetteOptionsManager.instance.getKssValue("kssette_colored_healthbar") == true;
 
         var strumYOffset = 50.0;
         try { strumYOffset = Constants.STRUMLINE_Y_OFFSET; } catch(e:Dynamic) {}
@@ -177,7 +177,7 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
         cancelStrumTweens();
         var noteStyle = NoteStyleRegistry.instance.fetchDefault();
 
-        var hideOpp = apiModule != null && (Std.string(apiModule.getKssValue("kssette_hide_opponent")) == "On" || Std.string(apiModule.getKssValue("kssette_hide_opponent")) == "true");
+        var hideOpp = KssetteOptionsManager.instance != null && (Std.string(KssetteOptionsManager.instance.getKssValue("kssette_hide_opponent")) == "On" || Std.string(KssetteOptionsManager.instance.getKssValue("kssette_hide_opponent")) == "true");
         var showOpp = (ms != "Hidden Notes") && !(ms == "Off" && hideOpp);
         
         if (showOpp) {
@@ -189,7 +189,7 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
                 FlxG.state.add(opponentStrumPreview);
             }
             var oppAlphaVal = 1.0;
-            var rawOppOp:Dynamic = apiModule != null ? apiModule.getKssValue("kssette_opponent_opacity") : null;
+            var rawOppOp:Dynamic = KssetteOptionsManager.instance != null ? KssetteOptionsManager.instance.getKssValue("kssette_opponent_opacity") : null;
             if (rawOppOp != null) {
                 var valStr = StringTools.replace(Std.string(rawOppOp), "%", "");
                 var valNum = Std.parseFloat(valStr);
@@ -198,7 +198,7 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
             opponentStrumPreview.alpha = oppAlphaVal;
             opponentStrumPreview.visible = true;
             
-            var oppBgOption = apiModule != null && (Std.string(apiModule.getKssValue("kssette_opponent_bg")) == "On" || Std.string(apiModule.getKssValue("kssette_opponent_bg")) == "true");
+            var oppBgOption = KssetteOptionsManager.instance != null && (Std.string(KssetteOptionsManager.instance.getKssValue("kssette_opponent_bg")) == "On" || Std.string(KssetteOptionsManager.instance.getKssValue("kssette_opponent_bg")) == "true");
             var msOn = (ms != "Off" && ms != "null" && ms != "");
             if (msOn) oppBgOption = false; // Disabled on Middle Scroll
             var obg = opponentStrumPreview?.background; if (obg != null) obg.visible = oppBgOption;
@@ -225,7 +225,7 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
         var isGlass = (ms == "Glass");
         var sxOff = Constants.STRUMLINE_X_OFFSET != null ? Constants.STRUMLINE_X_OFFSET : 50.0;
         
-        var oppNotesActive = apiModule != null && apiModule.getKssValue("kssette_mobile_opp_notes") == true;
+        var oppNotesActive = KssetteOptionsManager.instance != null && KssetteOptionsManager.instance.getKssValue("kssette_mobile_opp_notes") == true;
 
         if (isArrowsScheme) {
             playerStrumPreview.x = 0;
@@ -396,7 +396,7 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
             previewOutTween = FlxTween.tween(opponentStrumPreview, {y: oppTargetY}, 0.3, {ease: FlxEase.cubeOut});
         }
 
-        cachedActive = apiModule != null && apiModule.getKssValue("kssette_show_hud") == true;
+        cachedActive = KssetteOptionsManager.instance != null && KssetteOptionsManager.instance.getKssValue("kssette_show_hud") == true;
     }
 
     function spawnFakeNote() {
@@ -406,21 +406,18 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
         var oppNotesActive = false;
         var isMob = false;
         var isMobPC = false;
-        try {
-            if (apiModule != null) {
-                var rawMs:Dynamic = apiModule != null ? apiModule.getKssValue("kssette_middlescroll") : null;
-                if (rawMs == true) ms = "On";
-                else if (rawMs == false) ms = "Off";
-                else ms = Std.string(rawMs);
-                
-                oppNotesActive = apiModule != null && apiModule.getKssValue("kssette_mobile_opp_notes") == true;
-                var optManager = KassetteHUDElement.globalOptionsManager;
-                if (optManager != null) {
-                    isMob = optManager.isMobileMode == true;
-                    isMobPC = optManager.isMobileLikePC() == true;
-                }
-            }
-        } catch(e:Dynamic) {}
+        
+        var optManager = KssetteOptionsManager.instance;
+        if (optManager != null) {
+            var rawMs:Dynamic = optManager.getKssValue("kssette_middlescroll");
+            if (rawMs == true) ms = "On";
+            else if (rawMs == false) ms = "Off";
+            else ms = Std.string(rawMs);
+            
+            oppNotesActive = optManager.getKssValue("kssette_mobile_opp_notes") == true;
+            isMob = optManager.isMobileMode == true;
+            isMobPC = optManager.isMobileLikePC() == true;
+        }
 
         var isPlayer = true;
         canSpawnOpp = true;
@@ -448,7 +445,7 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
         if (rec == null || !rec.exists) return;
         
         var downscroll = false;
-        if (KassetteHUDElement.globalSongHunter != null) downscroll = KassetteHUDElement.globalSongHunter.getDownscroll();
+        if (KassetteHUDDatahunter.song != null) downscroll = KassetteHUDDatahunter.song.getDownscroll();
         
         var style = NoteStyleRegistry.instance.fetchDefault();
         var fake = new funkin.play.notes.NoteSprite(style, dir);
@@ -469,7 +466,7 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
         fake.health = isPlayer ? 1 : 0;
         fake.alpha = 0.8;
         
-        var ms = Std.string(apiModule != null ? apiModule.getKssValue("kssette_middlescroll") : null);
+        var ms = Std.string(KssetteOptionsManager.instance != null ? KssetteOptionsManager.instance.getKssValue("kssette_middlescroll") : null);
         if (!isPlayer && ms == "Glass") {
             fake.alpha = 0.25;
             fake.color = 0xFF666666;
@@ -483,6 +480,7 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
         var fallTime = 2.5;
         
         var isPlayerNote = isPlayer;
+        var dirStr = ["singLEFT", "singDOWN", "singUP", "singRIGHT"][dir];
         FlxTween.tween(fake, {y: targetY}, fallTime, {ease: FlxEase.linear, onComplete: function(t) {
             if (strum != null && strum.exists && fake.visible) {
                 try {
@@ -494,29 +492,23 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
             }
             
             try {
-                var char = isPlayerNote ? apiModule.preview_bf : apiModule.preview_dad;
-                
-                if (isPlayerNote) {
-                    bfIdleTimer = 0.6;
-                    try { 
-                        apiModule.preview_scoreBopTrigger = true;
-                        apiModule.preview_simulatedAcc += 25.0;
-                        if (apiModule.preview_simulatedAcc > 100.0) apiModule.preview_simulatedAcc = 100.0;
+                var char = isPlayerNote ? KassetteHUDElement.preview_bf : KassetteHUDElement.preview_dad;
+                if (char != null) {
+                    try {
+                        char.playAnimation(dirStr, true);
+                        KassetteHUDElement.preview_scoreBopTrigger = true;
+                        KassetteHUDElement.preview_simulatedAcc += 25.0;
+                        if (KassetteHUDElement.preview_simulatedAcc > 100.0) KassetteHUDElement.preview_simulatedAcc = 100.0;
                     } catch(e:Dynamic) {}
                 }
                 else {
                     dadIdleTimer = 0.6;
                     try {
-                        apiModule.preview_simulatedAcc = 0.0;
+                        KassetteHUDElement.preview_simulatedAcc = 0.0;
                     } catch(e:Dynamic) {}
                 }
                 
                 if (char != null) {
-                    try {
-                        char.playSingAnimation(dir, false, "");
-                        char.holdTimer = 0.0;
-                    } catch(e:Dynamic) {}
-                    
                     var strum = isPlayerNote ? playerStrumPreview : opponentStrumPreview;
                     if (strum != null && strum.exists) {
                         try {
@@ -543,12 +535,13 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
     }
 
     function spawnGhostTap() {
-        if (apiModule == null || apiModule.preview_bf == null) return;
-        var char = apiModule.preview_bf;
+        if (KassetteHUDElement.preview_bf == null) return;
+        var char = KassetteHUDElement.preview_bf;
         var dir = Std.random(4);
         
-        var ghostTapping = Std.string(apiModule != null ? apiModule.getKssValue("kssette_ghost_tapping") : null);
-        var ghostSing = Std.string(apiModule != null ? apiModule.getKssValue("kssette_ghost_sing") : null);
+        var optManager = KssetteOptionsManager.instance;
+        var ghostTapping = Std.string(optManager != null ? optManager.getKssValue("kssette_ghost_tapping") : null);
+        var ghostSing = Std.string(optManager != null ? optManager.getKssValue("kssette_ghost_sing") : null);
         
         if (playerStrumPreview != null && playerStrumPreview.exists) {
             try {
@@ -574,19 +567,20 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
             if (hasPlayerNotes) isMiss = true;
         }
         
+        var dirStr = ["singLEFT", "singDOWN", "singUP", "singRIGHT"][dir];
         if (isMiss) {
             bfIdleTimer = 0.6;
             try {
-                apiModule.preview_simulatedAcc = 0.0;
+                KassetteHUDElement.preview_simulatedAcc = 0.0;
             } catch(e:Dynamic) {}
             try {
-                char.playSingAnimation(dir, true, "");
+                char.playAnimation(dirStr, true);
             } catch(e:Dynamic) {}
         } else {
             if (ghostSing == "On" || ghostSing == "true") {
                 bfIdleTimer = 0.6;
                 try {
-                    char.playSingAnimation(dir, false, "");
+                    char.playAnimation(dirStr, true);
                 } catch(e:Dynamic) {}
             }
         }
@@ -594,6 +588,7 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
+        elapsedTime += elapsed;
         if (!isPreview) {
             return;
         }
@@ -609,13 +604,19 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
         if (bfIdleTimer > 0) {
             bfIdleTimer -= elapsed;
             if (bfIdleTimer <= 0) {
-                try { if (apiModule.preview_bf != null) apiModule.preview_bf.dance(true); } catch(e:Dynamic) {}
+                try { if (KassetteHUDElement.preview_bf != null) KassetteHUDElement.preview_bf.dance(true); } catch(e:Dynamic) {}
             }
         }
         if (dadIdleTimer > 0) {
             dadIdleTimer -= elapsed;
             if (dadIdleTimer <= 0) {
-                try { if (apiModule.preview_dad != null) apiModule.preview_dad.dance(true); } catch(e:Dynamic) {}
+                try { if (KassetteHUDElement.preview_dad != null) KassetteHUDElement.preview_dad.dance(true); } catch(e:Dynamic) {}
+            }
+        } else {
+            var c = Math.floor(elapsedTime / 4.0);
+            if (c > dadDancesCount) {
+                dadDancesCount = c;
+                try { if (KassetteHUDElement.preview_dad != null) KassetteHUDElement.preview_dad.dance(true); } catch(e:Dynamic) {}
             }
         }
         
@@ -632,12 +633,12 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
             spawnFakeNote();
         }
         
-        if (apiModule != null) {
-            apiModule.preview_playerTurn = playerTurn;
+        if (true) {
+            KassetteHUDElement.preview_playerTurn = playerTurn;
             var prog = ((noteCount - 1) + (noteTimer / targetNoteDelay)) / 4.0;
             if (prog < 0) prog = 0;
             if (prog > 1) prog = 1;
-            apiModule.preview_turnProgress = prog;
+            KassetteHUDElement.preview_turnProgress = prog;
         }
         
         ghostTimer += elapsed;

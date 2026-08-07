@@ -13,11 +13,18 @@ class KassetteHUDSkin extends Module {
     public var elements = [];
     public var isBuilt:Bool = false;
 
-    public function new(?id:String, ?name:String, ?author:String, ?desc:String) {
-        if (id == null) id = "unknown";
-        if (name == null) name = "Unknown Skin";
-        if (author == null) author = "Unknown";
-        if (desc == null) desc = "No description";
+    public function new(config:Dynamic = null) {
+        var id = "unknown";
+        var name = "Unknown Skin";
+        var author = "Unknown";
+        var desc = "No description";
+
+        if (config != null) {
+            if (config.id != null) id = Std.string(config.id);
+            if (config.name != null) name = Std.string(config.name);
+            if (config.author != null) author = Std.string(config.author);
+            if (config.description != null) desc = Std.string(config.description);
+        }
         
         // Le damos un ID único al módulo para que V-Slice no lo sobreescriba
         super(id + "SkinModule");
@@ -82,7 +89,10 @@ class KassetteHUDSkin extends Module {
     override public function onCountdownStart(event:Dynamic) {
         if (!active) return;
         ensureElements();
-        for (el in elements) el.onCountdownStart(event);
+        for (el in elements) {
+            try { el.isPreview = false; } catch(e:Dynamic) {}
+            el.onCountdownStart(event);
+        }
     }
 
     override public function onUpdate(event:Dynamic) {
@@ -103,6 +113,61 @@ class KassetteHUDSkin extends Module {
     override public function onSongRetry(event:Dynamic) {
         if (!active) return;
         for (el in elements) el.onSongRetry(event);
+    }
+
+    override public function onStepHit(event:Dynamic) {
+        if (!active) return;
+        for (el in elements) el.onStepHit(event);
+    }
+
+    override public function onBeatHit(event:Dynamic) {
+        if (!active) return;
+        for (el in elements) el.onBeatHit(event);
+    }
+
+    override public function onSongStart(event:Dynamic) {
+        if (!active) return;
+        for (el in elements) el.onSongStart(event);
+    }
+
+    override public function onResume(event:Dynamic) {
+        if (!active) return;
+        for (el in elements) el.onResume(event);
+    }
+
+    override public function onPause(event:Dynamic) {
+        if (!active) return;
+        for (el in elements) el.onPause(event);
+    }
+
+    override public function onStateChangeStart(event:Dynamic) {
+        if (!active) return;
+        for (el in elements) el.onStateChangeStart(event);
+    }
+
+    override public function onStateChangeEnd(event:Dynamic) {
+        if (!active) return;
+        for (el in elements) el.onStateChangeEnd(event);
+    }
+
+    override public function onNoteMiss(event:Dynamic) {
+        if (!active) return;
+        for (el in elements) el.onNoteMiss(event);
+    }
+
+    override public function onNoteIncoming(event:Dynamic) {
+        if (!active) return;
+        for (el in elements) el.onNoteIncoming(event);
+    }
+
+    override public function onSubStateOpenBegin(event:Dynamic) {
+        if (!active) return;
+        for (el in elements) el.onSubStateOpenBegin(event);
+    }
+
+    override public function onSubStateCloseEnd(event:Dynamic) {
+        if (!active) return;
+        for (el in elements) el.onSubStateCloseEnd(event);
     }
 
     override public function onDestroy(event:Dynamic) {

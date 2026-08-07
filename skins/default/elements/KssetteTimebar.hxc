@@ -37,6 +37,9 @@ import funkin.Preferences;
 import funkin.modding.events.SubStateScriptEvent;
 import funkin.play.PauseSubState;
 import funkin.ui.FullScreenScaleMode;
+import kassettehud.util.KassetteHUDElement;
+import kassettehud.util.KssetteOptionsManager;
+import kassettehud.util.KassetteHUDDatahunter;
 
 class KssetteTimeBar extends KassetteHUDElement {
     /** The colored foreground bar representing song progress. */
@@ -50,9 +53,8 @@ class KssetteTimeBar extends KassetteHUDElement {
     /** Current position setting string (e.g., "Top", "Bottom Left"). */
     var timeBarPos:String = "Bottom";
     /** Cached reference to the KssetteApi module. */
-
-
-    /** Reference to PlayState for song position queries. */
+    var songHunter:Dynamic = null;
+    var optManager:Dynamic = null;    /** Reference to PlayState for song position queries. */
 
     /** Total song duration in milliseconds; used to calculate progress ratio. */
     var songLengthMs:Float = 0.0;
@@ -183,7 +185,7 @@ class KssetteTimeBar extends KassetteHUDElement {
 
         var cutoutSize:Float = 0.0;
         var isMob:Bool = FlxG.onMobile;
-        var optManager = KassetteHUDElement.globalOptionsManager;
+        var optManager = KssetteOptionsManager.instance;
         if (optManager != null && optManager.isMobileMode == true) isMob = true;
 
         if (isMob) {
@@ -212,7 +214,7 @@ class KssetteTimeBar extends KassetteHUDElement {
             case "In Health":
                 var hbX:Float = (FlxG.width - currentBgW) / 2;
                 var downscrollValue:Bool = Preferences.downscroll;
-                if (songHunter != null) downscrollValue = songHunter.getDownscroll();
+                if (KassetteHUDDatahunter.song != null) downscrollValue = KassetteHUDDatahunter.song.getDownscroll();
                 var hbY:Float = downscrollValue ? FlxG.height * 0.11 : FlxG.height * 0.89;
                 var hbH:Float = 19;
                 var state = PlayState.instance;
@@ -289,11 +291,8 @@ class KssetteTimeBar extends KassetteHUDElement {
         super.onCountdownStart(event);
         isPreview = false;
 
-        apiModule = ModuleHandler.getModule("KssetteApi");
-
-        
-        cachedActive = isOn(apiModule?.getKssValue("kssette_show_timebar"));
-        timeBarPos = Std.string(apiModule?.getKssValue("kssette_timebar_pos"));
+        cachedActive = isOn(getSetting("kssette_show_timebar"));
+        timeBarPos = Std.string(getSetting("kssette_timebar_pos"));
 
         trace("[KssetteTimeBar] onCountdownStart - active=" + cachedActive + " pos=" + timeBarPos);
 

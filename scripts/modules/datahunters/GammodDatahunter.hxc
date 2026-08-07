@@ -26,7 +26,7 @@ class GammodDatahunter extends KassetteHUDDatahunter {
 
     public function new() {
         super("GammodDatahunter");
-        KassetteHUDElement.globalGammodHunter = this;
+        KassetteHUDDatahunter.gammod = this;
     }
 
 
