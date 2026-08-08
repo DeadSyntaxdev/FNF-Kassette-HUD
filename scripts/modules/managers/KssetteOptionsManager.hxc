@@ -10,6 +10,9 @@ import funkin.ui.ScriptedMusicBeatState;
 import flixel.FlxG;
 import flixel.util.FlxColor;
 import Std;
+import funkin.Assets;
+import funkin.Paths;
+import funkin.util.SerializerUtil;
 
 class KssetteOptionsManager extends Module {
     public static var instance:Dynamic = null;
@@ -19,74 +22,69 @@ class KssetteOptionsManager extends Module {
     public var isMobileMode:Bool = false;
 
 
-    var optionKeys:Array<String> = [
-        "kssette_show_score", "kssette_show_misses",
-        "kssette_acc_mode", "kssette_show_rank", "kssette_show_tier",
-        "kssette_middlescroll", "kssette_hide_opponent", "kssette_opponent_opacity", "kssette_opponent_pos", "kssette_opponent_bg", "kssette_ghost_tapping",
-        "kssette_ghost_sing", "kssette_show_timebar", "kssette_info_pos",
-        "kssette_show_song_title", "kssette_show_song_diff",
-        "kssette_show_song_time", "kssette_judge_pos", "kssette_mobile_keyboard", "kssette_mobile_opp_notes",
-        "kssette_timebar_pos", "kssette_show_breakbar", "kssette_resume_countdown",
-        "kssette_smooth_display", "kssette_custom_font",
-        "kssette_custom_pixel_font",
-        "kssette_intro_text", "kssette_intro_font_title", "kssette_intro_font_artist",
-        "kssette_subtitles_anim", "kssette_subtitles_pos", "kssette_smart_karaoke",
-        "kssette_colored_healthbar", "kssette_night_mode", "kssette_night_start", "kssette_night_end", "kssette_night_opacity",
-        "kssette_hitsound", "kssette_hitsound_volume", "kssette_icon_pos", "kssette_score_pos", "kssette_score_bop", "kssette_breakbar_style", "kssette_breakbar_pos"
-    ];
+    public var optionsData:Dynamic = null;
+    public var optionKeys:Array<String> = [];
 
     public function new() {
         super("KssetteOptionsManager");
         KssetteOptionsManager.instance = this;
         this.active = true;
         isMobileMode = FlxG.onMobile;
+        loadOptionsJSON();
+    }
+
+    function loadOptionsJSON() {
+        var rawJson:String = null;
+
+        var pathsToTry = [
+            Paths.json("kssette_options"),
+            Paths.file("data/kssette_options.json")
+        ];
+
+        for (path in pathsToTry) {
+            if (path == null) continue;
+            
+            if (Assets.exists(path)) {
+                rawJson = Assets.getText(path);
+                if (rawJson != null && rawJson.length > 0) break;
+            }
+        }
+
+        if (rawJson == null) {
+            trace("[KssetteOptionsManager] Could not find kssette_options.json anywhere in Assets cache.");
+            optionsData = null;
+            optionKeys = [];
+            return;
+        }
+
+        optionsData = SerializerUtil.fromJSON(rawJson);
+        
+        optionKeys = [];
+            if (optionsData != null && optionsData.categories != null) {
+                for (cat in optionsData.categories) {
+                    if (cat.options != null) {
+                        for (opt in cat.options) {
+                            if (opt.id != null) optionKeys.push(opt.id);
+                        }
+                    }
+                }
+            }
     }
 
     public function initSettings() {
         var changed:Bool = false;
 
-        for (opt in optionKeys) {
-            if (!Save.instance.modOptions.exists(opt)) {
-                var defaultVal:Dynamic = "On";
-                switch (opt) {
-                    case "kssette_middlescroll", "kssette_hide_opponent", "kssette_opponent_bg", "kssette_ghost_sing", "kssette_judge_pos", "kssette_smart_karaoke", "kssette_night_mode", "kssette_hitsound", "kssette_mobile_keyboard", "kssette_score_bop":
-                        defaultVal = "Off";
-                    case "kssette_mobile_opp_notes":
-                        defaultVal = "On";
-                    case "kssette_opponent_pos":
-                        defaultVal = "Left";
-                    case "kssette_acc_mode":
-                        defaultVal = "Classic";
-                    case "kssette_info_pos":
-                        defaultVal = "Below Score";
-                    case "kssette_timebar_pos":
-                        defaultVal = "Bottom";
-                    case "kssette_custom_font", "kssette_intro_font_title", "kssette_intro_font_artist":
-                        defaultVal = "vcr.ttf";
-                    case "kssette_custom_pixel_font":
-                        defaultVal = "pixel.otf";
-                    case "kssette_opponent_opacity":
-                        defaultVal = "100%";
-                    case "kssette_night_start":
-                        defaultVal = "20:00";
-                    case "kssette_night_end":
-                        defaultVal = "06:00";
-                    case "kssette_night_opacity":
-                        defaultVal = "65%";
-                    case "kssette_hitsound_volume":
-                        defaultVal = "100%";
-                    case "kssette_icon_pos":
-                        defaultVal = "Default";
-                    case "kssette_ghost_tapping":
-                        defaultVal = isMobileMode ? "Off" : "On";
-                    case "kssette_breakbar_style":
-                        defaultVal = "Default";
-                    case "kssette_breakbar_pos":
-                        defaultVal = "Center";
+        if (optionsData == null || optionsData.categories == null) return;
+        
+        for (cat in optionsData.categories) {
+            if (cat.options == null) continue;
+            for (opt in cat.options) {
+                var key = opt.id;
+                if (key != null && !Save.instance.modOptions.exists(key)) {
+                    var defaultVal:Dynamic = opt.defaultValue != null ? opt.defaultValue : "Off";
+                    Save.instance.modOptions.set(key, defaultVal);
+                    changed = true;
                 }
-
-                Save.instance.modOptions.set(opt, defaultVal);
-                changed = true;
             }
         }
         if (changed) Save.instance.flush();
@@ -148,43 +146,37 @@ class KssetteOptionsManager extends Module {
         refreshOptionCache();
     }
 
-    public function isOptionLocked(key:String):Bool {
-        var ms = Save.instance.modOptions.get("kssette_middlescroll");
-        if (ms == null) ms = "Off";
-
-        var hideOpp = Save.instance.modOptions.get("kssette_hide_opponent");
-        if (hideOpp == null) hideOpp = "Off";
-
-        if (key == "kssette_opponent_bg" && (ms != "Off" || Std.string(hideOpp) == "On" || Std.string(hideOpp) == "true")) return true;
-        if (key == "kssette_opponent_opacity") {
-            if (ms == "Off" && (Std.string(hideOpp) == "On" || Std.string(hideOpp) == "true")) return true;
-            if (ms == "Hidden Notes" || ms == "Like Mobile" || ms == "Glass") return true;
-            if (isMobileMode) {
-                var mobPc = Save.instance.modOptions.get("kssette_mobile_keyboard");
-                if (mobPc != "On" && mobPc != true) {
-                    var mobOpp = Save.instance.modOptions.get("kssette_mobile_opp_notes");
-                    if (mobOpp == null) mobOpp = "On";
-                    if (Std.string(mobOpp) == "Off" || Std.string(mobOpp) == "false") return true;
+    public function getOptionDefinition(key:String):Dynamic {
+        if (optionsData == null || optionsData.categories == null) return null;
+        for (cat in optionsData.categories) {
+            if (cat.options != null) {
+                for (opt in cat.options) {
+                    if (opt.id == key) return opt;
                 }
             }
         }
-        if (key == "kssette_hide_opponent" && ms != "Off") return true;
-        if (key == "kssette_opponent_pos" && ms == "Off") return true;
-        if (key == "kssette_breakbar_pos" && ms != "Off") return true;
+        return null;
+    }
 
-        var gt = Save.instance.modOptions.get("kssette_ghost_tapping");
-        if (gt == null) gt = isMobileMode ? "Off" : "On";
-        if (key == "kssette_ghost_sing" && gt == "Off") return true;
-
-        var jp = Save.instance.modOptions.get("kssette_judge_pos");
-        if (jp == null) jp = "Off";
-        if (key == "kssette_show_misses" && jp != "Off") return true;
-
-        var intro = Save.instance.modOptions.get("kssette_intro_text");
-        if (intro == null) intro = "Classic";
-        if (key == "kssette_intro_pos" && (intro == "Off" || intro == false || intro == "Clap")) return true;
-        if (key == "kssette_intro_album" && (intro == "Off" || intro == false)) return true;
-
+    public function isOptionLocked(key:String):Bool {
+        var opt = getOptionDefinition(key);
+        if (opt == null || opt.locked == null) return false;
+        
+        var conditions:Array<String> = opt.locked;
+        for (cond in conditions) {
+            if (cond == null) continue;
+            var parts = cond.split(" ");
+            if (parts.length >= 3) {
+                var condKey = parts[0];
+                var operator = parts[1];
+                var targetValue = parts.slice(2).join(" ");
+                
+                var actualValue = Std.string(Save.instance.modOptions.get(condKey));
+                
+                if (operator == "==" && actualValue == targetValue) return true;
+                if (operator == "!=" && actualValue != targetValue) return true;
+            }
+        }
         return false;
     }
 
@@ -196,8 +188,9 @@ class KssetteOptionsManager extends Module {
         else val = normalizeKssValue(key, Save.instance.modOptions.get(key));
         
         if (isOptionLocked(key)) {
-            if (key == "kssette_opponent_bg" || key == "kssette_ghost_sing" || key == "kssette_show_misses") return false;
-            if (key == "kssette_breakbar_pos") return "Center";
+            var opt = getOptionDefinition(key);
+            if (opt != null && opt.defaultValue != null) return opt.defaultValue;
+            return false;
         }
 
         return val;

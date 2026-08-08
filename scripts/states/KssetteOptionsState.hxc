@@ -591,7 +591,9 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
                             var rawVal = Save.instance.modOptions.get(item.key);
                             if (rawVal == null) rawVal = "Off";
                             value.text = formatShortValue(Std.string(rawVal));
-                            value.color = getValueColor(value.text);
+                        }
+                        if (value != null && value.text != "LCK") {
+                            value.color = getValueColor(value.text, item);
                         }
                     }
 
@@ -727,11 +729,8 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
             }
         }
 
-        for (mod in previewModules) {
-            if (mod != null) {
-                mod.onUpdate({ elapsed: elapsed });
-            }
-        }
+        // Removing onUpdate here because calling HScript 60 times a second for 10 modules destroys FPS!
+        // Elements already update when settings change via updatePreviews().
 
         if (holdTimer > 0) holdTimer -= elapsed;
     }
@@ -754,10 +753,34 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
         });
     }
 
-    public function getValueColor(val:String):Int {
+    public function getValueColor(val:String, ?item:Dynamic):Int {
         if (val == null) return 0xFFFFFFFF;
-        if (val.indexOf(":") != -1) return 0xFF00CCFF;
+        
+        if (item != null && item.customColors != null && item.currentIndex >= 0 && item.currentIndex < item.customColors.length) {
+            var col = item.customColors[item.currentIndex];
+            if (col != null) {
+                var cInt = Std.parseInt(col);
+                if (cInt != null) return cInt;
+            }
+        }
+        
         var upper = StringTools.trim(val).toUpperCase();
+        
+        var optManager = KssetteOptionsManager.instance;
+        if (optManager != null && optManager.optionsData != null && optManager.optionsData.colors != null) {
+            var globalColors:Dynamic = optManager.optionsData.colors;
+            var mappedCol = Reflect.field(globalColors, upper);
+            if (mappedCol == null) {
+                // Try original string just in case
+                mappedCol = Reflect.field(globalColors, val);
+            }
+            if (mappedCol != null) {
+                var cInt = Std.parseInt(Std.string(mappedCol));
+                if (cInt != null) return cInt;
+            }
+        }
+        
+        if (val.indexOf(":") != -1) return 0xFF00CCFF;
         if (upper == "ON" || upper == "ENABLED") return 0xFF00FF00;
         if (upper == "OFF" || upper == "DISABLED") return 0xFFFF0000;
         if (upper == "P S" || upper == "P STYLE" || upper == "GLA" || upper == "GLASS" || StringTools.contains(upper, "LEFT") || StringTools.contains(upper, "RIGHT") || StringTools.contains(upper, "TOP") || StringTools.contains(upper, "BOT") || StringTools.contains(upper, "ABV") || StringTools.contains(upper, "BEL") || upper == "V L" || upper == "V R" || upper == "IN HEALTH" || upper == "HLT") return 0xFF00CCFF;
@@ -863,84 +886,60 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
         if (Save.instance.mobileOptions != null && Save.instance.mobileOptions.controlsScheme != "Arrows") isMobilePC = true;
         var showPCOptions = !FlxG.onMobile || isMobilePC;
 
-        addHeader("Gameplay & Modifiers");
-        if (FlxG.onMobile) {
-            createToggle("PC/HITBOX MODE", "kssette_mobile_keyboard", ["On", "Off"], "Enable if using a Hitbox or Keyboard on mobile. Unlocks PC settings.");
-            createToggle("SHOW OPPONENT NOTES ON ARROWS", "kssette_mobile_opp_notes", ["On", "Off"], "Forces the opponent's notes to appear and scroll in the background during mobile Arrows gameplay.");
+        var optManager = KssetteOptionsManager.instance;
+        if (optManager != null && optManager.optionsData != null && optManager.optionsData.categories != null) {
+            var currentSkinId = KassetteSkinManager.instance != null && KassetteSkinManager.instance.getCurrentSkin() != null ? KassetteSkinManager.instance.getCurrentSkin().skinId : "default";
+
+            for (cat in optManager.optionsData.categories) {
+                if (cat.name != null) addHeader(cat.name);
+                
+                if (cat.options != null) {
+                    for (opt in cat.options) {
+                        if (opt.platform == "Mobile" && !FlxG.onMobile) continue;
+                        if (opt.platform == "PC" && !showPCOptions) continue;
+                        
+                        var supportedSkin = opt.skin;
+                        if (supportedSkin != null && supportedSkin != "global" && supportedSkin != currentSkinId) continue;
+                        
+                        var key = opt.id;
+                        var name = opt.name;
+                        var desc = opt.description;
+                        
+                        var choices:Array<String> = opt.options;
+                        var optColors:Array<String> = opt.colors;
+                        if (key == "kssette_info_pos" && choices != null) {
+                            var isDownscroll = Preferences.downscroll;
+                            if (optManager.isForcedDownscroll()) isDownscroll = true;
+                            var scorePosInit = Save.instance.modOptions.get("kssette_score_pos");
+                            if (scorePosInit == null) scorePosInit = "Vanilla";
+                            var infoLabel = "";
+                            if (isDownscroll) {
+                                if (scorePosInit == "Inverted") infoLabel = "Above Health Bar";
+                                else infoLabel = "Below Score";
+                            } else {
+                                if (scorePosInit == "Inverted") infoLabel = "Below Health Bar";
+                                else infoLabel = "Above Arrows";
+                            }
+                            choices = [infoLabel, choices[1]];
+                        }
+                        
+                        if (opt.type == "choice" || opt.type == "enum") {
+                            createToggle(name, key, choices, desc, optColors);
+                        } else if (opt.type == "opacity") {
+                            createOpacityOption(name, key, desc);
+                        } else if (opt.type == "time") {
+                            createTimeOption(name, key, desc);
+                        } else if (opt.type == "volume") {
+                            createVolumeOption(name, key, desc);
+                        } else if (opt.type == "font") {
+                            createFontOption(name, key, desc);
+                        } else if (opt.type == "skin") {
+                            createSkinOption(name, key, desc);
+                        }
+                    }
+                }
+            }
         }
-        if (showPCOptions) {
-            createToggle("MIDDLESCROLL", "kssette_middlescroll", ["Off", "On", "P Style", "Glass", "Hidden Notes", "Like Mobile"], "Moves your notes to the center of the screen for better focus.");
-            createToggle("HIDE OPPONENT NOTES", "kssette_hide_opponent", ["Off", "On"], "Hides the opponent's notes completely. Only active when Middle Scroll is Off.");
-            createOpacityOption("OPPONENT OPACITY", "kssette_opponent_opacity", "Adjust the transparency of the opponent's notes.");
-            createToggle("OPP STRUMLINE BG", "kssette_opponent_bg", ["On", "Off"], "Show the dark background behind the opponent's notes. (Disabled on Middle Scroll)");
-            createToggle("GHOSTTAPPING", "kssette_ghost_tapping", ["On", "Off", "In Breaks"], "Press keys anytime without penalty. You won't miss if there's no note.");
-        }
-        createToggle("GHOSTSING", "kssette_ghost_sing", ["On", "Off"], "Your character will play singing animations when you press empty keys.");
-        createToggle("RESUME COUNTDOWN", "kssette_resume_countdown", ["On", "Off"], "Adds a 'Ready, Set, Go!' countdown when you unpause the game.");
-
-        addHeader("HUD Elements");
-        createToggle("SCORE DISPLAY", "kssette_show_score", ["On", "Off"], "Show your current score.");
-        createToggle("MISSES DISPLAY", "kssette_show_misses", ["On", "Off"], "Show a counter for how many notes you've missed.");
-        createToggle("RANK DISPLAY", "kssette_show_rank", ["On", "Off"], "Show your current Rank (P, E, G) based on performance.");
-        createToggle("COMBO TIER DISPLAY", "kssette_show_tier", ["On", "Off"], "Show your Combo Status (SFC, GFC, FC, Clear).");
-        createToggle("SONG TIME BAR", "kssette_show_timebar", ["On", "Off"], "Show a bar indicating progress.");
-        createToggle("SONG TIME TEXT", "kssette_show_song_time", ["On", "Off"], "Show a digital timer counting down the song.");
-        createToggle("BREAK BAR", "kssette_show_breakbar", ["On", "Off"], "Show a specific timer during long breaks in the song.");
-        createToggle("BREAK BAR STYLE", "kssette_breakbar_style", ["Default", "Classic", "Pie"], "The visual style of the break bar.");
-        createToggle("JUDGEMENT COUNTER", "kssette_judge_pos", ["Off", "Left", "Right", "Top Left", "Top Right"], "Shows a counter for Sicks, Goods, Bads, etc. Choose where to place it.");
-        createToggle("SONG TITLE DISPLAY", "kssette_show_song_title", ["On", "Off"], "Show the name of the song on the HUD.");
-        createToggle("DIFFICULTY DISPLAY", "kssette_show_song_diff", ["On", "Off"], "Show the difficulty level on the HUD.");
-        createToggle("COLORED HEALTH BAR", "kssette_colored_healthbar", ["On", "Off"], "Changes the health bar colors to match the character icons.");
-        createToggle("ACCURACY CALCULATION", "kssette_acc_mode", ["Classic", "Ascending", "Off"], "How accuracy is calculated. 'Ascending' starts at 0% and climbs up.");
-        createToggle("SCORE BOP ANIMATION", "kssette_score_bop", ["Off", "On"], "Makes the score text bop when hitting notes.");
-
-        addHeader("Audio Options");
-        createToggle("HITSOUND MODE", "kssette_hitsound", ["Off", "On Note Hit", "Anytime"], "Plays a sound. On Note Hit triggers only when hitting notes, Anytime triggers on any tap.");
-        createVolumeOption("HITSOUND VOLUME", "kssette_hitsound_volume", "Adjust the volume of the hitsound.");
-
-        addHeader("Layout & Positions");
-        if (showPCOptions) {
-            createToggle("OPPONENT POS", "kssette_opponent_pos", ["Left", "Right"], "Where to put the opponent's notes when Middle Scroll is ON.");
-        }
-        createToggle("TIME BAR POSITION", "kssette_timebar_pos", ["Bottom", "Top", "Bottom Left", "Bottom Right", "Top Left", "Top Right", "Vertical Left", "Vertical Right", "In Health"], "Choose where the Song Progress Bar is placed on screen.");
-        createToggle("BREAK BAR POSITION", "kssette_breakbar_pos", ["Center", "Strumline"], "Where to place the break bar.");
-        createToggle("HEALTH ICON POSITIONS", "kssette_icon_pos", ["Default", "Corners"], "Choose where the character icons are placed on the health bar.");
-        createToggle("SCORE TEXT POSITION", "kssette_score_pos", ["Vanilla", "Inverted"], "Choose where the score text is placed relative to the health bar.");
-        
-        var isDownscroll = Preferences.downscroll;
-        if (KssetteOptionsManager.instance != null && KssetteOptionsManager.instance.isForcedDownscroll()) isDownscroll = true;
-
-        var scorePosInit = Save.instance.modOptions.get("kssette_score_pos");
-        if (scorePosInit == null) scorePosInit = "Vanilla";
-        var infoLabel = "";
-        if (isDownscroll) {
-            if (scorePosInit == "Inverted") infoLabel = "Above Health Bar";
-            else infoLabel = "Below Score";
-        } else {
-            if (scorePosInit == "Inverted") infoLabel = "Below Health Bar";
-            else infoLabel = "Above Arrows";
-        }
-        createToggle("SONG INFO POSITION", "kssette_info_pos", [infoLabel, "Bottom Left"], "Where to show the Song Name and Difficulty.");
-
-        addHeader("Visual Effects");
-        createSkinOption("HUD SKIN", "kssette_current_skin", "Choose the visual skin for the HUD.");
-        createToggle("SMOOTH NUMBER ANIMATIONS", "kssette_smooth_display", ["On", "Off"], "Makes the score and accuracy numbers scroll smoothly.");
-        createToggle("NIGHT MODE FILTER", "kssette_night_mode", ["Off", "On", "Auto"], "Dims the game screen to reduce eye strain.");
-        createOpacityOption("NIGHT FILTER OPACITY", "kssette_night_opacity", "How dark the night mode filter should be."); 
-        createTimeOption("NIGHT MODE AUTO START", "kssette_night_start", "When set to Auto, night mode activates at this start time."); 
-        createTimeOption("NIGHT MODE AUTO END", "kssette_night_end", "When set to Auto, night mode turns off at this end time."); 
-        createToggle("SONG INTRO TEXT", "kssette_intro_text", ["Classic", "Racer", "Clap", "Off"], "Displays the song title and artist when the song starts.");
-        createToggle("SONG ALBUM COVER", "kssette_intro_album", ["On", "Off"], "Displays the song's album cover art alongside the intro text.");
-        createToggle("INTRO TEXT POSITION", "kssette_intro_pos", ["Center", "Left", "Right"], "Where the intro text appears on screen.");
-
-        addHeader("Subtitles & Fonts");
-        createFontOption("MAIN HUD FONT", "kssette_custom_font", "Choose the font for the HUD."); 
-        createFontOption("PIXEL STAGE FONT", "kssette_custom_pixel_font", "Choose the font for pixel stages."); 
-        createFontOption("INTRO TITLE FONT", "kssette_intro_font_title", "Choose the font for the intro title."); 
-        createFontOption("INTRO ARTIST FONT", "kssette_intro_font_artist", "Choose the font for the intro artist."); 
-        createToggle("SUBTITLES POSITION", "kssette_subtitles_pos", ["Bottom", "Top"], "Where to display subtitles.");
-        createToggle("SUBTITLES ANIMATION", "kssette_subtitles_anim", ["Vanilla", "Slide", "Fade", "Vertical", "Zoom"], "How subtitles appear on screen.");
-        createToggle("SMART KARAOKE MODE", "kssette_smart_karaoke", ["On", "Off"], "[EXPERIMENTAL] Syncs the text letter by letter like singing."); 
 
         descBg = new FlxSprite(20, screenH);
         var img = largeCapsuleAsset;
@@ -1077,7 +1076,8 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
             valueText.wordWrap = false;
             valueText.setFormat(menuFont, 32, 0xFF00FF00, "left", FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
             valueText.antialiasing = false;
-            valueText.color = getValueColor(valueText.text);
+            // Color gets set in update/init based on item
+            // valueText.color = getValueColor(valueText.text);
             valueText.cameras = [optionCam];
             add(valueText);
         }
@@ -1107,13 +1107,14 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
         HapticUtil.vibrate(0, 0.01, 0.3, 0.1);
     }
 
-    function createToggle(labelText:String, saveKey:String, options:Array<String>, descStr:String) {
+    function createToggle(labelText:String, saveKey:String, options:Array<String>, descStr:String, ?customColors:Array<String>) {
         var curVal:String = getSavedString(saveKey, "Off");
         if (curVal == "On" && saveKey == "kssette_hitsound") curVal = "On Note Hit";
         if (curVal == "true" && saveKey == "kssette_hitsound") curVal = "On Note Hit";
         var item = createOptionBase(labelText, saveKey, formatShortValue(curVal), descStr, true);
         var menuInst = this;
         item.options = options;
+        item.customColors = customColors;
         item.currentIndex = optionIndex(options, curVal);
         item.fire = function(self:Dynamic) {
             self.currentIndex = Std.int(self.currentIndex + 1) % self.options.length;
@@ -1125,7 +1126,7 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
                 self.textDisplay.text = menuInst.formatShortValue(newVal);
                 self.framesUntilUpdate = 2; // Wait for FlxText to regen Graphic
                 
-                var tColor = menuInst.getValueColor(self.textDisplay.text);
+                var tColor = menuInst.getValueColor(self.textDisplay.text, self);
                 if (self.textDisplay.color != tColor) self.textDisplay.color = tColor;
             }
             
@@ -1140,7 +1141,7 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
             if (menuInst.descValueText != null) {
                 menuInst.descValueText.text = menuInst.formatLongValue(newVal);
                 
-                var vColor = menuInst.getValueColor(menuInst.descValueText.text);
+                var vColor = menuInst.getValueColor(menuInst.descValueText.text, self);
                 if (menuInst.descValueText.color != vColor) menuInst.descValueText.color = vColor;
             }
 
@@ -1381,7 +1382,7 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
                         if (descValueText.color != targetColor) descValueText.color = targetColor;
                     } else {
                         descValueText.text = formatLongValue(curVal);
-                        var targetColor = getValueColor(descValueText.text);
+                        var targetColor = getValueColor(descValueText.text, selItem);
                         if (descValueText.color != targetColor) descValueText.color = targetColor;
                     }
                 }
