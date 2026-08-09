@@ -12,6 +12,7 @@ class KassetteHUDSkin extends Module {
 
     public var elements = [];
     public var isBuilt:Bool = false;
+    var _previewUpdateTimer:Float = 0.0;
 
     public function new(config:Dynamic = null) {
         var id = "unknown";
@@ -97,7 +98,18 @@ class KassetteHUDSkin extends Module {
 
     override public function onUpdate(event:Dynamic) {
         if (!active) return;
-        for (el in elements) el.onUpdate(event);
+        
+        var inPlayState = (funkin.play.PlayState.instance != null && flixel.FlxG.state == funkin.play.PlayState.instance);
+        if (inPlayState) {
+            for (el in elements) el.onUpdate(event);
+        } else {
+            var elapsed:Float = (Std.isOfType(event, Float)) ? event : (event != null ? event.elapsed : 0);
+            _previewUpdateTimer += elapsed;
+            if (_previewUpdateTimer >= 0.033) {
+                for (el in elements) el.onUpdate(_previewUpdateTimer);
+                _previewUpdateTimer = 0.0;
+            }
+        }
     }
 
     override public function onNoteHit(event:Dynamic) {

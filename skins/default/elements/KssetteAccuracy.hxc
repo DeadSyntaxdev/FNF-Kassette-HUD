@@ -982,7 +982,9 @@ class KssetteAccuracy extends KassetteHUDElement {
                 
                 var visualAcc:Float = Math.floor(displayedAcc * 100) / 100;
                 
-                if (visualAcc != lastVisualAcc) {
+                frameUpdateTimer += elapsed;
+                if (visualAcc != lastVisualAcc && frameUpdateTimer > 0.033) {
+                    frameUpdateTimer = 0.0;
                     lastVisualAcc = visualAcc;
                     updateAccuracyText(123456, 0, visualAcc, "PERFECT_GOLD", "SFC");
                 }

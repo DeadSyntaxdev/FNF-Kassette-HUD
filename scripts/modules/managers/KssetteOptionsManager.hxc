@@ -17,6 +17,7 @@ import funkin.util.SerializerUtil;
 class KssetteOptionsManager extends Module {
     public static var instance:Dynamic = null;
     public var _kssCache:Map<String, Dynamic> = null;
+    public var _definitionsCache:Map<String, Dynamic> = null;
     public var _kssCacheReady:Bool = false;
     public var _mobileLikePc:Bool = true;
     public var isMobileMode:Bool = false;
@@ -60,15 +61,21 @@ class KssetteOptionsManager extends Module {
         optionsData = SerializerUtil.fromJSON(rawJson);
         
         optionKeys = [];
-            if (optionsData != null && optionsData.categories != null) {
-                for (cat in optionsData.categories) {
-                    if (cat.options != null) {
-                        for (opt in cat.options) {
-                            if (opt.id != null) optionKeys.push(opt.id);
+        _definitionsCache = ["__dummy__" => null];
+        _definitionsCache.remove("__dummy__");
+        
+        if (optionsData != null && optionsData.categories != null) {
+            for (cat in optionsData.categories) {
+                if (cat.options != null) {
+                    for (opt in cat.options) {
+                        if (opt.id != null) {
+                            optionKeys.push(opt.id);
+                            _definitionsCache.set(opt.id, opt);
                         }
                     }
                 }
             }
+        }
     }
 
     public function initSettings() {
@@ -102,6 +109,14 @@ class KssetteOptionsManager extends Module {
 
         for (key in optionKeys) {
             var kssVal = normalizeKssValue(key, Save.instance.modOptions.get(key));
+            if (isOptionLocked(key)) {
+                var opt = getOptionDefinition(key);
+                if (opt != null && opt.defaultValue != null) {
+                    kssVal = opt.defaultValue;
+                } else {
+                    kssVal = false;
+                }
+            }
             _kssCache.set(key, kssVal);
         }
 
@@ -147,14 +162,7 @@ class KssetteOptionsManager extends Module {
     }
 
     public function getOptionDefinition(key:String):Dynamic {
-        if (optionsData == null || optionsData.categories == null) return null;
-        for (cat in optionsData.categories) {
-            if (cat.options != null) {
-                for (opt in cat.options) {
-                    if (opt.id == key) return opt;
-                }
-            }
-        }
+        if (_definitionsCache != null && _definitionsCache.exists(key)) return _definitionsCache.get(key);
         return null;
     }
 
@@ -182,18 +190,8 @@ class KssetteOptionsManager extends Module {
 
     public function getKssValue(key:String):Dynamic { 
         if (!_kssCacheReady) refreshOptionCache();
-        
-        var val:Dynamic = null;
-        if (_kssCache != null && _kssCache.exists(key)) val = _kssCache.get(key);
-        else val = normalizeKssValue(key, Save.instance.modOptions.get(key));
-        
-        if (isOptionLocked(key)) {
-            var opt = getOptionDefinition(key);
-            if (opt != null && opt.defaultValue != null) return opt.defaultValue;
-            return false;
-        }
-
-        return val;
+        if (_kssCache != null && _kssCache.exists(key)) return _kssCache.get(key);
+        return normalizeKssValue(key, Save.instance.modOptions.get(key));
     }
 
     public function isMobileLikePC():Bool {

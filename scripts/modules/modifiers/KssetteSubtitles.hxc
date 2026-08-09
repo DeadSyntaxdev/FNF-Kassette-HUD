@@ -550,6 +550,9 @@ var triviaArray:Array<String> = [
         if (baseElapsed > 0.1) baseElapsed = 0.1; 
 
         if (subText == null) return;
+        
+        var state = PlayState.instance;
+        if (state == null) return;
 
         if (!subText.exists || !subText.active) {
             cleanUp();

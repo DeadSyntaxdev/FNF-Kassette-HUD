@@ -54,6 +54,7 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
     var dadDancesCount:Int = 0;
     var isArrowsScheme:Bool = false;
     var canSpawnOpp:Bool = true;
+    var cachedNoteStyle:Dynamic = null;
 
     public function new() {
         super();
@@ -175,14 +176,14 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
         var currentY:Float = (playerStrumPreview != null && playerStrumPreview.exists) ? playerStrumPreview.y : startY;
 
         cancelStrumTweens();
-        var noteStyle = NoteStyleRegistry.instance.fetchDefault();
+        cachedNoteStyle = NoteStyleRegistry.instance.fetchDefault();
 
         var hideOpp = KssetteOptionsManager.instance != null && (Std.string(KssetteOptionsManager.instance.getKssValue("kssette_hide_opponent")) == "On" || Std.string(KssetteOptionsManager.instance.getKssValue("kssette_hide_opponent")) == "true");
         var showOpp = (ms != "Hidden Notes") && !(ms == "Off" && hideOpp);
         
         if (showOpp) {
             if (opponentStrumPreview == null || !opponentStrumPreview.exists) {
-                opponentStrumPreview = new Strumline(noteStyle, false);
+                opponentStrumPreview = new Strumline(cachedNoteStyle, false);
                 opponentStrumPreview.cameras = [previewCam];
                 opponentStrumPreview.scrollFactor.set(0, 0);
                 opponentStrumPreview.zIndex = 10;
@@ -209,7 +210,7 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
         }
 
         if (playerStrumPreview == null || !playerStrumPreview.exists) {
-            playerStrumPreview = new Strumline(noteStyle, true);
+            playerStrumPreview = new Strumline(cachedNoteStyle, true);
             playerStrumPreview.cameras = [previewCam];
             playerStrumPreview.scrollFactor.set(0, 0);
             playerStrumPreview.zIndex = 10;
@@ -447,7 +448,8 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
         var downscroll = false;
         if (KassetteHUDDatahunter.song != null) downscroll = KassetteHUDDatahunter.song.getDownscroll();
         
-        var style = NoteStyleRegistry.instance.fetchDefault();
+        var style = cachedNoteStyle;
+        if (style == null) style = NoteStyleRegistry.instance.fetchDefault();
         var fake = new funkin.play.notes.NoteSprite(style, dir);
         fake.direction = dir; 
         
@@ -525,13 +527,8 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
             if (fakeNotes.indexOf(fake) != -1) fakeNotes.remove(fake);
             killObj(fake);
         }});
-        fake.zIndex = 15;
         fakeNotes.push(fake);
         FlxG.state.add(fake);
-        var state:Dynamic = FlxG.state;
-        if (state != null && state.fixZIndex != null) {
-            try { state.fixZIndex(); } catch(e:Dynamic) {}
-        }
     }
 
     function spawnGhostTap() {
@@ -593,7 +590,7 @@ class KssetteHUDPreview extends ScriptedMusicBeatSubState {
             return;
         }
 
-        if (Std.isOfType(FlxG.state, PlayState)) {
+        if (PlayState.instance != null) {
             if (FlxG.state.subState == null) {
                 isPreview = false;
                 cleanUp();

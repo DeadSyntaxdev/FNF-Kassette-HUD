@@ -67,6 +67,9 @@ class GammodDatahunter extends KassetteHUDDatahunter {
     }
 
     override public function onUpdate(event:UpdateScriptEvent) {
+        var state = PlayState.instance;
+        if (state == null) return;
+        
         var elapsed = event.elapsed;
         if (_gammodPlay != null) {
             var gPlay:Dynamic = _gammodPlay;
