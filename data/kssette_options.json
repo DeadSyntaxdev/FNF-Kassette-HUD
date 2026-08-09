@@ -461,6 +461,18 @@
           "defaultValue": "Off"
         }
       ]
+    },
+    {
+      "name": "Discord RPC",
+      "options": [
+        {
+          "id": "kssette_discord_rpc_menu",
+          "name": "CUSTOM DISCORD RPC",
+          "description": "Customize your Discord Rich Presence layout to show your live stats to your friends.",
+          "type": "discord_rpc",
+          "platform": "PC"
+        }
+      ]
     }
   ]
 }

@@ -39,6 +39,8 @@ import funkin.Paths;
 import funkin.play.components.HealthIcon;
 import funkin.Preferences;
 import funkin.Conductor;
+import flixel.tweens.FlxTween;
+import flixel.tweens.FlxEase;
 import kassettehud.util.KassetteHUDElement;
 import kassettehud.util.KssetteOptionsManager;
 import kassettehud.util.KassetteHUDDatahunter;
@@ -202,50 +204,53 @@ class KssetteHealthBar extends KassetteHUDElement {
             var centerY = previewHealthBarBG.y + (previewHealthBarBG.height / 2);
             
             if (previewIconP1 != null && previewIconP2 != null) {
-                var currentBeat = -1;
+                // Use a clean timer for preview beats to avoid Conductor songPosition jitter causing double-bops.
+                previewBopTimer += elapsed;
+                
+                var beatSeconds = 60.0 / 102.0; // Fallback to 102 BPM
                 if (Conductor.instance != null && Conductor.instance.crochet > 0) {
-                    currentBeat = Math.floor(Conductor.instance.songPosition / Conductor.instance.crochet);
-                } else {
-                    previewBopTimer += elapsed;
-                    currentBeat = Math.floor(previewBopTimer / 0.5);
+                    beatSeconds = Conductor.instance.crochet / 1000.0; // Conductor.crochet is in ms
                 }
+                
+                var currentBeat = Math.floor(previewBopTimer / beatSeconds);
                 
                 if (currentBeat != _lastPreviewBeat) {
                     _lastPreviewBeat = currentBeat;
                     previewIconP1.scale.set(1.2, 1.2);
                     previewIconP2.scale.set(1.2, 1.2);
+                    
+                    try {
+                        FlxTween.cancelTweensOf(previewIconP1.scale);
+                        FlxTween.cancelTweensOf(previewIconP2.scale);
+                        FlxTween.tween(previewIconP1.scale, {x: 1.0, y: 1.0}, 0.2, {ease: FlxEase.cubeOut});
+                        FlxTween.tween(previewIconP2.scale, {x: 1.0, y: 1.0}, 0.2, {ease: FlxEase.cubeOut});
+                    } catch(e:Dynamic) {}
                 }
-                
-                var lerpFactor = 1.0 - (elapsed * 15.0);
-                if (lerpFactor < 0) lerpFactor = 0;
-                
-                previewIconP1.scale.x = 1.0 + ((previewIconP1.scale.x - 1.0) * lerpFactor);
-                previewIconP1.scale.y = 1.0 + ((previewIconP1.scale.y - 1.0) * lerpFactor);
-                
-                previewIconP2.scale.x = 1.0 + ((previewIconP2.scale.x - 1.0) * lerpFactor);
-                previewIconP2.scale.y = 1.0 + ((previewIconP2.scale.y - 1.0) * lerpFactor);
             }
             
             if (previewIconP1 != null && previewIconP2 != null) {
-                previewIconP1.updateHitbox();
-                previewIconP2.updateHitbox();
+                // Do NOT call updateHitbox() here, as it shifts the sprite's X/Y coordinates
+                // on raw FlxSprites during scaling, causing a "weird bounce".
+                
+                // Use a constant width/height for positioning calculations (150 is standard icon frame size)
+                var iconSize = 150.0;
                 
                 if (optManager.getKssValue("kssette_icon_pos") == "Corners") {
-                    previewIconP1.x = previewHealthBarBG.x + previewHealthBarBG.width + 75 - previewIconP1.width;
+                    previewIconP1.x = previewHealthBarBG.x + previewHealthBarBG.width + 75 - iconSize;
                     previewIconP1.flipX = true;
-                    previewIconP1.y = centerY + 75 - previewIconP1.height;
+                    previewIconP1.y = centerY + 75 - iconSize;
                     
-                    previewIconP2.x = previewHealthBarBG.x + 75 - previewIconP2.width;
+                    previewIconP2.x = previewHealthBarBG.x + 75 - iconSize;
                     previewIconP2.flipX = false;
-                    previewIconP2.y = centerY + 75 - previewIconP2.height;
+                    previewIconP2.y = centerY + 75 - iconSize;
                 } else {
                     previewIconP1.x = previewHealthBarBG.x + fw - 26;
                     previewIconP1.flipX = true;
-                    previewIconP1.y = previewHealthBarBG.y - (previewIconP1.height / 2) + 10;
+                    previewIconP1.y = previewHealthBarBG.y - (iconSize / 2) + 10;
                     
-                    previewIconP2.x = previewHealthBarBG.x + fw - (previewIconP2.width - 26);
+                    previewIconP2.x = previewHealthBarBG.x + fw - (iconSize - 26);
                     previewIconP2.flipX = false;
-                    previewIconP2.y = previewHealthBarBG.y - (previewIconP2.height / 2) + 10;
+                    previewIconP2.y = previewHealthBarBG.y - (iconSize / 2) + 10;
                 }
             }
             return;

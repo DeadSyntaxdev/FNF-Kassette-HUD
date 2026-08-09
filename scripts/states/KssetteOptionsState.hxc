@@ -935,6 +935,8 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
                             createFontOption(name, key, desc);
                         } else if (opt.type == "skin") {
                             createSkinOption(name, key, desc);
+                        } else if (opt.type == "discord_rpc") {
+                            createDiscordOption(name, key, desc);
                         }
                     }
                 }
@@ -1186,7 +1188,19 @@ class KssetteOptionsState extends ScriptedMusicBeatState {
         };
         optionItems.push(item);
     }
-
+    function createDiscordOption(labelText:String, saveKey:String, descStr:String) {
+        var item = createOptionBase(labelText, saveKey, "EDIT", descStr, true);
+        var menuInst = this;
+        item.fire = function(self:Dynamic) {
+            menuInst.primeOptionFire(self);
+            
+            var discordSubState:Dynamic = ScriptedMusicBeatSubState.init("KssetteDiscordRPCSubState");
+            discordSubState.parent = menuInst;
+            discordSubState.initSubstate();
+            menuInst.openSubState(discordSubState);
+        };
+        optionItems.push(item);
+    }
     function createTimeOption(labelText:String, saveKey:String, descStr:String) {
         var item = createOptionBase(labelText, saveKey, getSavedString(saveKey, "20:00"), descStr, true);
         var menuInst = this;
