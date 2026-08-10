@@ -1,0 +1,56 @@
+package kassettehud.util;
+
+import flixel.FlxG;
+import flixel.text.FlxText;
+import flixel.util.FlxColor;
+import funkin.play.PlayState;
+
+class TinyNightAccuracy extends KssetteAccuracy {
+    public function new() {
+        super();
+        this.name = "KssetteAccuracy"; // Keep original names so the core manager finds them
+    }
+
+    override public function updatePositions() {
+        super.updatePositions();
+        
+        var blockX:Float = 10.0;
+        var blockW:Float = 260.0;
+        var barBlockW:Float = 160.0;
+        var lineH:Float = 26.0;
+        var gapToUi:Float = 34.0;
+        var reservedH:Float = 210.0;
+        
+        // Compact is typically bottom anchored
+        var stackTopY:Float = FlxG.height - reservedH - 10.0;
+        
+        if (timeText != null) { 
+            timeText.size = 20;
+            timeText.setPosition(blockX, stackTopY); 
+            timeText.fieldWidth = blockW; 
+            timeText.alignment = "left"; 
+        }
+        if (infoText != null) { 
+            infoText.size = 20;
+            infoText.setPosition(blockX, stackTopY + lineH); 
+            infoText.fieldWidth = blockW; 
+            infoText.alignment = "left"; 
+        }
+        if (uiText != null) { 
+            uiText.size = 20;
+            uiText.setPosition(blockX, stackTopY + lineH + gapToUi); 
+            uiText.fieldWidth = barBlockW; 
+            uiText.alignment = "center"; 
+        }
+    }
+
+    override public function updateAccuracyText(scoreInt:Int, misses:Int, acc:Float, rankStr:String, tierStr:String) {
+        super.updateAccuracyText(scoreInt, misses, acc, rankStr, tierStr);
+        
+        // Base class calls uiText.screenCenter(0x01) on text change. We must revert it to keep it left-anchored.
+        if (uiText != null) {
+            var blockX:Float = 10.0;
+            uiText.x = blockX;
+        }
+    }
+}

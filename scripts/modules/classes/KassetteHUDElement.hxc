@@ -135,9 +135,10 @@ class KassetteHUDElement {
         } catch(e:Dynamic) {}
         
         // 2. Fallback to direct filesystem access across all mod folders
-        if (this.assetHunter != null && this.assetHunter.getModFolders != null) {
+        var _localAssetHunter = KassetteHUDDatahunter.asset;
+        if (_localAssetHunter != null && _localAssetHunter.getModFolders != null) {
             try {
-                var folders:Array<String> = this.assetHunter.getModFolders();
+                var folders:Array<String> = _localAssetHunter.getModFolders();
                 for (folder in folders) {
                     var directPath = "mods/" + folder + "/" + relativePath;
                     

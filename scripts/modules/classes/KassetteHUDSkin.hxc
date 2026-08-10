@@ -99,7 +99,7 @@ class KassetteHUDSkin extends Module {
     override public function onUpdate(event:Dynamic) {
         if (!active) return;
         
-        var inPlayState = (funkin.play.PlayState.instance != null && flixel.FlxG.state == funkin.play.PlayState.instance);
+        var inPlayState = (PlayState.instance != null && FlxG.state == PlayState.instance);
         if (inPlayState) {
             for (el in elements) el.onUpdate(event);
         } else {

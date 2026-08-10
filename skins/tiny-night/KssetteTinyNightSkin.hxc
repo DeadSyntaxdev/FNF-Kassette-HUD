@@ -1,0 +1,25 @@
+package kassettehud.util;
+
+import kassettehud.util.KassetteHUDSkin;
+import kassettehud.util.KassetteHUDElement;
+
+class KssetteTinyNightSkin extends KassetteHUDSkin {
+    public function new(?_id:String) {
+        super({
+            id: "tiny-night",
+            name: "Tiny-Night Skin",
+            author: "Fan (Ported)",
+            description: "A compact, night-themed version of Kassette HUD based on a fan edit."
+        });
+    }
+
+    override public function buildElements():Dynamic {
+        return [
+            new TinyNightHealthBar(),
+            new TinyNightTimeBar(),
+            new TinyNightAccuracy(),
+            new KssetteShowTitle(),
+            new KssetteBreakBar()
+        ];
+    }
+}

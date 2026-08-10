@@ -1,0 +1,96 @@
+package kassettehud.util;
+
+import flixel.FlxG;
+import flixel.FlxSprite;
+import funkin.play.PlayState;
+
+class TinyNightHealthBar extends KssetteHealthBar {
+    public function new() {
+        super();
+        this.name = "KssetteHealthBar";
+    }
+
+    override public function onUpdate(event:Dynamic) {
+        super.onUpdate(event);
+        
+        var blockX:Float = 10.0;
+        var lineH:Float = 26.0;
+        var gapToUi:Float = 34.0;
+        var rowH:Float = 26.0;
+        var gap1:Float = 8.0;
+        var gap2:Float = 4.0;
+        var reservedH:Float = 210.0;
+        var barBlockW:Float = 160.0;
+        
+        var stackTopY:Float = FlxG.height - reservedH - 10.0;
+        
+        if (isPreview) {
+            if (previewHealthBarBG != null) {
+                previewHealthBarBG.scale.x = 0.266;
+                previewHealthBarBG.scale.y = 1.0;
+                previewHealthBarBG.updateHitbox();
+                previewHealthBarBG.x = blockX;
+                previewHealthBarBG.y = stackTopY + lineH + gapToUi + rowH + gap1;
+            }
+            if (previewHealthBarFillP1 != null) {
+                previewHealthBarFillP1.scale.x = 0.266;
+                previewHealthBarFillP1.scale.y = 1.0;
+                previewHealthBarFillP1.updateHitbox();
+                if (previewHealthBarBG != null) {
+                    previewHealthBarFillP1.x = previewHealthBarBG.x;
+                    previewHealthBarFillP1.y = previewHealthBarBG.y + ((previewHealthBarBG.height - previewHealthBarFillP1.height) / 2);
+                }
+            }
+            if (previewHealthBarFillP2 != null) {
+                previewHealthBarFillP2.scale.x = 0.266;
+                previewHealthBarFillP2.scale.y = 1.0;
+                previewHealthBarFillP2.updateHitbox();
+                if (previewHealthBarBG != null) {
+                    previewHealthBarFillP2.x = previewHealthBarBG.x;
+                    previewHealthBarFillP2.y = previewHealthBarBG.y + ((previewHealthBarBG.height - previewHealthBarFillP2.height) / 2);
+                }
+            }
+            if (previewIconP1 != null) {
+                previewIconP1.x = blockX + barBlockW - previewIconP1.width;
+                previewIconP1.y = stackTopY + lineH + gapToUi + rowH + gap1 + gap2 + 10;
+            }
+            if (previewIconP2 != null) {
+                previewIconP2.x = blockX;
+                previewIconP2.y = stackTopY + lineH + gapToUi + rowH + gap1 + gap2 + 10;
+            }
+            return;
+        }
+
+        var state = PlayState.instance;
+        if (state != null) {
+            var bg = state.healthBarBG;
+            var bar = state.healthBar;
+            
+            if (bg != null) {
+                bg.scale.x = 0.266;
+                bg.scale.y = 1.0;
+                bg.updateHitbox();
+                bg.x = blockX;
+                bg.y = stackTopY + lineH + gapToUi + rowH + gap1;
+            }
+            if (bar != null) {
+                bar.scale.x = 0.266;
+                bar.scale.y = 1.0;
+                bar.updateHitbox();
+                if (bg != null) {
+                    bar.x = bg.x;
+                    bar.y = bg.y + ((bg.height - bar.height) / 2);
+                }
+            }
+            
+            if (state.iconP1 != null) {
+                state.iconP1.x = blockX + barBlockW - state.iconP1.width;
+                if (bg != null) state.iconP1.y = bg.y + bg.height + gap2;
+            }
+            if (state.iconP2 != null) {
+                state.iconP2.x = blockX;
+                if (bg != null) state.iconP2.y = bg.y + bg.height + gap2;
+            }
+        }
+    }
+}

@@ -3,6 +3,7 @@ package kassettehud.util;
 import kassettehud.util.KassetteHUDElement;
 
 import funkin.modding.module.ModuleHandler;
+import funkin.play.PlayState;
 import funkin.modding.events.ScriptEvent;
 import funkin.modding.events.UpdateScriptEvent;
 import Std;

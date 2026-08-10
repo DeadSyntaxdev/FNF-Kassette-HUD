@@ -1,0 +1,12 @@
+package kassettehud.util;
+
+import flixel.FlxG;
+import flixel.FlxSprite;
+import funkin.play.PlayState;
+
+class TinyNightTimeBar extends KssetteTimeBar {
+    public function new() {
+        super();
+        this.name = "KssetteTimeBar";
+    }
+}
